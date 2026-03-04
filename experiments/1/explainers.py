@@ -1,0 +1,348 @@
+"""XAI explanation methods: SHAP, LIME, Integrated Gradients, DeepLIFT."""
+
+import logging
+import time
+import warnings
+from dataclasses import dataclass, field
+
+import numpy as np
+import torch
+from tqdm import tqdm
+
+from config import ExplainerConfig
+from models import SoftmaxModel
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class ExplanationResult:
+    attributions: np.ndarray  # (n_samples, n_features)
+    method_name: str
+    model_name: str
+    time_per_sample_ms: float
+    total_time_s: float
+
+
+def explain_shap_dnn(
+    model: torch.nn.Module,
+    X_explain: np.ndarray,
+    X_background: np.ndarray,
+    device: torch.device,
+    config: ExplainerConfig,
+) -> ExplanationResult:
+    """Generate SHAP explanations for DNN using DeepExplainer."""
+    import shap
+
+    logger.info(f"  SHAP (DeepExplainer) on {len(X_explain)} samples")
+    # Unwrap DataParallel
+    base_model = model.module if isinstance(model, torch.nn.DataParallel) else model
+    base_model.eval().float()
+
+    # NOTE: Do NOT wrap with SoftmaxModel for SHAP DeepExplainer.
+    # SHAP requires the additivity axiom (sum of SHAP values = model output - baseline),
+    # which softmax's non-linear normalization breaks.
+
+    bg_tensor = torch.tensor(X_background[: config.shap_background_samples], dtype=torch.float32).to(device)
+
+    explainer = shap.DeepExplainer(base_model, bg_tensor)
+
+    start = time.time()
+    explain_tensor = torch.tensor(X_explain, dtype=torch.float32).to(device)
+    shap_values = explainer.shap_values(explain_tensor, check_additivity=False)
+    elapsed = time.time() - start
+
+    # Get predicted classes
+    base_model.eval()
+    with torch.no_grad():
+        preds = torch.argmax(base_model(explain_tensor), dim=1).cpu().numpy()
+
+    # Extract attributions for the predicted class per sample
+    if isinstance(shap_values, list):
+        # List of (samples, features) arrays, one per class
+        stacked = np.stack(shap_values, axis=0)  # (classes, samples, features)
+        attributions = np.zeros((len(X_explain), X_explain.shape[1]), dtype=np.float32)
+        for i, pred in enumerate(preds):
+            attributions[i] = stacked[pred, i]
+    elif isinstance(shap_values, np.ndarray) and shap_values.ndim == 3:
+        # (samples, features, classes)
+        attributions = np.zeros((len(X_explain), X_explain.shape[1]), dtype=np.float32)
+        for i, pred in enumerate(preds):
+            attributions[i] = shap_values[i, :, pred]
+    else:
+        attributions = np.asarray(shap_values)
+
+    return ExplanationResult(
+        attributions=attributions,
+        method_name="SHAP",
+        model_name="DNN",
+        time_per_sample_ms=(elapsed / len(X_explain)) * 1000,
+        total_time_s=elapsed,
+    )
+
+
+def explain_shap_rf(
+    model,
+    X_explain: np.ndarray,
+    config: ExplainerConfig,
+) -> ExplanationResult:
+    """Generate SHAP explanations for RF using TreeExplainer."""
+    import shap
+
+    logger.info(f"  SHAP (TreeExplainer) on {len(X_explain)} samples")
+    explainer = shap.TreeExplainer(model)
+
+    start = time.time()
+    shap_values = explainer.shap_values(X_explain)
+    elapsed = time.time() - start
+
+    preds = model.predict(X_explain)
+
+    # Extract attributions for the predicted class per sample
+    if isinstance(shap_values, list):
+        # List of (samples, features) arrays, one per class
+        stacked = np.stack(shap_values, axis=0)  # (classes, samples, features)
+        attributions = np.zeros((len(X_explain), X_explain.shape[1]), dtype=np.float32)
+        for i, pred in enumerate(preds):
+            attributions[i] = stacked[pred, i]
+    elif isinstance(shap_values, np.ndarray) and shap_values.ndim == 3:
+        # (samples, features, classes)
+        attributions = np.zeros((len(X_explain), X_explain.shape[1]), dtype=np.float32)
+        for i, pred in enumerate(preds):
+            attributions[i] = shap_values[i, :, pred]
+    else:
+        attributions = np.asarray(shap_values)
+
+    return ExplanationResult(
+        attributions=attributions,
+        method_name="SHAP",
+        model_name="RF",
+        time_per_sample_ms=(elapsed / len(X_explain)) * 1000,
+        total_time_s=elapsed,
+    )
+
+
+def explain_lime(
+    predict_fn,
+    X_explain: np.ndarray,
+    X_train: np.ndarray,
+    feature_names: list[str],
+    num_classes: int,
+    model_name: str,
+    config: ExplainerConfig,
+) -> ExplanationResult:
+    """Generate LIME explanations (model-agnostic)."""
+    from lime.lime_tabular import LimeTabularExplainer
+
+    logger.info(f"  LIME on {len(X_explain)} samples for {model_name}")
+
+    explainer = LimeTabularExplainer(
+        training_data=X_train,
+        feature_names=feature_names,
+        class_names=[str(i) for i in range(num_classes)],
+        mode="classification",
+        discretize_continuous=True,
+    )
+
+    n_features = X_explain.shape[1]
+    attributions = np.zeros((len(X_explain), n_features))
+
+    # Get predicted classes so LIME explains the predicted label
+    preds = np.argmax(predict_fn(X_explain), axis=1)
+
+    start = time.time()
+    for i in tqdm(range(len(X_explain)), desc="LIME", leave=False):
+        exp = explainer.explain_instance(
+            X_explain[i],
+            predict_fn,
+            num_features=config.lime_num_features,
+            num_samples=config.lime_num_samples,
+            labels=(int(preds[i]),),
+        )
+        pred_label = int(preds[i])
+        if pred_label in exp.as_map():
+            feature_weights = dict(exp.as_map()[pred_label])
+        else:
+            feature_weights = dict(exp.as_map()[exp.available_labels()[0]])
+        for feat_idx, weight in feature_weights.items():
+            attributions[i, feat_idx] = weight
+    elapsed = time.time() - start
+
+    return ExplanationResult(
+        attributions=attributions,
+        method_name="LIME",
+        model_name=model_name,
+        time_per_sample_ms=(elapsed / len(X_explain)) * 1000,
+        total_time_s=elapsed,
+    )
+
+
+def explain_ig(
+    model: torch.nn.Module,
+    X_explain: np.ndarray,
+    device: torch.device,
+    config: ExplainerConfig,
+) -> ExplanationResult:
+    """Generate Integrated Gradients explanations for DNN."""
+    from captum.attr import IntegratedGradients
+
+    logger.info(f"  Integrated Gradients on {len(X_explain)} samples")
+    base_model = model.module if isinstance(model, torch.nn.DataParallel) else model
+    base_model.eval()
+
+    # Wrap with softmax so attributions are on probability space
+    softmax_model = SoftmaxModel(base_model)
+    softmax_model.eval()
+    ig = IntegratedGradients(softmax_model)
+    baseline = torch.zeros(1, X_explain.shape[1], dtype=torch.float32).to(device)
+
+    # Get predicted classes for target
+    with torch.no_grad():
+        input_tensor = torch.tensor(X_explain, dtype=torch.float32).to(device)
+        preds = torch.argmax(base_model(input_tensor), dim=1)
+
+    start = time.time()
+    all_attrs = []
+    batch_size = config.ig_internal_batch_size
+    for i in range(0, len(X_explain), batch_size):
+        batch = input_tensor[i : i + batch_size].requires_grad_(True)
+        batch_preds = preds[i : i + batch_size]
+        attrs = ig.attribute(
+            batch,
+            baselines=baseline.expand(len(batch), -1),
+            target=batch_preds,
+            n_steps=config.ig_n_steps,
+            internal_batch_size=batch_size,
+        )
+        all_attrs.append(attrs.detach().cpu().numpy())
+    elapsed = time.time() - start
+
+    attributions = np.concatenate(all_attrs, axis=0)
+
+    return ExplanationResult(
+        attributions=attributions,
+        method_name="IG",
+        model_name="DNN",
+        time_per_sample_ms=(elapsed / len(X_explain)) * 1000,
+        total_time_s=elapsed,
+    )
+
+
+def explain_deeplift(
+    model: torch.nn.Module,
+    X_explain: np.ndarray,
+    device: torch.device,
+    config: ExplainerConfig,
+) -> ExplanationResult:
+    """Generate DeepLIFT explanations for DNN."""
+    from captum.attr import DeepLift
+
+    logger.info(f"  DeepLIFT on {len(X_explain)} samples")
+    base_model = model.module if isinstance(model, torch.nn.DataParallel) else model
+    base_model.eval()
+
+    # Wrap with softmax so attributions are on probability space
+    softmax_model = SoftmaxModel(base_model)
+    softmax_model.eval()
+    dl = DeepLift(softmax_model)
+    baseline = torch.zeros(1, X_explain.shape[1], dtype=torch.float32).to(device)
+
+    # Get predicted classes
+    with torch.no_grad():
+        input_tensor = torch.tensor(X_explain, dtype=torch.float32).to(device)
+        preds = torch.argmax(base_model(input_tensor), dim=1)
+
+    start = time.time()
+    all_attrs = []
+    batch_size = config.ig_internal_batch_size
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", message="Setting forward, backward hooks")
+        for i in range(0, len(X_explain), batch_size):
+            batch = input_tensor[i : i + batch_size].requires_grad_(True)
+            batch_preds = preds[i : i + batch_size]
+            attrs = dl.attribute(
+                batch,
+                baselines=baseline.expand(len(batch), -1),
+                target=batch_preds,
+            )
+            all_attrs.append(attrs.detach().cpu().numpy())
+    elapsed = time.time() - start
+
+    attributions = np.concatenate(all_attrs, axis=0)
+
+    return ExplanationResult(
+        attributions=attributions,
+        method_name="DeepLIFT",
+        model_name="DNN",
+        time_per_sample_ms=(elapsed / len(X_explain)) * 1000,
+        total_time_s=elapsed,
+    )
+
+
+def generate_all_explanations(
+    dnn_model: torch.nn.Module,
+    rf_model,
+    dnn_wrapper,
+    rf_wrapper,
+    dataset,
+    device: torch.device,
+    config: ExplainerConfig,
+) -> list[ExplanationResult]:
+    """Generate explanations from all applicable XAI methods for both models."""
+    n = min(config.num_explain_samples, len(dataset.X_test))
+    rng = np.random.RandomState(42)
+    indices = rng.choice(len(dataset.X_test), size=n, replace=False)
+    X_explain = dataset.X_test[indices]
+
+    # Background data for SHAP
+    bg_indices = rng.choice(len(dataset.X_train), size=config.shap_background_samples, replace=False)
+    X_background = dataset.X_train[bg_indices]
+
+    results = []
+
+    # === DNN explanations ===
+    logger.info("--- DNN Explanations ---")
+    try:
+        results.append(explain_shap_dnn(dnn_model, X_explain, X_background, device, config))
+    except Exception as e:
+        logger.error(f"SHAP DNN failed: {e}")
+
+    try:
+        results.append(
+            explain_lime(
+                dnn_wrapper.predict_proba, X_explain, dataset.X_train,
+                dataset.feature_names, dataset.num_classes, "DNN", config,
+            )
+        )
+    except Exception as e:
+        logger.error(f"LIME DNN failed: {e}")
+
+    try:
+        results.append(explain_ig(dnn_model, X_explain, device, config))
+    except Exception as e:
+        logger.error(f"IG failed: {e}")
+
+    try:
+        results.append(explain_deeplift(dnn_model, X_explain, device, config))
+    except Exception as e:
+        logger.error(f"DeepLIFT failed: {e}")
+
+    # === RF explanations ===
+    logger.info("--- RF Explanations ---")
+    try:
+        results.append(explain_shap_rf(rf_model, X_explain, config))
+    except Exception as e:
+        logger.error(f"SHAP RF failed: {e}")
+
+    try:
+        results.append(
+            explain_lime(
+                rf_wrapper.predict_proba, X_explain, dataset.X_train,
+                dataset.feature_names, dataset.num_classes, "RF", config,
+            )
+        )
+    except Exception as e:
+        logger.error(f"LIME RF failed: {e}")
+
+    logger.info(f"Generated {len(results)} explanation sets")
+    return results, indices
