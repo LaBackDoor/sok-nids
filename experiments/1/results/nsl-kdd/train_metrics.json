@@ -1,14 +1,14 @@
 {
   "dnn": {
-    "accuracy": 0.7109208658623137,
-    "f1_weighted": 0.6202615052673707,
+    "accuracy": 0.714513839602555,
+    "f1_weighted": 0.6246283067477999,
     "auc_roc": NaN,
-    "train_time_seconds": 40.47159957885742
+    "train_time_seconds": 23.20443606376648
   },
   "rf": {
     "accuracy": 0.7178850248403122,
     "f1_weighted": 0.6163641978434231,
     "auc_roc": NaN,
-    "train_time_seconds": 1.3533670902252197
+    "train_time_seconds": 0.5962915420532227
   }
 }

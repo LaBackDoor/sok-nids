@@ -140,6 +140,31 @@ def _load_cse_cic_ids2018(config: DataConfig) -> pd.DataFrame:
     return df
 
 
+def _load_cic_iov_2024(config: DataConfig) -> pd.DataFrame:
+    """Load and combine all CIC-IoV-2024 CSV files."""
+    base = config.data_root / config.cic_iov_2024_dir
+    logger.info(f"Loading CIC-IoV-2024 from {base}")
+
+    csv_files = sorted(base.glob("*.csv"))
+    if not csv_files:
+        raise FileNotFoundError(f"No CSV files found in {base}")
+
+    frames = []
+    for f in csv_files:
+        logger.info(f"  Reading {f.name}")
+        df = pd.read_csv(f, encoding="utf-8", low_memory=False)
+        df.columns = df.columns.str.strip()
+        frames.append(df)
+
+    df = pd.concat(frames, ignore_index=True)
+    # Drop non-feature metadata columns; keep 'label' for _preprocess_flow_dataset
+    for col in ["ID", "category", "specific_class"]:
+        if col in df.columns:
+            df = df.drop(columns=[col])
+    logger.info(f"  Combined shape: {df.shape}")
+    return df
+
+
 def _preprocess_nsl_kdd(
     df_train: pd.DataFrame, df_test: pd.DataFrame, config: DataConfig
 ) -> DatasetBundle:
@@ -323,6 +348,10 @@ def load_dataset(name: str, config: DataConfig) -> DatasetBundle:
 
     elif name == "cse-cic-ids2018":
         df = _load_cse_cic_ids2018(config)
+        bundle = _preprocess_flow_dataset(df, name, config)
+
+    elif name == "cic-iov-2024":
+        df = _load_cic_iov_2024(config)
         bundle = _preprocess_flow_dataset(df, name, config)
 
     else:

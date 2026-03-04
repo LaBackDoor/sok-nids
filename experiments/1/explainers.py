@@ -122,6 +122,37 @@ def explain_shap_rf(
     )
 
 
+def _lime_explain_single(args):
+    """Explain a single sample with LIME (top-level function for pickling)."""
+    from lime.lime_tabular import LimeTabularExplainer
+
+    sample, pred, X_train, feature_names, num_classes, n_features, lime_num_features, lime_num_samples, predict_fn = args
+
+    explainer = LimeTabularExplainer(
+        training_data=X_train,
+        feature_names=feature_names,
+        class_names=[str(i) for i in range(num_classes)],
+        mode="classification",
+        discretize_continuous=True,
+    )
+    exp = explainer.explain_instance(
+        sample,
+        predict_fn,
+        num_features=lime_num_features,
+        num_samples=lime_num_samples,
+        labels=(int(pred),),
+    )
+    row = np.zeros(n_features)
+    pred_label = int(pred)
+    if pred_label in exp.as_map():
+        feature_weights = dict(exp.as_map()[pred_label])
+    else:
+        feature_weights = dict(exp.as_map()[exp.available_labels()[0]])
+    for feat_idx, weight in feature_weights.items():
+        row[feat_idx] = weight
+    return row
+
+
 def explain_lime(
     predict_fn,
     X_explain: np.ndarray,
@@ -131,27 +162,32 @@ def explain_lime(
     model_name: str,
     config: ExplainerConfig,
 ) -> ExplanationResult:
-    """Generate LIME explanations (model-agnostic)."""
+    """Generate LIME explanations (model-agnostic), parallelized across CPUs."""
+    import os
+
+    from joblib import Parallel, delayed
     from lime.lime_tabular import LimeTabularExplainer
 
     logger.info(f"  LIME on {len(X_explain)} samples for {model_name}")
 
-    explainer = LimeTabularExplainer(
-        training_data=X_train,
-        feature_names=feature_names,
-        class_names=[str(i) for i in range(num_classes)],
-        mode="classification",
-        discretize_continuous=True,
-    )
-
     n_features = X_explain.shape[1]
-    attributions = np.zeros((len(X_explain), n_features))
 
     # Get predicted classes so LIME explains the predicted label
     preds = np.argmax(predict_fn(X_explain), axis=1)
 
-    start = time.time()
-    for i in tqdm(range(len(X_explain)), desc="LIME", leave=False):
+    # Use 75% of available CPUs
+    total_cpus = os.cpu_count() or 1
+    n_jobs = max(1, int(total_cpus * 0.75))
+    logger.info(f"  LIME parallelizing with {n_jobs}/{total_cpus} CPUs (75%)")
+
+    def _explain_one(i):
+        explainer = LimeTabularExplainer(
+            training_data=X_train,
+            feature_names=feature_names,
+            class_names=[str(i) for i in range(num_classes)],
+            mode="classification",
+            discretize_continuous=True,
+        )
         exp = explainer.explain_instance(
             X_explain[i],
             predict_fn,
@@ -159,13 +195,21 @@ def explain_lime(
             num_samples=config.lime_num_samples,
             labels=(int(preds[i]),),
         )
+        row = np.zeros(n_features)
         pred_label = int(preds[i])
         if pred_label in exp.as_map():
             feature_weights = dict(exp.as_map()[pred_label])
         else:
             feature_weights = dict(exp.as_map()[exp.available_labels()[0]])
         for feat_idx, weight in feature_weights.items():
-            attributions[i, feat_idx] = weight
+            row[feat_idx] = weight
+        return row
+
+    start = time.time()
+    results = Parallel(n_jobs=n_jobs, backend="loky", verbose=1)(
+        delayed(_explain_one)(i) for i in range(len(X_explain))
+    )
+    attributions = np.array(results)
     elapsed = time.time() - start
 
     return ExplanationResult(
@@ -287,6 +331,8 @@ def generate_all_explanations(
     dataset,
     device: torch.device,
     config: ExplainerConfig,
+    xgb_model=None,
+    xgb_wrapper=None,
 ) -> list[ExplanationResult]:
     """Generate explanations from all applicable XAI methods for both models."""
     n = min(config.num_explain_samples, len(dataset.X_test))
@@ -343,6 +389,26 @@ def generate_all_explanations(
         )
     except Exception as e:
         logger.error(f"LIME RF failed: {e}")
+
+    # === XGBoost explanations ===
+    if xgb_model is not None and xgb_wrapper is not None:
+        logger.info("--- XGBoost Explanations ---")
+        try:
+            results.append(explain_shap_rf(xgb_model, X_explain, config))
+            # Rename model_name to XGB
+            results[-1].model_name = "XGB"
+        except Exception as e:
+            logger.error(f"SHAP XGB failed: {e}")
+
+        try:
+            results.append(
+                explain_lime(
+                    xgb_wrapper.predict_proba, X_explain, dataset.X_train,
+                    dataset.feature_names, dataset.num_classes, "XGB", config,
+                )
+            )
+        except Exception as e:
+            logger.error(f"LIME XGB failed: {e}")
 
     logger.info(f"Generated {len(results)} explanation sets")
     return results, indices

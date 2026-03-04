@@ -13,7 +13,7 @@ from torch.amp import GradScaler, autocast
 from torch.utils.data import DataLoader, TensorDataset
 from tqdm import tqdm
 
-from config import DNNConfig, RFConfig
+from config import DNNConfig, RFConfig, XGBConfig
 from data_loader import DatasetBundle
 
 logger = logging.getLogger(__name__)
@@ -113,6 +113,20 @@ class RFWrapper:
             full_proba[:, self.model.classes_] = proba
             return full_proba
         return proba
+
+    def predict(self, X: np.ndarray) -> np.ndarray:
+        return self.model.predict(X)
+
+
+class XGBWrapper:
+    """Wrapper to provide a unified interface for XGBoost."""
+
+    def __init__(self, model, num_classes: int | None = None):
+        self.model = model
+        self.num_classes = num_classes
+
+    def predict_proba(self, X: np.ndarray) -> np.ndarray:
+        return self.model.predict_proba(X)
 
     def predict(self, X: np.ndarray) -> np.ndarray:
         return self.model.predict(X)
@@ -288,11 +302,51 @@ def train_rf(
     return model, wrapper, metrics
 
 
+def train_xgb(
+    dataset: DatasetBundle, config: XGBConfig
+) -> tuple:
+    """Train XGBoost classifier."""
+    import xgboost as xgb
+
+    logger.info(f"Training XGBoost on {dataset.dataset_name} ({dataset.X_train.shape})")
+
+    model = xgb.XGBClassifier(
+        n_estimators=config.n_estimators,
+        max_depth=config.max_depth,
+        learning_rate=config.learning_rate,
+        subsample=config.subsample,
+        colsample_bytree=config.colsample_bytree,
+        n_jobs=config.n_jobs,
+        tree_method=config.tree_method,
+        device=config.device,
+        random_state=42,
+        use_label_encoder=False,
+        eval_metric="mlogloss",
+    )
+
+    train_start = time.time()
+    model.fit(
+        dataset.X_train, dataset.y_train,
+        eval_set=[(dataset.X_val, dataset.y_val)],
+        verbose=False,
+    )
+    train_time = time.time() - train_start
+    logger.info(f"  XGBoost training completed in {train_time:.1f}s")
+
+    wrapper = XGBWrapper(model, num_classes=dataset.num_classes)
+    metrics = _evaluate_model(wrapper, dataset.X_test, dataset.y_test, dataset.num_classes)
+    metrics["train_time_seconds"] = train_time
+    logger.info(f"  XGBoost Metrics: {metrics}")
+
+    return model, wrapper, metrics
+
+
 def save_models(
     dnn_model: nn.Module,
     rf_model: RandomForestClassifier,
     output_dir: Path,
     dataset_name: str,
+    xgb_model=None,
 ) -> None:
     """Save trained models to disk."""
     import joblib
@@ -306,6 +360,11 @@ def save_models(
 
     # Save RF
     joblib.dump(rf_model, model_dir / "rf.joblib")
+
+    # Save XGBoost
+    if xgb_model is not None:
+        joblib.dump(xgb_model, model_dir / "xgb.joblib")
+
     logger.info(f"  Models saved to {model_dir}")
 
 
@@ -316,7 +375,7 @@ def load_models(
     num_classes: int,
     dnn_config: DNNConfig,
     device: torch.device,
-) -> tuple[NIDSNet, RandomForestClassifier]:
+) -> tuple:
     """Load previously trained models from disk."""
     import joblib
 
@@ -341,4 +400,8 @@ def load_models(
     # Load RF
     rf = joblib.load(model_dir / "rf.joblib")
 
-    return dnn, rf
+    # Load XGBoost (if available)
+    xgb_path = model_dir / "xgb.joblib"
+    xgb_model = joblib.load(xgb_path) if xgb_path.exists() else None
+
+    return dnn, rf, xgb_model

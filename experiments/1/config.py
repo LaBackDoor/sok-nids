@@ -11,6 +11,7 @@ class DataConfig:
     cic_ids_2017_dir: str = "cic-ids-2017"
     unsw_nb15_dir: str = "cic_unsw-nb15_augmented_dataset"
     cse_cic_ids2018_dir: str = "cse-cic-ids2018"
+    cic_iov_2024_dir: str = "cic_iov_2024"
     test_size: float = 0.2
     val_split: float = 0.1  # fraction of training data reserved for validation
     random_state: int = 42
@@ -34,6 +35,18 @@ class RFConfig:
     min_samples_split: int = 2
     criterion: str = "gini"
     n_jobs: int = -1
+
+
+@dataclass
+class XGBConfig:
+    n_estimators: int = 300
+    max_depth: int = 8
+    learning_rate: float = 0.1
+    subsample: float = 0.8
+    colsample_bytree: float = 0.8
+    n_jobs: int = -1
+    tree_method: str = "hist"
+    device: str = "cuda"
 
 
 @dataclass
@@ -65,11 +78,12 @@ class ExperimentConfig:
     data: DataConfig = field(default_factory=DataConfig)
     dnn: DNNConfig = field(default_factory=DNNConfig)
     rf: RFConfig = field(default_factory=RFConfig)
+    xgb: XGBConfig = field(default_factory=XGBConfig)
     explainer: ExplainerConfig = field(default_factory=ExplainerConfig)
     metric: MetricConfig = field(default_factory=MetricConfig)
     output_dir: Path = Path("experiments/1/results")
     seed: int = 42
 
     ALL_DATASETS: list[str] = field(
-        default_factory=lambda: ["nsl-kdd", "cic-ids-2017", "unsw-nb15", "cse-cic-ids2018"]
+        default_factory=lambda: ["nsl-kdd", "cic-ids-2017", "unsw-nb15", "cse-cic-ids2018", "cic-iov-2024"]
     )

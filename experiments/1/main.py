@@ -51,10 +51,12 @@ from models import (
     NIDSNet,
     RFWrapper,
     SoftmaxModel,
+    XGBWrapper,
     load_models,
     save_models,
     train_dnn,
     train_rf,
+    train_xgb,
 )
 
 logging.basicConfig(
@@ -115,11 +117,14 @@ def phase_train(
     # Train RF
     rf_model, rf_wrapper, rf_metrics = train_rf(dataset, config.rf)
 
+    # Train XGBoost
+    xgb_model, xgb_wrapper, xgb_metrics = train_xgb(dataset, config.xgb)
+
     # Save models
-    save_models(dnn_model, rf_model, config.output_dir, dataset.dataset_name)
+    save_models(dnn_model, rf_model, config.output_dir, dataset.dataset_name, xgb_model=xgb_model)
 
     # Save training metrics
-    train_results = {"dnn": dnn_metrics, "rf": rf_metrics}
+    train_results = {"dnn": dnn_metrics, "rf": rf_metrics, "xgb": xgb_metrics}
     results_path = output_dir / "train_metrics.json"
     with open(results_path, "w") as f:
         json.dump(train_results, f, indent=2, default=_json_serialize)
@@ -137,18 +142,20 @@ def phase_explain(
     output_dir = config.output_dir / dataset.dataset_name
 
     # Load trained models
-    dnn_model, rf_model = load_models(
+    dnn_model, rf_model, xgb_model = load_models(
         config.output_dir, dataset.dataset_name,
         dataset.X_train.shape[1], dataset.num_classes,
         config.dnn, device,
     )
     dnn_wrapper = DNNWrapper(dnn_model, device)
     rf_wrapper = RFWrapper(rf_model, num_classes=dataset.num_classes)
+    xgb_wrapper = XGBWrapper(xgb_model, num_classes=dataset.num_classes) if xgb_model else None
 
     # Generate explanations
     results, indices = generate_all_explanations(
         dnn_model, rf_model, dnn_wrapper, rf_wrapper,
         dataset, device, config.explainer,
+        xgb_model=xgb_model, xgb_wrapper=xgb_wrapper,
     )
 
     # Save explanations
@@ -188,13 +195,14 @@ def phase_evaluate(
     explain_dir = output_dir / "explanations"
 
     # Load models
-    dnn_model, rf_model = load_models(
+    dnn_model, rf_model, xgb_model = load_models(
         config.output_dir, dataset.dataset_name,
         dataset.X_train.shape[1], dataset.num_classes,
         config.dnn, device,
     )
     dnn_wrapper = DNNWrapper(dnn_model, device)
     rf_wrapper = RFWrapper(rf_model, num_classes=dataset.num_classes)
+    xgb_wrapper = XGBWrapper(xgb_model, num_classes=dataset.num_classes) if xgb_model else None
 
     # Load or use provided explanations
     if explain_indices is None:
@@ -214,6 +222,12 @@ def phase_evaluate(
             explain_fn = _make_explain_fn(
                 exp_result.method_name, "DNN", dnn_model, dnn_wrapper,
                 dataset, device, config.explainer,
+            )
+        elif exp_result.model_name == "XGB":
+            predict_fn = xgb_wrapper.predict_proba
+            explain_fn = _make_explain_fn(
+                exp_result.method_name, "XGB", None, xgb_wrapper,
+                dataset, device, config.explainer, rf_model=xgb_model,
             )
         else:
             predict_fn = rf_wrapper.predict_proba
@@ -276,6 +290,10 @@ def _make_explain_fn(
     elif method_name == "SHAP" and model_type == "RF":
         def fn(X):
             r = explain_shap_rf(rf_model, X, config)
+            return r.attributions
+    elif method_name == "SHAP" and model_type == "XGB":
+        def fn(X):
+            r = explain_shap_rf(rf_model, X, config)  # TreeExplainer works for XGBoost
             return r.attributions
     elif method_name == "LIME":
         def fn(X):
@@ -376,6 +394,7 @@ def run_experiment(config: ExperimentConfig, datasets: list[str], phases: list[s
             "phases": phases,
             "dnn": vars(config.dnn),
             "rf": vars(config.rf),
+            "xgb": vars(config.xgb),
             "explainer": vars(config.explainer),
             "metric": vars(config.metric),
             "seed": config.seed,
@@ -585,7 +604,7 @@ def parse_args():
         "--datasets",
         nargs="+",
         default=None,
-        choices=["nsl-kdd", "cic-ids-2017", "unsw-nb15", "cse-cic-ids2018"],
+        choices=["nsl-kdd", "cic-ids-2017", "unsw-nb15", "cse-cic-ids2018", "cic-iov-2024"],
         help="Datasets to process (default: all)",
     )
     parser.add_argument(
