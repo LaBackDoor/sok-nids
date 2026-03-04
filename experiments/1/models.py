@@ -2,6 +2,7 @@
 
 import logging
 import time
+import warnings
 from pathlib import Path
 
 import numpy as np
@@ -20,6 +21,9 @@ logger = logging.getLogger(__name__)
 
 # Enable cuDNN auto-tuner for optimal convolution algorithms
 torch.backends.cudnn.benchmark = True
+
+# Suppress XGBoost device mismatch warning (prediction still uses GPU via DMatrix fallback)
+warnings.filterwarnings("ignore", message=".*Falling back to prediction using DMatrix.*")
 
 
 class NIDSNet(nn.Module):
@@ -355,6 +359,14 @@ def train_xgb(
         y_val = dataset.y_val
         y_test_remapped = None
 
+    n_classes_train = len(np.unique(y_train))
+    if n_classes_train == 2:
+        objective = "binary:logistic"
+        eval_metric = "logloss"
+    else:
+        objective = "multi:softprob"
+        eval_metric = "mlogloss"
+
     model = xgb.XGBClassifier(
         n_estimators=config.n_estimators,
         max_depth=config.max_depth,
@@ -365,7 +377,8 @@ def train_xgb(
         tree_method=config.tree_method,
         device=config.device,
         random_state=42,
-        eval_metric="mlogloss",
+        objective=objective,
+        eval_metric=eval_metric,
     )
 
     train_start = time.time()
