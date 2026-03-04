@@ -325,23 +325,29 @@ def train_xgb(
 
     logger.info(f"Training XGBoost on {dataset.dataset_name} ({dataset.X_train.shape})")
 
-    # XGBoost requires contiguous labels [0, N). Remap if needed.
-    unique_labels = np.unique(np.concatenate([dataset.y_train, dataset.y_val, dataset.y_test]))
-    needs_remap = not np.array_equal(unique_labels, np.arange(len(unique_labels)))
+    # XGBoost requires y_train labels to be contiguous [0, N).
+    # Some classes may be absent from y_train after splitting, causing gaps.
+    train_labels = np.unique(dataset.y_train)
+    expected = np.arange(len(train_labels))
+    needs_remap = not np.array_equal(train_labels, expected)
 
     if needs_remap:
-        label_map = unique_labels  # label_map[compact] = original
-        inv_map = {orig: compact for compact, orig in enumerate(unique_labels)}
+        # Remap based on classes present in training data
+        label_map = train_labels  # label_map[compact] = original
+        inv_map = {int(orig): compact for compact, orig in enumerate(train_labels)}
         y_train = np.array([inv_map[y] for y in dataset.y_train])
-        y_val = np.array([inv_map[y] for y in dataset.y_val])
-        y_test = np.array([inv_map[y] for y in dataset.y_test])
-        n_classes = len(unique_labels)
-        logger.info(f"  Remapped {len(unique_labels)} non-contiguous labels to [0, {n_classes})")
+        # For val/test, map unknown classes to -1 (will be filtered or ignored)
+        y_val = np.array([inv_map.get(int(y), 0) for y in dataset.y_val])
+        y_test_remapped = np.array([inv_map.get(int(y), -1) for y in dataset.y_test])
+        logger.info(
+            f"  Remapped {len(train_labels)} train labels to [0, {len(train_labels)})"
+            f" (dataset has {dataset.num_classes} total classes)"
+        )
     else:
         label_map = None
         y_train = dataset.y_train
         y_val = dataset.y_val
-        y_test = dataset.y_test
+        y_test_remapped = None
 
     model = xgb.XGBClassifier(
         n_estimators=config.n_estimators,
@@ -353,7 +359,6 @@ def train_xgb(
         tree_method=config.tree_method,
         device=config.device,
         random_state=42,
-        use_label_encoder=False,
         eval_metric="mlogloss",
     )
 
@@ -367,7 +372,20 @@ def train_xgb(
     logger.info(f"  XGBoost training completed in {train_time:.1f}s")
 
     wrapper = XGBWrapper(model, num_classes=dataset.num_classes, label_map=label_map)
-    metrics = _evaluate_model(wrapper, dataset.X_test, dataset.y_test, dataset.num_classes)
+
+    # Evaluate only on test samples whose classes were seen during training
+    if y_test_remapped is not None:
+        known_mask = y_test_remapped >= 0
+        n_unknown = (~known_mask).sum()
+        if n_unknown > 0:
+            logger.info(f"  {n_unknown} test samples have classes unseen in training, excluded from eval")
+        X_test_eval = dataset.X_test[known_mask]
+        y_test_eval = dataset.y_test[known_mask]
+    else:
+        X_test_eval = dataset.X_test
+        y_test_eval = dataset.y_test
+
+    metrics = _evaluate_model(wrapper, X_test_eval, y_test_eval, dataset.num_classes)
     metrics["train_time_seconds"] = train_time
     logger.info(f"  XGBoost Metrics: {metrics}")
 
