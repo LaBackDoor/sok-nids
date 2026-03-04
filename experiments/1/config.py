@@ -55,7 +55,7 @@ class ExplainerConfig:
     lime_num_features: int = 10
     lime_num_samples: int = 5000
     ig_n_steps: int = 50
-    ig_internal_batch_size: int = 64
+    ig_internal_batch_size: int = 1024
     num_explain_samples: int = 10000
 
 

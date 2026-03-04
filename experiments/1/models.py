@@ -119,17 +119,32 @@ class RFWrapper:
 
 
 class XGBWrapper:
-    """Wrapper to provide a unified interface for XGBoost."""
+    """Wrapper to provide a unified interface for XGBoost.
 
-    def __init__(self, model, num_classes: int | None = None):
+    Handles label remapping: XGBoost requires contiguous [0, N) labels,
+    but datasets may have non-contiguous labels after encoding/SMOTE.
+    """
+
+    def __init__(self, model, num_classes: int | None = None, label_map: np.ndarray | None = None):
         self.model = model
         self.num_classes = num_classes
+        # label_map[compact_label] = original_label
+        self.label_map = label_map
 
     def predict_proba(self, X: np.ndarray) -> np.ndarray:
-        return self.model.predict_proba(X)
+        proba = self.model.predict_proba(X)
+        if self.label_map is not None and self.num_classes is not None:
+            full_proba = np.zeros((proba.shape[0], self.num_classes), dtype=proba.dtype)
+            for compact_idx, orig_idx in enumerate(self.label_map):
+                full_proba[:, orig_idx] = proba[:, compact_idx]
+            return full_proba
+        return proba
 
     def predict(self, X: np.ndarray) -> np.ndarray:
-        return self.model.predict(X)
+        preds = self.model.predict(X)
+        if self.label_map is not None:
+            return self.label_map[preds]
+        return preds
 
 
 def _evaluate_model(wrapper, X_test: np.ndarray, y_test: np.ndarray, num_classes: int) -> dict:
@@ -310,6 +325,24 @@ def train_xgb(
 
     logger.info(f"Training XGBoost on {dataset.dataset_name} ({dataset.X_train.shape})")
 
+    # XGBoost requires contiguous labels [0, N). Remap if needed.
+    unique_labels = np.unique(np.concatenate([dataset.y_train, dataset.y_val, dataset.y_test]))
+    needs_remap = not np.array_equal(unique_labels, np.arange(len(unique_labels)))
+
+    if needs_remap:
+        label_map = unique_labels  # label_map[compact] = original
+        inv_map = {orig: compact for compact, orig in enumerate(unique_labels)}
+        y_train = np.array([inv_map[y] for y in dataset.y_train])
+        y_val = np.array([inv_map[y] for y in dataset.y_val])
+        y_test = np.array([inv_map[y] for y in dataset.y_test])
+        n_classes = len(unique_labels)
+        logger.info(f"  Remapped {len(unique_labels)} non-contiguous labels to [0, {n_classes})")
+    else:
+        label_map = None
+        y_train = dataset.y_train
+        y_val = dataset.y_val
+        y_test = dataset.y_test
+
     model = xgb.XGBClassifier(
         n_estimators=config.n_estimators,
         max_depth=config.max_depth,
@@ -326,14 +359,14 @@ def train_xgb(
 
     train_start = time.time()
     model.fit(
-        dataset.X_train, dataset.y_train,
-        eval_set=[(dataset.X_val, dataset.y_val)],
+        dataset.X_train, y_train,
+        eval_set=[(dataset.X_val, y_val)],
         verbose=False,
     )
     train_time = time.time() - train_start
     logger.info(f"  XGBoost training completed in {train_time:.1f}s")
 
-    wrapper = XGBWrapper(model, num_classes=dataset.num_classes)
+    wrapper = XGBWrapper(model, num_classes=dataset.num_classes, label_map=label_map)
     metrics = _evaluate_model(wrapper, dataset.X_test, dataset.y_test, dataset.num_classes)
     metrics["train_time_seconds"] = train_time
     logger.info(f"  XGBoost Metrics: {metrics}")
@@ -347,6 +380,7 @@ def save_models(
     output_dir: Path,
     dataset_name: str,
     xgb_model=None,
+    xgb_label_map: np.ndarray | None = None,
 ) -> None:
     """Save trained models to disk."""
     import joblib
@@ -364,6 +398,8 @@ def save_models(
     # Save XGBoost
     if xgb_model is not None:
         joblib.dump(xgb_model, model_dir / "xgb.joblib")
+        if xgb_label_map is not None:
+            np.save(model_dir / "xgb_label_map.npy", xgb_label_map)
 
     logger.info(f"  Models saved to {model_dir}")
 
@@ -403,5 +439,7 @@ def load_models(
     # Load XGBoost (if available)
     xgb_path = model_dir / "xgb.joblib"
     xgb_model = joblib.load(xgb_path) if xgb_path.exists() else None
+    xgb_label_map_path = model_dir / "xgb_label_map.npy"
+    xgb_label_map = np.load(xgb_label_map_path) if xgb_label_map_path.exists() else None
 
-    return dnn, rf, xgb_model
+    return dnn, rf, xgb_model, xgb_label_map

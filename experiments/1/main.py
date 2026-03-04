@@ -121,7 +121,10 @@ def phase_train(
     xgb_model, xgb_wrapper, xgb_metrics = train_xgb(dataset, config.xgb)
 
     # Save models
-    save_models(dnn_model, rf_model, config.output_dir, dataset.dataset_name, xgb_model=xgb_model)
+    save_models(
+        dnn_model, rf_model, config.output_dir, dataset.dataset_name,
+        xgb_model=xgb_model, xgb_label_map=xgb_wrapper.label_map,
+    )
 
     # Save training metrics
     train_results = {"dnn": dnn_metrics, "rf": rf_metrics, "xgb": xgb_metrics}
@@ -142,14 +145,14 @@ def phase_explain(
     output_dir = config.output_dir / dataset.dataset_name
 
     # Load trained models
-    dnn_model, rf_model, xgb_model = load_models(
+    dnn_model, rf_model, xgb_model, xgb_label_map = load_models(
         config.output_dir, dataset.dataset_name,
         dataset.X_train.shape[1], dataset.num_classes,
         config.dnn, device,
     )
     dnn_wrapper = DNNWrapper(dnn_model, device)
     rf_wrapper = RFWrapper(rf_model, num_classes=dataset.num_classes)
-    xgb_wrapper = XGBWrapper(xgb_model, num_classes=dataset.num_classes) if xgb_model else None
+    xgb_wrapper = XGBWrapper(xgb_model, num_classes=dataset.num_classes, label_map=xgb_label_map) if xgb_model else None
 
     # Generate explanations
     results, indices = generate_all_explanations(
@@ -195,14 +198,14 @@ def phase_evaluate(
     explain_dir = output_dir / "explanations"
 
     # Load models
-    dnn_model, rf_model, xgb_model = load_models(
+    dnn_model, rf_model, xgb_model, xgb_label_map = load_models(
         config.output_dir, dataset.dataset_name,
         dataset.X_train.shape[1], dataset.num_classes,
         config.dnn, device,
     )
     dnn_wrapper = DNNWrapper(dnn_model, device)
     rf_wrapper = RFWrapper(rf_model, num_classes=dataset.num_classes)
-    xgb_wrapper = XGBWrapper(xgb_model, num_classes=dataset.num_classes) if xgb_model else None
+    xgb_wrapper = XGBWrapper(xgb_model, num_classes=dataset.num_classes, label_map=xgb_label_map) if xgb_model else None
 
     # Load or use provided explanations
     if explain_indices is None:
