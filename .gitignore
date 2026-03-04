@@ -9,3 +9,8 @@ wheels/
 # Virtual environments
 .venv
 data/
+*.npy
+*.txt
+*.pdf
+*.pt
+*.joblib
