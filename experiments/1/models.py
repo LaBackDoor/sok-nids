@@ -131,8 +131,21 @@ class XGBWrapper:
         # label_map[compact_label] = original_label
         self.label_map = label_map
 
+    def _make_dmatrix(self, X: np.ndarray):
+        """Create a DMatrix on the same device as the model to avoid mismatch warnings."""
+        import xgboost as xgb
+
+        device = self.model.get_params().get("device", "cpu")
+        return xgb.DMatrix(X, device=device)
+
     def predict_proba(self, X: np.ndarray) -> np.ndarray:
-        proba = self.model.predict_proba(X)
+        dm = self._make_dmatrix(X)
+        raw = self.model.get_booster().predict(dm)
+        # For multi-class, raw is (n_samples, n_classes); for binary it may be 1D
+        if raw.ndim == 1:
+            proba = np.column_stack([1 - raw, raw])
+        else:
+            proba = raw
         if self.label_map is not None and self.num_classes is not None:
             full_proba = np.zeros((proba.shape[0], self.num_classes), dtype=proba.dtype)
             for compact_idx, orig_idx in enumerate(self.label_map):
@@ -141,9 +154,8 @@ class XGBWrapper:
         return proba
 
     def predict(self, X: np.ndarray) -> np.ndarray:
-        preds = self.model.predict(X)
-        if self.label_map is not None:
-            return self.label_map[preds]
+        proba = self.predict_proba(X)
+        preds = np.argmax(proba, axis=1)
         return preds
 
 
