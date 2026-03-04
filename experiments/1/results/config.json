@@ -1,5 +1,9 @@
 {
   "datasets": [
+    "nsl-kdd",
+    "cic-ids-2017",
+    "unsw-nb15",
+    "cse-cic-ids2018",
     "cic-iov-2024"
   ],
   "phases": [

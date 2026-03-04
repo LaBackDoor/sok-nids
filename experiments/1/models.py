@@ -25,6 +25,9 @@ torch.backends.cudnn.benchmark = True
 # Suppress XGBoost device mismatch warning (prediction still uses GPU via DMatrix fallback)
 warnings.filterwarnings("ignore", message=".*Falling back to prediction using DMatrix.*")
 
+# Suppress cuBLAS context initialization warning (context is set successfully, warning is cosmetic)
+warnings.filterwarnings("ignore", message=".*Attempting to run cuBLAS, but there was no current CUDA context.*")
+
 
 class NIDSNet(nn.Module):
     """Fully connected DNN for network intrusion detection."""
