@@ -171,13 +171,25 @@ def stability(
         top_k: Number of top features to compare.
     """
     all_top_k_sets = []
+    n_degenerate = 0
 
     for run in range(n_runs):
         attrs = explain_fn(X_single)
         if attrs.ndim == 1:
             attrs = attrs.reshape(1, -1)
+        # Detect degenerate attributions (all zeros or uniform values)
+        if np.all(attrs[0] == attrs[0][0]):
+            n_degenerate += 1
         top_indices = set(np.argsort(np.abs(attrs[0]))[::-1][:top_k])
         all_top_k_sets.append(top_indices)
+
+    # If all runs produced degenerate attributions, stability is meaningless
+    if n_degenerate == n_runs:
+        return {
+            "stability_jaccard_mean": float("nan"),
+            "stability_jaccard_min": float("nan"),
+            "stability_degenerate": True,
+        }
 
     # Pairwise Jaccard similarity
     jaccard_scores = []
@@ -190,10 +202,12 @@ def stability(
     return {
         "stability_jaccard_mean": float(np.mean(jaccard_scores)) if jaccard_scores else 1.0,
         "stability_jaccard_min": float(np.min(jaccard_scores)) if jaccard_scores else 1.0,
+        "stability_degenerate": False,
     }
 
 
 def completeness(
+    predict_fn,
     explain_fn,
     X_test: np.ndarray,
     num_corrupted: int,
@@ -201,7 +215,8 @@ def completeness(
 ) -> dict:
     """Completeness: fraction of explanations that succeed on corrupted/edge-case inputs.
 
-    Tests: zero vectors, extreme outliers, and randomly corrupted samples.
+    Tests: zero vectors, extreme outliers, randomly corrupted samples, and
+    the local accuracy axiom (sum of attributions ≈ f(x) - f(baseline)).
     """
     n_features = X_test.shape[1]
     total = 0
@@ -253,22 +268,38 @@ def completeness(
         attrs_axiom = explain_fn(X_axiom)
         if attrs_axiom is not None and not np.any(np.isnan(attrs_axiom)):
             attr_sums = np.sum(attrs_axiom, axis=1)
-            # Check that attribution sums are finite and non-degenerate
-            valid_axiom = np.all(np.isfinite(attr_sums))
-            axiom_std = float(np.std(attr_sums))
+
+            # Compute f(x) - f(baseline) for the predicted class
+            baseline = np.zeros((1, n_features), dtype=np.float32)
+            model_preds = predict_fn(X_axiom)  # (n, classes)
+            baseline_preds = predict_fn(baseline)  # (1, classes)
+            predicted_classes = np.argmax(model_preds, axis=1)
+            pred_diffs = (
+                model_preds[np.arange(len(X_axiom)), predicted_classes]
+                - baseline_preds[0, predicted_classes]
+            )
+
+            # Check if attribution sums approximate the prediction difference
+            abs_errors = np.abs(attr_sums - pred_diffs)
+            valid_axiom = bool(np.all(np.isclose(attr_sums, pred_diffs, atol=1e-2)))
+            axiom_mae = float(np.mean(abs_errors))
+            axiom_pass_rate = float(np.mean(np.isclose(attr_sums, pred_diffs, atol=1e-2)))
         else:
             valid_axiom = False
-            axiom_std = float("nan")
+            axiom_mae = float("nan")
+            axiom_pass_rate = 0.0
     except Exception:
         valid_axiom = False
-        axiom_std = float("nan")
+        axiom_mae = float("nan")
+        axiom_pass_rate = 0.0
 
     return {
         "completeness_success_rate": successes / total if total > 0 else 0.0,
         "completeness_total_tested": total,
         "completeness_successes": successes,
         "completeness_axiom_valid": valid_axiom,
-        "completeness_axiom_attr_sum_std": axiom_std,
+        "completeness_axiom_mae": axiom_mae,
+        "completeness_axiom_pass_rate": axiom_pass_rate,
     }
 
 
@@ -385,7 +416,7 @@ def evaluate_all_metrics(
     # 6. Completeness
     logger.info(f"    Computing Completeness...")
     comp_result = completeness(
-        explain_fn, X_test, config.completeness_num_corrupted, rng,
+        predict_fn, explain_fn, X_test, config.completeness_num_corrupted, rng,
     )
     metrics.update(comp_result)
 

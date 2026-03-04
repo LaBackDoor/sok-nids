@@ -44,6 +44,7 @@ from explainers import (
     explain_shap_dnn,
     explain_shap_rf,
     generate_all_explanations,
+    generate_and_time_summary_plots,
 )
 from metrics import evaluate_all_metrics
 from models import (
@@ -161,6 +162,10 @@ def phase_explain(
         xgb_model=xgb_model, xgb_wrapper=xgb_wrapper,
     )
 
+    # Generate and time global summary plots
+    X_explain = dataset.X_test[indices]
+    generate_and_time_summary_plots(results, X_explain, dataset.feature_names, output_dir / dataset.dataset_name)
+
     # Save explanations
     explain_dir = output_dir / "explanations"
     explain_dir.mkdir(parents=True, exist_ok=True)
@@ -175,6 +180,7 @@ def phase_explain(
         f"{r.model_name}_{r.method_name}": {
             "time_per_sample_ms": r.time_per_sample_ms,
             "total_time_s": r.total_time_s,
+            "summary_plot_time_s": r.summary_plot_time_s,
         }
         for r in results
     }
@@ -441,6 +447,7 @@ def run_experiment(config: ExperimentConfig, datasets: list[str], phases: list[s
                     r.method_name + "_" + r.model_name: {
                         "time_per_sample_ms": r.time_per_sample_ms,
                         "total_time_s": r.total_time_s,
+                        "summary_plot_time_s": r.summary_plot_time_s,
                     }
                     for r in explanation_results
                 }

@@ -3,18 +3,18 @@
     "accuracy": 0.714513839602555,
     "f1_weighted": 0.6246283067477999,
     "auc_roc": NaN,
-    "train_time_seconds": 23.222809076309204
+    "train_time_seconds": 23.029831886291504
   },
   "rf": {
     "accuracy": 0.7178850248403122,
     "f1_weighted": 0.6163641978434231,
     "auc_roc": NaN,
-    "train_time_seconds": 0.5876545906066895
+    "train_time_seconds": 0.5797734260559082
   },
   "xgb": {
     "accuracy": 0.8661806959667979,
     "f1_weighted": 0.8170499911979295,
     "auc_roc": NaN,
-    "train_time_seconds": 5.163670539855957
+    "train_time_seconds": 5.144888639450073
   }
 }

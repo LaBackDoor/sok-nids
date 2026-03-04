@@ -22,6 +22,7 @@ class ExplanationResult:
     model_name: str
     time_per_sample_ms: float
     total_time_s: float
+    summary_plot_time_s: float = 0.0
 
 
 def explain_shap_dnn(
@@ -180,14 +181,16 @@ def explain_lime(
     n_jobs = max(1, int(total_cpus * 0.75))
     logger.info(f"  LIME parallelizing with {n_jobs}/{total_cpus} CPUs (75%)")
 
+    # Instantiate once — avoids recomputing X_train statistics per sample
+    explainer = LimeTabularExplainer(
+        training_data=X_train,
+        feature_names=feature_names,
+        class_names=[str(c) for c in range(num_classes)],
+        mode="classification",
+        discretize_continuous=True,
+    )
+
     def _explain_one(i):
-        explainer = LimeTabularExplainer(
-            training_data=X_train,
-            feature_names=feature_names,
-            class_names=[str(i) for i in range(num_classes)],
-            mode="classification",
-            discretize_continuous=True,
-        )
         exp = explainer.explain_instance(
             X_explain[i],
             predict_fn,
@@ -206,7 +209,7 @@ def explain_lime(
         return row
 
     start = time.time()
-    results = Parallel(n_jobs=n_jobs, backend="loky", verbose=1)(
+    results = Parallel(n_jobs=n_jobs, backend="threading", verbose=1)(
         delayed(_explain_one)(i) for i in range(len(X_explain))
     )
     attributions = np.array(results)
@@ -412,3 +415,50 @@ def generate_all_explanations(
 
     logger.info(f"Generated {len(results)} explanation sets")
     return results, indices
+
+
+def generate_and_time_summary_plots(
+    results: list[ExplanationResult],
+    X_explain: np.ndarray,
+    feature_names: list[str],
+    output_dir,
+) -> None:
+    """Generate SHAP-style global summary plots and record the generation time.
+
+    For each explanation result, creates a beeswarm/summary plot over the full
+    batch of explanation samples and stores the elapsed wall-clock time in
+    ``result.summary_plot_time_s``.
+    """
+    import shap
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from pathlib import Path
+
+    plot_dir = Path(output_dir) / "summary_plots"
+    plot_dir.mkdir(parents=True, exist_ok=True)
+
+    for result in results:
+        logger.info(
+            f"  Generating global summary plot for "
+            f"{result.model_name}/{result.method_name}"
+        )
+        start = time.time()
+
+        fig, ax = plt.subplots(figsize=(10, 8))
+        shap.summary_plot(
+            result.attributions,
+            X_explain,
+            feature_names=feature_names,
+            show=False,
+            plot_type="dot",
+        )
+        fname = f"{result.model_name}_{result.method_name}_summary.png"
+        plt.savefig(plot_dir / fname, dpi=150, bbox_inches="tight")
+        plt.close("all")
+
+        elapsed = time.time() - start
+        result.summary_plot_time_s = elapsed
+        logger.info(
+            f"    Summary plot saved ({elapsed:.2f}s): {fname}"
+        )
