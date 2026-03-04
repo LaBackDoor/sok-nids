@@ -131,21 +131,8 @@ class XGBWrapper:
         # label_map[compact_label] = original_label
         self.label_map = label_map
 
-    def _make_dmatrix(self, X: np.ndarray):
-        """Create a DMatrix on the same device as the model to avoid mismatch warnings."""
-        import xgboost as xgb
-
-        device = self.model.get_params().get("device", "cpu")
-        return xgb.DMatrix(X, device=device)
-
     def predict_proba(self, X: np.ndarray) -> np.ndarray:
-        dm = self._make_dmatrix(X)
-        raw = self.model.get_booster().predict(dm)
-        # For multi-class, raw is (n_samples, n_classes); for binary it may be 1D
-        if raw.ndim == 1:
-            proba = np.column_stack([1 - raw, raw])
-        else:
-            proba = raw
+        proba = self.model.predict_proba(X)
         if self.label_map is not None and self.num_classes is not None:
             full_proba = np.zeros((proba.shape[0], self.num_classes), dtype=proba.dtype)
             for compact_idx, orig_idx in enumerate(self.label_map):
@@ -154,8 +141,9 @@ class XGBWrapper:
         return proba
 
     def predict(self, X: np.ndarray) -> np.ndarray:
-        proba = self.predict_proba(X)
-        preds = np.argmax(proba, axis=1)
+        preds = self.model.predict(X)
+        if self.label_map is not None:
+            return self.label_map[preds]
         return preds
 
 
@@ -292,6 +280,12 @@ def train_dnn(
     if best_state is not None:
         model.load_state_dict(best_state)
     model = model.to(device)
+
+    # Re-warmup CUDA context after restoring best state (saved on CPU)
+    if device.type == "cuda":
+        with torch.no_grad():
+            base = model.module if isinstance(model, nn.DataParallel) else model
+            base(torch.zeros(1, input_dim, device=device))
 
     wrapper = DNNWrapper(model, device)
     metrics = _evaluate_model(wrapper, dataset.X_test, dataset.y_test, dataset.num_classes)
