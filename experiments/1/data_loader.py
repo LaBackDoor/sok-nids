@@ -30,6 +30,27 @@ NSL_KDD_COLUMNS = [
 
 NSL_KDD_CATEGORICAL = ["protocol_type", "service", "flag"]
 
+# Standard 5-class mapping: attack type -> category
+NSL_KDD_ATTACK_CATEGORY = {
+    "normal": "Normal",
+    # DoS
+    "back": "DoS", "land": "DoS", "neptune": "DoS", "pod": "DoS",
+    "smurf": "DoS", "teardrop": "DoS", "apache2": "DoS", "mailbomb": "DoS",
+    "processtable": "DoS", "udpstorm": "DoS",
+    # Probe
+    "ipsweep": "Probe", "nmap": "Probe", "portsweep": "Probe", "satan": "Probe",
+    "mscan": "Probe", "saint": "Probe",
+    # R2L
+    "ftp_write": "R2L", "guess_passwd": "R2L", "imap": "R2L", "multihop": "R2L",
+    "phf": "R2L", "spy": "R2L", "warezclient": "R2L", "warezmaster": "R2L",
+    "named": "R2L", "sendmail": "R2L", "snmpgetattack": "R2L",
+    "snmpguess": "R2L", "worm": "R2L", "xlock": "R2L", "xsnoop": "R2L",
+    # U2R
+    "buffer_overflow": "U2R", "loadmodule": "U2R", "perl": "U2R",
+    "rootkit": "U2R", "httptunnel": "U2R", "ps": "U2R",
+    "sqlattack": "U2R", "xterm": "U2R",
+}
+
 
 @dataclass
 class DatasetBundle:
@@ -190,6 +211,23 @@ def _preprocess_nsl_kdd(
     X_test = df_test[feature_names].values.astype(np.float32)
     y_train_raw = df_train["label"].values
     y_test_raw = df_test["label"].values
+
+    # Map 39 attack types to 5 classes (Normal, DoS, Probe, R2L, U2R)
+    def _map_to_category(labels):
+        mapped = []
+        for lbl in labels:
+            lbl_str = str(lbl).strip().lower()
+            cat = NSL_KDD_ATTACK_CATEGORY.get(lbl_str)
+            if cat is None:
+                logger.warning(f"  Unknown NSL-KDD label '{lbl}', mapping to 'Normal'")
+                cat = "Normal"
+            mapped.append(cat)
+        return np.array(mapped)
+
+    y_train_raw = _map_to_category(y_train_raw)
+    y_test_raw = _map_to_category(y_test_raw)
+    logger.info(f"  Mapped to 5-class: {dict(zip(*np.unique(y_train_raw, return_counts=True)))}")
+    logger.info(f"  Test distribution: {dict(zip(*np.unique(y_test_raw, return_counts=True)))}")
 
     # Encode labels
     le = LabelEncoder()
