@@ -164,7 +164,7 @@ def phase_explain(
 
     # Generate and time global summary plots
     X_explain = dataset.X_test[indices]
-    generate_and_time_summary_plots(results, X_explain, dataset.feature_names, output_dir / dataset.dataset_name)
+    generate_and_time_summary_plots(results, X_explain, dataset.feature_names, output_dir)
 
     # Save explanations
     explain_dir = output_dir / "explanations"
@@ -379,11 +379,14 @@ def _save_summary_table(all_metrics: list[dict], path: Path) -> None:
 
 
 def _json_serialize(obj):
-    """JSON serializer for numpy types."""
+    """JSON serializer for numpy types. Converts NaN to None for valid JSON."""
     if isinstance(obj, (np.integer,)):
         return int(obj)
     if isinstance(obj, (np.floating,)):
-        return float(obj)
+        val = float(obj)
+        return None if np.isnan(val) else val
+    if isinstance(obj, float):
+        return None if np.isnan(obj) else obj
     if isinstance(obj, (np.bool_,)):
         return bool(obj)
     if isinstance(obj, np.ndarray):

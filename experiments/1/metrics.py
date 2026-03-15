@@ -42,11 +42,18 @@ def faithfulness(
     y_pred_base = np.argmax(y_proba_base, axis=1)
     base_f1 = f1_score(y, y_pred_base, average="weighted", zero_division=0)
     try:
-        if num_classes == 2:
+        if len(np.unique(y)) < 2:
+            logger.warning("AUC requires at least 2 classes in y; skipping.")
+            base_auc = float("nan")
+        elif num_classes == 2:
             base_auc = roc_auc_score(y, y_proba_base[:, 1])
         else:
-            base_auc = roc_auc_score(y, y_proba_base, multi_class="ovr", average="weighted")
-    except ValueError:
+            base_auc = roc_auc_score(
+                y, y_proba_base, multi_class="ovr", average="weighted",
+                labels=np.arange(num_classes),
+            )
+    except ValueError as e:
+        logger.warning(f"AUC computation failed (baseline): {e}")
         base_auc = float("nan")
 
     results["baseline_f1"] = base_f1
@@ -68,13 +75,17 @@ def faithfulness(
         y_pred_masked = np.argmax(y_proba_masked, axis=1)
         masked_f1 = f1_score(y, y_pred_masked, average="weighted", zero_division=0)
         try:
-            if num_classes == 2:
+            if len(np.unique(y)) < 2:
+                masked_auc = float("nan")
+            elif num_classes == 2:
                 masked_auc = roc_auc_score(y, y_proba_masked[:, 1])
             else:
                 masked_auc = roc_auc_score(
-                    y, y_proba_masked, multi_class="ovr", average="weighted"
+                    y, y_proba_masked, multi_class="ovr", average="weighted",
+                    labels=np.arange(num_classes),
                 )
-        except ValueError:
+        except ValueError as e:
+            logger.warning(f"AUC computation failed (masked k={k}): {e}")
             masked_auc = float("nan")
 
         results[f"f1_drop_k{k}"] = base_f1 - masked_f1
@@ -328,7 +339,7 @@ def robustness(
         diff = perturbed_attrs - base_attrs
         norms = np.linalg.norm(diff, axis=1)
         base_norms = np.linalg.norm(base_attrs, axis=1)
-        base_norms[base_norms == 0] = 1.0
+        base_norms = np.maximum(base_norms, 1e-8)
         relative_deviation = norms / base_norms
         all_deviations.append(relative_deviation)
 

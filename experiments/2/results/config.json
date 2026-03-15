@@ -1,0 +1,63 @@
+{
+  "datasets": [
+    "nsl-kdd"
+  ],
+  "phases": [
+    "robustness"
+  ],
+  "attack": {
+    "fgsm_epsilons": [
+      0.01,
+      0.05,
+      0.1,
+      0.2,
+      0.3
+    ],
+    "pgd_epsilons": [
+      0.01,
+      0.05,
+      0.1
+    ],
+    "pgd_num_steps": 20,
+    "pgd_step_size_factor": 2.5,
+    "num_attack_samples": 20,
+    "attack_batch_size": 512
+  },
+  "scaffolding": {
+    "biased_feature": null,
+    "dummy_feature_name": "dummy_metadata_tag",
+    "ood_z_threshold": 3.0,
+    "ood_ratio_threshold": 0.3,
+    "num_eval_samples": 500,
+    "biased_model_hidden": [
+      64,
+      32
+    ],
+    "biased_model_epochs": 50,
+    "biased_model_lr": 0.01,
+    "lime_num_samples": 5000,
+    "lime_num_features": 10,
+    "shap_background_samples": 100,
+    "scaffolding_datasets": [
+      "nsl-kdd",
+      "cic-ids-2017"
+    ]
+  },
+  "robustness": {
+    "num_samples": 10,
+    "explanation_methods": [
+      "SHAP",
+      "LIME",
+      "IG"
+    ],
+    "distance_norm": "l2",
+    "explanation_similarity_epsilon": 0.1,
+    "shap_background_samples": 100,
+    "lime_num_samples": 5000,
+    "lime_num_features": 10,
+    "ig_n_steps": 50,
+    "ig_internal_batch_size": 64
+  },
+  "exp1_results_dir": "experiments/1/results",
+  "seed": 42
+}

@@ -163,10 +163,15 @@ def _evaluate_model(wrapper, X_test: np.ndarray, y_test: np.ndarray, num_classes
     f1 = f1_score(y_test, y_pred, average="weighted", zero_division=0)
 
     try:
-        if num_classes == 2:
+        if len(np.unique(y_test)) < 2:
+            auc = float("nan")
+        elif num_classes == 2:
             auc = roc_auc_score(y_test, y_proba[:, 1])
         else:
-            auc = roc_auc_score(y_test, y_proba, multi_class="ovr", average="weighted")
+            auc = roc_auc_score(
+                y_test, y_proba, multi_class="ovr", average="weighted",
+                labels=np.arange(num_classes),
+            )
     except ValueError:
         auc = float("nan")
 
