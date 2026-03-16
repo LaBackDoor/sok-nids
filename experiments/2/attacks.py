@@ -29,11 +29,13 @@ def fgsm_attack(
     y: np.ndarray,
     epsilon: float,
     device: torch.device,
+    constraint_projector: callable | None = None,
 ) -> np.ndarray:
     """Fast Gradient Sign Method (FGSM) single-step attack.
 
     x_adv = x + epsilon * sign(grad_x L(model(x), y))
     Clamps to [0, 1] (assumes Min-Max scaled input).
+    If constraint_projector is provided, projects onto the feasible feature set.
     """
     model.eval()
     X_tensor = torch.tensor(X, dtype=torch.float32, device=device)
@@ -47,6 +49,9 @@ def fgsm_attack(
     perturbation = epsilon * X_tensor.grad.sign()
     X_adv = (X_tensor + perturbation).clamp(0, 1)
 
+    if constraint_projector is not None:
+        X_adv = constraint_projector(X_adv.detach(), X_tensor.detach(), epsilon)
+
     return X_adv.detach().cpu().numpy().astype(np.float32)
 
 
@@ -58,11 +63,14 @@ def pgd_attack(
     step_size: float,
     num_steps: int,
     device: torch.device,
+    constraint_projector: callable | None = None,
 ) -> np.ndarray:
     """Projected Gradient Descent (PGD) iterative attack.
 
     x^{t+1} = Proj_{B(x, epsilon)}(x^t + alpha * sign(grad_x L(model(x^t), y)))
     Projects perturbation back to L-inf epsilon-ball around original input.
+    If constraint_projector is provided, projects onto the feasible feature set
+    after each gradient step (alternating projection).
     """
     model.eval()
     X_tensor = torch.tensor(X, dtype=torch.float32, device=device)
@@ -71,6 +79,9 @@ def pgd_attack(
     # Random initialization within epsilon-ball
     X_adv = X_tensor + torch.empty_like(X_tensor).uniform_(-epsilon, epsilon)
     X_adv = X_adv.clamp(0, 1).detach()
+
+    if constraint_projector is not None:
+        X_adv = constraint_projector(X_adv, X_tensor, epsilon)
 
     for _ in range(num_steps):
         X_adv.requires_grad_(True)
@@ -83,6 +94,9 @@ def pgd_attack(
             # Project back to L-inf epsilon-ball
             delta = (X_adv - X_tensor).clamp(-epsilon, epsilon)
             X_adv = (X_tensor + delta).clamp(0, 1)
+
+            if constraint_projector is not None:
+                X_adv = constraint_projector(X_adv, X_tensor, epsilon)
         X_adv = X_adv.detach()
 
     return X_adv.cpu().numpy().astype(np.float32)
@@ -94,8 +108,14 @@ def generate_adversarial_examples(
     y: np.ndarray,
     config: AttackConfig,
     device: torch.device,
+    constraint_projector: callable | None = None,
 ) -> dict:
     """Generate adversarial examples using FGSM and PGD at multiple epsilon values.
+
+    Args:
+        constraint_projector: Optional callable(X_adv, X_orig, epsilon) -> X_adv
+            that projects perturbations onto the valid feature manifold.
+            When None, only standard [0,1] clamping is applied.
 
     Returns:
         dict with keys:
@@ -147,7 +167,7 @@ def generate_adversarial_examples(
         for i in range(0, n, batch_size):
             X_batch = X_sub[i : i + batch_size]
             y_batch = y_sub[i : i + batch_size]
-            X_adv = fgsm_attack(base_model, X_batch, y_batch, eps, device)
+            X_adv = fgsm_attack(base_model, X_batch, y_batch, eps, device, constraint_projector)
             adv_batches.append(X_adv)
         X_adv_full = np.concatenate(adv_batches, axis=0)
         results["fgsm"][eps] = X_adv_full
@@ -185,7 +205,8 @@ def generate_adversarial_examples(
             X_batch = X_sub[i : i + batch_size]
             y_batch = y_sub[i : i + batch_size]
             X_adv = pgd_attack(
-                base_model, X_batch, y_batch, eps, step_size, config.pgd_num_steps, device
+                base_model, X_batch, y_batch, eps, step_size, config.pgd_num_steps, device,
+                constraint_projector,
             )
             adv_batches.append(X_adv)
         X_adv_full = np.concatenate(adv_batches, axis=0)

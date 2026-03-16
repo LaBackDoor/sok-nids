@@ -3,6 +3,7 @@
 import logging
 import time
 import warnings
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -13,6 +14,32 @@ from config import ExplainerConfig
 from models import SoftmaxModel
 
 logger = logging.getLogger(__name__)
+
+
+def _has_rnn_modules(model: torch.nn.Module) -> bool:
+    """Check if model contains LSTM, GRU, or RNN layers."""
+    return any(
+        isinstance(m, (torch.nn.LSTM, torch.nn.GRU, torch.nn.RNN))
+        for m in model.modules()
+    )
+
+
+@contextmanager
+def _disable_cudnn_for_rnn(model):
+    """Disable cuDNN if model contains RNN layers.
+
+    cuDNN's fused RNN kernels do not support backward in eval mode,
+    which breaks gradient-based explainers (SHAP, IG, DeepLIFT).
+    """
+    has_rnn = _has_rnn_modules(model)
+    if has_rnn:
+        prev = torch.backends.cudnn.enabled
+        torch.backends.cudnn.enabled = False
+    try:
+        yield
+    finally:
+        if has_rnn:
+            torch.backends.cudnn.enabled = prev
 
 
 @dataclass
@@ -32,10 +59,14 @@ def explain_shap_dnn(
     device: torch.device,
     config: ExplainerConfig,
 ) -> ExplanationResult:
-    """Generate SHAP explanations for DNN using DeepExplainer."""
+    """Generate SHAP explanations for DNN.
+
+    Uses DeepExplainer for standard DNNs (Linear, Conv, etc.) and
+    GradientExplainer for models containing RNN layers (LSTM, GRU)
+    which DeepExplainer cannot decompose.
+    """
     import shap
 
-    logger.info(f"  SHAP (DeepExplainer) on {len(X_explain)} samples")
     # Unwrap DataParallel
     base_model = model.module if isinstance(model, torch.nn.DataParallel) else model
     base_model.eval().float()
@@ -45,13 +76,26 @@ def explain_shap_dnn(
     # which softmax's non-linear normalization breaks.
 
     bg_tensor = torch.tensor(X_background[: config.shap_background_samples], dtype=torch.float32).to(device)
+    use_gradient = _has_rnn_modules(base_model)
 
-    explainer = shap.DeepExplainer(base_model, bg_tensor)
+    if use_gradient:
+        logger.info(f"  SHAP (GradientExplainer) on {len(X_explain)} samples")
+    else:
+        logger.info(f"  SHAP (DeepExplainer) on {len(X_explain)} samples")
 
-    start = time.time()
-    explain_tensor = torch.tensor(X_explain, dtype=torch.float32).to(device)
-    shap_values = explainer.shap_values(explain_tensor, check_additivity=False)
-    elapsed = time.time() - start
+    with _disable_cudnn_for_rnn(base_model):
+        if use_gradient:
+            explainer = shap.GradientExplainer(base_model, bg_tensor)
+        else:
+            explainer = shap.DeepExplainer(base_model, bg_tensor)
+
+        start = time.time()
+        explain_tensor = torch.tensor(X_explain, dtype=torch.float32).to(device)
+        if use_gradient:
+            shap_values = explainer.shap_values(explain_tensor)
+        else:
+            shap_values = explainer.shap_values(explain_tensor, check_additivity=False)
+        elapsed = time.time() - start
 
     # Get predicted classes
     base_model.eval()
@@ -251,17 +295,18 @@ def explain_ig(
     start = time.time()
     all_attrs = []
     batch_size = config.ig_internal_batch_size
-    for i in range(0, len(X_explain), batch_size):
-        batch = input_tensor[i : i + batch_size].requires_grad_(True)
-        batch_preds = preds[i : i + batch_size]
-        attrs = ig.attribute(
-            batch,
-            baselines=baseline.expand(len(batch), -1),
-            target=batch_preds,
-            n_steps=config.ig_n_steps,
-            internal_batch_size=batch_size,
-        )
-        all_attrs.append(attrs.detach().cpu().numpy())
+    with _disable_cudnn_for_rnn(base_model):
+        for i in range(0, len(X_explain), batch_size):
+            batch = input_tensor[i : i + batch_size].requires_grad_(True)
+            batch_preds = preds[i : i + batch_size]
+            attrs = ig.attribute(
+                batch,
+                baselines=baseline.expand(len(batch), -1),
+                target=batch_preds,
+                n_steps=config.ig_n_steps,
+                internal_batch_size=batch_size,
+            )
+            all_attrs.append(attrs.detach().cpu().numpy())
     elapsed = time.time() - start
 
     attributions = np.concatenate(all_attrs, axis=0)
@@ -302,7 +347,7 @@ def explain_deeplift(
     start = time.time()
     all_attrs = []
     batch_size = config.ig_internal_batch_size
-    with warnings.catch_warnings():
+    with warnings.catch_warnings(), _disable_cudnn_for_rnn(base_model):
         warnings.filterwarnings("ignore", message="Setting forward, backward hooks")
         for i in range(0, len(X_explain), batch_size):
             batch = input_tensor[i : i + batch_size].requires_grad_(True)
@@ -350,48 +395,50 @@ def generate_all_explanations(
     results = []
 
     # === DNN explanations ===
-    logger.info("--- DNN Explanations ---")
-    try:
-        results.append(explain_shap_dnn(dnn_model, X_explain, X_background, device, config))
-    except Exception as e:
-        logger.error(f"SHAP DNN failed: {e}")
+    if dnn_model is not None and dnn_wrapper is not None:
+        logger.info("--- DNN Explanations ---")
+        try:
+            results.append(explain_shap_dnn(dnn_model, X_explain, X_background, device, config))
+        except Exception as e:
+            logger.error(f"SHAP DNN failed: {e}")
 
-    try:
-        results.append(
-            explain_lime(
-                dnn_wrapper.predict_proba, X_explain, dataset.X_train,
-                dataset.feature_names, dataset.num_classes, "DNN", config,
+        try:
+            results.append(
+                explain_lime(
+                    dnn_wrapper.predict_proba, X_explain, dataset.X_train,
+                    dataset.feature_names, dataset.num_classes, "DNN", config,
+                )
             )
-        )
-    except Exception as e:
-        logger.error(f"LIME DNN failed: {e}")
+        except Exception as e:
+            logger.error(f"LIME DNN failed: {e}")
 
-    try:
-        results.append(explain_ig(dnn_model, X_explain, device, config))
-    except Exception as e:
-        logger.error(f"IG failed: {e}")
+        try:
+            results.append(explain_ig(dnn_model, X_explain, device, config))
+        except Exception as e:
+            logger.error(f"IG failed: {e}")
 
-    try:
-        results.append(explain_deeplift(dnn_model, X_explain, device, config))
-    except Exception as e:
-        logger.error(f"DeepLIFT failed: {e}")
+        try:
+            results.append(explain_deeplift(dnn_model, X_explain, device, config))
+        except Exception as e:
+            logger.error(f"DeepLIFT failed: {e}")
 
     # === RF explanations ===
-    logger.info("--- RF Explanations ---")
-    try:
-        results.append(explain_shap_rf(rf_model, X_explain, config))
-    except Exception as e:
-        logger.error(f"SHAP RF failed: {e}")
+    if rf_model is not None and rf_wrapper is not None:
+        logger.info("--- RF Explanations ---")
+        try:
+            results.append(explain_shap_rf(rf_model, X_explain, config))
+        except Exception as e:
+            logger.error(f"SHAP RF failed: {e}")
 
-    try:
-        results.append(
-            explain_lime(
-                rf_wrapper.predict_proba, X_explain, dataset.X_train,
-                dataset.feature_names, dataset.num_classes, "RF", config,
+        try:
+            results.append(
+                explain_lime(
+                    rf_wrapper.predict_proba, X_explain, dataset.X_train,
+                    dataset.feature_names, dataset.num_classes, "RF", config,
+                )
             )
-        )
-    except Exception as e:
-        logger.error(f"LIME RF failed: {e}")
+        except Exception as e:
+            logger.error(f"LIME RF failed: {e}")
 
     # === XGBoost explanations ===
     if xgb_model is not None and xgb_wrapper is not None:

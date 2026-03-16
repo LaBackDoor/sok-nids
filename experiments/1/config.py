@@ -50,6 +50,38 @@ class XGBConfig:
 
 
 @dataclass
+class CNNLSTMConfig:
+    grid_size: int = 11
+    hidden_size: int = 128
+    num_lstm_layers: int = 1
+    dropout: float = 0.5
+    learning_rate: float = 0.001
+    batch_size: int = 512
+    epochs: int = 100
+    early_stopping_patience: int = 10
+
+
+@dataclass
+class CNNGRUConfig:
+    input_channels: int = 1
+    cnn_filters: int = 64
+    cnn_kernel_size: int = 3
+    pool_kernel_size: int = 2
+    cnn_dropout: float = 0.5
+    gru_hidden_size: int = 75
+    gru_num_layers: int = 1
+    gru_dropout: float = 0.5
+    gru_input_size: int = 1
+    fc_hidden_size: int = 128
+    input_spatial_size: int = 11
+    seq_len: int = 121
+    learning_rate: float = 0.001
+    batch_size: int = 512
+    epochs: int = 100
+    early_stopping_patience: int = 10
+
+
+@dataclass
 class ExplainerConfig:
     shap_background_samples: int = 100
     lime_num_features: int = 10
@@ -79,6 +111,8 @@ class ExperimentConfig:
     dnn: DNNConfig = field(default_factory=DNNConfig)
     rf: RFConfig = field(default_factory=RFConfig)
     xgb: XGBConfig = field(default_factory=XGBConfig)
+    cnn_lstm: CNNLSTMConfig = field(default_factory=CNNLSTMConfig)
+    cnn_gru: CNNGRUConfig = field(default_factory=CNNGRUConfig)
     explainer: ExplainerConfig = field(default_factory=ExplainerConfig)
     metric: MetricConfig = field(default_factory=MetricConfig)
     output_dir: Path = Path("experiments/1/results")

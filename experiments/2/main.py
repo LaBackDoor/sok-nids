@@ -74,6 +74,7 @@ ExplainerConfig = _exp1_cfg.ExplainerConfig
 sys.path.insert(0, exp2_dir)
 
 from attacks import generate_adversarial_examples  # noqa: E402
+from feature_constraints import build_constraints, make_constraint_projector, spec_to_dict  # noqa: E402
 from robustness import evaluate_robustness_for_method  # noqa: E402
 from scaffolding import run_scaffolding_attack  # noqa: E402
 
@@ -212,25 +213,15 @@ def phase_scaffolding(
 
 # ─── Phase: Adversarial Example Generation (M1) ────────────────────────────────
 
-def phase_adversarial(
-    dataset: DatasetBundle,
-    dnn_model: NIDSNet,
-    config: Experiment2Config,
-    device: torch.device,
+def _save_adversarial_results(
+    adv_results: dict,
+    output_dir: Path,
+    dataset_name: str,
+    mode: str,
+    constraint_spec_dict: dict | None = None,
 ) -> dict:
-    """Generate FGSM and PGD adversarial examples."""
-    logger.info(f"=== ADVERSARIAL ATTACKS on {dataset.dataset_name} ===")
-
-    adv_results = generate_adversarial_examples(
-        model=dnn_model,
-        X=dataset.X_test,
-        y=dataset.y_test,
-        config=config.attack,
-        device=device,
-    )
-
-    # Save adversarial examples
-    adv_dir = config.output_dir / dataset.dataset_name / "adversarial"
+    """Save adversarial examples and return summary dict."""
+    adv_dir = output_dir / dataset_name / "adversarial" / mode
     adv_dir.mkdir(parents=True, exist_ok=True)
 
     np.save(adv_dir / "indices.npy", adv_results["indices"])
@@ -242,7 +233,6 @@ def phase_adversarial(
             fname = f"{attack_type}_eps{eps:.4f}.npy"
             np.save(adv_dir / fname, X_adv)
 
-    # Save attack success rates
     summary = {
         "fgsm_success_rates": {str(k): v for k, v in adv_results["fgsm_success"].items()},
         "pgd_success_rates": {str(k): v for k, v in adv_results["pgd_success"].items()},
@@ -251,11 +241,73 @@ def phase_adversarial(
     with open(adv_dir / "attack_summary.json", "w") as f:
         json.dump(summary, f, indent=2)
 
+    if constraint_spec_dict is not None:
+        with open(adv_dir / "constraint_spec.json", "w") as f:
+            json.dump(constraint_spec_dict, f, indent=2, default=_json_serialize)
+
     logger.info(f"  Adversarial examples saved to {adv_dir}")
     return summary
 
 
+def phase_adversarial(
+    dataset: DatasetBundle,
+    dnn_model: NIDSNet,
+    config: Experiment2Config,
+    device: torch.device,
+) -> dict:
+    """Generate FGSM and PGD adversarial examples (constrained and/or unconstrained)."""
+    logger.info(f"=== ADVERSARIAL ATTACKS on {dataset.dataset_name} ===")
+
+    summary = {}
+
+    # Unconstrained attacks
+    if config.attack.run_unconstrained:
+        logger.info("  Running UNCONSTRAINED attacks...")
+        adv_results = generate_adversarial_examples(
+            model=dnn_model,
+            X=dataset.X_test,
+            y=dataset.y_test,
+            config=config.attack,
+            device=device,
+            constraint_projector=None,
+        )
+        summary["unconstrained"] = _save_adversarial_results(
+            adv_results, config.output_dir, dataset.dataset_name, "unconstrained"
+        )
+
+    # Constrained attacks
+    if config.attack.run_constrained:
+        logger.info("  Running CONSTRAINED attacks...")
+        spec = build_constraints(dataset.dataset_name, dataset.feature_names, dataset.scaler)
+        projector = make_constraint_projector(spec, dataset.scaler, device)
+        adv_results = generate_adversarial_examples(
+            model=dnn_model,
+            X=dataset.X_test,
+            y=dataset.y_test,
+            config=config.attack,
+            device=device,
+            constraint_projector=projector,
+        )
+        summary["constrained"] = _save_adversarial_results(
+            adv_results, config.output_dir, dataset.dataset_name, "constrained",
+            constraint_spec_dict=spec_to_dict(spec),
+        )
+
+    return summary
+
+
 # ─── Phase: Robustness Evaluation ──────────────────────────────────────────────
+
+def _load_adversarial_from_dir(adv_dir: Path) -> tuple[np.ndarray, np.ndarray, dict]:
+    """Load adversarial examples from a directory."""
+    X_clean = np.load(adv_dir / "X_clean.npy")
+    y_clean = np.load(adv_dir / "y_clean.npy")
+    adv_examples = {}
+    for path in sorted(adv_dir.glob("*.npy")):
+        if path.stem.startswith(("fgsm_", "pgd_")):
+            adv_examples[path.stem] = np.load(path)
+    return X_clean, y_clean, adv_examples
+
 
 def phase_robustness(
     dataset: DatasetBundle,
@@ -266,70 +318,82 @@ def phase_robustness(
     device: torch.device,
     adv_results: dict | None = None,
 ) -> list[dict]:
-    """Evaluate Lipschitz, ExplSim, ClassEq for each XAI method + attack combo."""
+    """Evaluate Lipschitz, ExplSim, ClassEq for each XAI method + attack combo.
+
+    Iterates over both constrained and unconstrained adversarial subdirectories
+    (if they exist), tagging each result with its constraint_mode.
+    """
     logger.info(f"=== ROBUSTNESS EVALUATION on {dataset.dataset_name} ===")
 
-    # Load or use provided adversarial examples
-    adv_dir = config.output_dir / dataset.dataset_name / "adversarial"
-    if adv_results is None:
-        logger.info("  Loading adversarial examples from disk...")
-        X_clean = np.load(adv_dir / "X_clean.npy")
-        y_clean = np.load(adv_dir / "y_clean.npy")
-        adv_examples = {}
-        for path in sorted(adv_dir.glob("*.npy")):
-            if path.stem.startswith(("fgsm_", "pgd_")):
-                adv_examples[path.stem] = np.load(path)
-    else:
-        X_clean = adv_results["X_clean"]
-        y_clean = adv_results["y_clean"]
-        adv_examples = {}
-        for attack_type in ["fgsm", "pgd"]:
-            for eps, X_adv in adv_results[attack_type].items():
-                adv_examples[f"{attack_type}_eps{eps:.4f}"] = X_adv
+    base_adv_dir = config.output_dir / dataset.dataset_name / "adversarial"
 
-    # Limit samples for robustness evaluation
-    n = min(config.robustness.num_samples, len(X_clean))
-    X_clean = X_clean[:n]
-    y_clean = y_clean[:n]
-    adv_examples = {k: v[:n] for k, v in adv_examples.items()}
+    # Discover available constraint modes
+    modes_to_eval = []
+    for mode in ["unconstrained", "constrained"]:
+        mode_dir = base_adv_dir / mode
+        if mode_dir.exists() and (mode_dir / "X_clean.npy").exists():
+            modes_to_eval.append(mode)
+
+    # Fallback: old-style flat directory (no constraint subdirs)
+    if not modes_to_eval and (base_adv_dir / "X_clean.npy").exists():
+        modes_to_eval.append("unconstrained")
+
+    if not modes_to_eval:
+        logger.warning(f"  No adversarial examples found for {dataset.dataset_name}")
+        return []
 
     all_results = []
 
-    for method in config.robustness.explanation_methods:
-        logger.info(f"  --- Method: {method} ---")
-        try:
-            explain_fn = make_explain_fn(
-                method, dnn_model, dnn_wrapper, rf_wrapper,
-                dataset, device, config,
-            )
-        except Exception as e:
-            logger.error(f"  Failed to create explain_fn for {method}: {e}")
-            continue
+    for mode in modes_to_eval:
+        logger.info(f"  Evaluating robustness for {mode.upper()} attacks...")
+        mode_dir = base_adv_dir / mode
+        # Fallback for flat dir
+        if not mode_dir.exists():
+            mode_dir = base_adv_dir
 
-        for adv_name, X_adv in adv_examples.items():
-            # Parse attack name and epsilon
-            parts = adv_name.split("_eps")
-            attack_name = parts[0]
-            epsilon = float(parts[1]) if len(parts) > 1 else 0.0
+        X_clean, y_clean, adv_examples = _load_adversarial_from_dir(mode_dir)
 
+        # Limit samples
+        n = min(config.robustness.num_samples, len(X_clean))
+        X_clean = X_clean[:n]
+        y_clean = y_clean[:n]
+        adv_examples = {k: v[:n] for k, v in adv_examples.items()}
+
+        for method in config.robustness.explanation_methods:
+            logger.info(f"  --- Method: {method} ({mode}) ---")
             try:
-                result = evaluate_robustness_for_method(
-                    method_name=method,
-                    explain_fn=explain_fn,
-                    predict_fn=dnn_wrapper.predict_proba,
-                    X_clean=X_clean,
-                    X_adv=X_adv,
-                    attack_name=attack_name,
-                    epsilon=epsilon,
-                    config=config.robustness,
+                explain_fn = make_explain_fn(
+                    method, dnn_model, dnn_wrapper, rf_wrapper,
+                    dataset, device, config,
                 )
-                result["dataset"] = dataset.dataset_name
-                all_results.append(result)
             except Exception as e:
-                logger.error(
-                    f"  Robustness eval failed for {method}/{adv_name}: {e}",
-                    exc_info=True,
-                )
+                logger.error(f"  Failed to create explain_fn for {method}: {e}")
+                continue
+
+            for adv_name, X_adv in adv_examples.items():
+                parts = adv_name.split("_eps")
+                attack_name = parts[0]
+                epsilon = float(parts[1]) if len(parts) > 1 else 0.0
+
+                try:
+                    result = evaluate_robustness_for_method(
+                        method_name=method,
+                        explain_fn=explain_fn,
+                        predict_fn=dnn_wrapper.predict_proba,
+                        X_clean=X_clean,
+                        X_adv=X_adv,
+                        attack_name=attack_name,
+                        epsilon=epsilon,
+                        config=config.robustness,
+                    )
+                    result["dataset"] = dataset.dataset_name
+                    result["constraint_mode"] = mode
+                    all_results.append(result)
+                except Exception as e:
+                    logger.error(
+                        f"  Robustness eval failed for {method}/{adv_name} ({mode}): {e}",
+                        exc_info=True,
+                    )
 
     # Save robustness results
     rob_dir = config.output_dir / dataset.dataset_name / "robustness"
@@ -344,7 +408,7 @@ def phase_robustness(
 # ─── Summary and Plotting ──────────────────────────────────────────────────────
 
 def generate_plots(all_results: dict, output_dir: Path) -> None:
-    """Generate summary plots for Experiment 2."""
+    """Generate summary plots for Experiment 2 (supports constrained/unconstrained comparison)."""
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -352,7 +416,12 @@ def generate_plots(all_results: dict, output_dir: Path) -> None:
     plot_dir = output_dir / "plots"
     plot_dir.mkdir(parents=True, exist_ok=True)
 
-    # Plot 1: Attack success rates vs epsilon
+    mode_styles = {
+        "unconstrained": {"color": "tab:red", "marker": "o", "linestyle": "-"},
+        "constrained": {"color": "tab:blue", "marker": "s", "linestyle": "--"},
+    }
+
+    # Plot 1: Attack success rates vs epsilon (constrained vs unconstrained)
     for ds_name, ds_results in all_results.items():
         if "adversarial" not in ds_results:
             continue
@@ -362,67 +431,83 @@ def generate_plots(all_results: dict, output_dir: Path) -> None:
 
         for idx, attack_type in enumerate(["fgsm", "pgd"]):
             key = f"{attack_type}_success_rates"
-            if key not in adv:
-                continue
-            rates = adv[key]
-            epsilons = sorted([float(e) for e in rates.keys()])
-            success = [rates[str(e)] for e in epsilons]
+            for mode, style in mode_styles.items():
+                if mode not in adv or key not in adv[mode]:
+                    continue
+                rates = adv[mode][key]
+                epsilons = sorted([float(e) for e in rates.keys()])
+                success = [rates[str(e)] for e in epsilons]
 
-            axes[idx].plot(epsilons, success, "o-", linewidth=2, markersize=8)
+                axes[idx].plot(
+                    epsilons, success, label=mode.capitalize(),
+                    linewidth=2, markersize=8, **style,
+                )
+
             axes[idx].set_title(f"{attack_type.upper()} Attack — {ds_name}")
             axes[idx].set_xlabel("Epsilon (L-inf)")
             axes[idx].set_ylabel("Attack Success Rate")
             axes[idx].set_ylim(-0.05, 1.05)
             axes[idx].grid(True, alpha=0.3)
+            axes[idx].legend()
 
         plt.tight_layout()
         fig.savefig(plot_dir / f"{ds_name}_attack_success.png", dpi=150)
         plt.close(fig)
 
-    # Plot 2: Lipschitz constants per method/attack
+    # Plot 2: Lipschitz constants per method/attack (constrained vs unconstrained)
     for ds_name, ds_results in all_results.items():
         if "robustness" not in ds_results:
             continue
         rob = ds_results["robustness"]
 
         methods = sorted(set(r["method"] for r in rob))
+        modes = sorted(set(r.get("constraint_mode", "unconstrained") for r in rob))
         attacks = sorted(set(f"{r['attack']}_eps{r['epsilon']}" for r in rob))
 
         if not methods or not attacks:
             continue
 
-        fig, ax = plt.subplots(figsize=(12, 6))
-        width = 0.8 / len(methods)
+        for method in methods:
+            n_attacks = len(attacks)
+            n_modes = len(modes)
+            if n_attacks == 0:
+                continue
 
-        for m_idx, method in enumerate(methods):
-            lip_vals = []
-            labels = []
-            for attack in attacks:
-                parts = attack.split("_eps")
-                a_name, a_eps = parts[0], float(parts[1])
-                matching = [
-                    r for r in rob
-                    if r["method"] == method
-                    and r["attack"] == a_name
-                    and abs(r["epsilon"] - a_eps) < 1e-6
-                ]
-                if matching and "lipschitz" in matching[0]:
-                    lip_vals.append(matching[0]["lipschitz"].get("lipschitz_mean", 0))
-                else:
-                    lip_vals.append(0)
-                labels.append(attack)
+            fig, ax = plt.subplots(figsize=(12, 6))
+            width = 0.8 / max(n_modes, 1)
+            colors = {"unconstrained": "tab:red", "constrained": "tab:blue"}
 
-            x = np.arange(len(labels))
-            ax.bar(x + m_idx * width, lip_vals, width, label=method)
+            for m_idx, mode in enumerate(modes):
+                lip_vals = []
+                labels = []
+                for attack in attacks:
+                    parts = attack.split("_eps")
+                    a_name, a_eps = parts[0], float(parts[1])
+                    matching = [
+                        r for r in rob
+                        if r["method"] == method
+                        and r.get("constraint_mode", "unconstrained") == mode
+                        and r["attack"] == a_name
+                        and abs(r["epsilon"] - a_eps) < 1e-6
+                    ]
+                    if matching and "lipschitz" in matching[0]:
+                        lip_vals.append(matching[0]["lipschitz"].get("lipschitz_mean", 0))
+                    else:
+                        lip_vals.append(0)
+                    labels.append(attack)
 
-        ax.set_title(f"Empirical Lipschitz Constants — {ds_name}")
-        ax.set_ylabel("Mean Lipschitz Constant")
-        ax.set_xticks(np.arange(len(attacks)) + width * len(methods) / 2)
-        ax.set_xticklabels(attacks, rotation=45, ha="right")
-        ax.legend()
-        plt.tight_layout()
-        fig.savefig(plot_dir / f"{ds_name}_lipschitz.png", dpi=150)
-        plt.close(fig)
+                x = np.arange(n_attacks)
+                ax.bar(x + m_idx * width, lip_vals, width,
+                       label=mode.capitalize(), color=colors.get(mode, "gray"))
+
+            ax.set_title(f"Empirical Lipschitz Constants — {ds_name} — {method}")
+            ax.set_ylabel("Mean Lipschitz Constant")
+            ax.set_xticks(np.arange(n_attacks) + width * n_modes / 2)
+            ax.set_xticklabels(attacks, rotation=45, ha="right")
+            ax.legend()
+            plt.tight_layout()
+            fig.savefig(plot_dir / f"{ds_name}_{method}_lipschitz.png", dpi=150)
+            plt.close(fig)
 
     # Plot 3: Scaffolding attack success
     scaffolding_data = []
@@ -471,11 +556,15 @@ def _print_final_summary(all_results: dict) -> None:
 
         if "adversarial" in ds_results:
             adv = ds_results["adversarial"]
-            for attack in ["fgsm", "pgd"]:
-                key = f"{attack}_success_rates"
-                if key in adv:
-                    rates = adv[key]
-                    logger.info(f"  {attack.upper()} success rates: {rates}")
+            for mode in ["unconstrained", "constrained"]:
+                if mode not in adv:
+                    continue
+                logger.info(f"  [{mode.upper()}]")
+                for attack in ["fgsm", "pgd"]:
+                    key = f"{attack}_success_rates"
+                    if key in adv[mode]:
+                        rates = adv[mode][key]
+                        logger.info(f"    {attack.upper()} success rates: {rates}")
 
         if "scaffolding" in ds_results:
             sc = ds_results["scaffolding"]
@@ -493,8 +582,9 @@ def _print_final_summary(all_results: dict) -> None:
                 lip = r.get("lipschitz", {})
                 sim = r.get("similarity", {})
                 ceq = r.get("classification_equivalence", {})
+                mode_tag = r.get("constraint_mode", "unknown").upper()
                 logger.info(
-                    f"  {r['method']} vs {r['attack']}(eps={r['epsilon']}): "
+                    f"  [{mode_tag}] {r['method']} vs {r['attack']}(eps={r['epsilon']}): "
                     f"Lip_max={lip.get('lipschitz_max', 'N/A'):.2f} "
                     f"Lip_mean={lip.get('lipschitz_mean', 'N/A'):.2f} "
                     f"CosSim={sim.get('cosine_similarity_mean', 'N/A'):.3f} "
@@ -580,18 +670,11 @@ def run_experiment(config: Experiment2Config, datasets: list[str], phases: list[
                     torch.cuda.empty_cache()
 
         # Phase: Adversarial Attack Generation (M1)
-        adv_results_raw = None
         if "adversarial" in phases or "all" in phases:
             try:
                 logger.info(f"\n--- Phase: Adversarial Attacks ---")
                 adv_summary = phase_adversarial(dataset, dnn_model, config, device)
                 ds_results["adversarial"] = adv_summary
-                # Keep raw results for robustness phase
-                adv_results_raw = generate_adversarial_examples(
-                    dnn_model, dataset.X_test, dataset.y_test, config.attack, device
-                ) if "robustness" in phases or "all" in phases else None
-                # Actually re-load from saved files to avoid double computation
-                adv_results_raw = None
             except Exception as e:
                 logger.error(f"Adversarial attacks failed for {ds_name}: {e}", exc_info=True)
             finally:
@@ -640,7 +723,7 @@ def parse_args():
         "--datasets",
         nargs="+",
         default=None,
-        choices=["nsl-kdd", "cic-ids-2017", "unsw-nb15", "cse-cic-ids2018"],
+        choices=["nsl-kdd", "cic-ids-2017", "unsw-nb15", "cse-cic-ids2018", "cic-iov-2024"],
         help="Datasets to process (default: all)",
     )
     parser.add_argument(
@@ -681,6 +764,16 @@ def parse_args():
         help="Output directory for results",
     )
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
+    parser.add_argument(
+        "--no-constrained",
+        action="store_true",
+        help="Skip domain-constrained adversarial attacks",
+    )
+    parser.add_argument(
+        "--no-unconstrained",
+        action="store_true",
+        help="Skip unconstrained adversarial attacks",
+    )
     return parser.parse_args()
 
 
@@ -700,6 +793,10 @@ def main():
     if args.num_scaffolding_samples:
         config.scaffolding.num_eval_samples = args.num_scaffolding_samples
     config.seed = args.seed
+    if args.no_constrained:
+        config.attack.run_constrained = False
+    if args.no_unconstrained:
+        config.attack.run_unconstrained = False
 
     datasets = args.datasets or config.datasets
     phases = args.phase

@@ -48,13 +48,24 @@ from explainers import (
 )
 from metrics import evaluate_all_metrics
 from models import (
+    CNNGRU,
+    CNNLSTM,
+    CNNGRUWrapper,
+    CNNLSTMWrapper,
     DNNWrapper,
+    FlatCNNGRU,
+    FlatCNNLSTM,
     NIDSNet,
     RFWrapper,
     SoftmaxModel,
     XGBWrapper,
+    _compute_grid_size,
+    load_cnn_models,
     load_models,
+    save_cnn_models,
     save_models,
+    train_cnn_gru,
+    train_cnn_lstm,
     train_dnn,
     train_rf,
     train_xgb,
@@ -102,33 +113,69 @@ def log_gpu_memory(label: str = "") -> None:
         logger.info(f"  GPU {i} memory [{label}]: {alloc:.2f} GB allocated, {reserved:.2f} GB reserved")
 
 
+ALL_MODELS = ["dnn", "rf", "xgb", "cnn-lstm", "cnn-gru"]
+
+
 def phase_train(
-    dataset: DatasetBundle, config: ExperimentConfig, device: torch.device, num_gpus: int
+    dataset: DatasetBundle, config: ExperimentConfig, device: torch.device,
+    num_gpus: int, selected_models: list[str] | None = None,
 ) -> dict:
-    """Train DNN and RF models on the dataset."""
-    logger.info(f"=== TRAINING on {dataset.dataset_name} ===")
+    """Train selected models on the dataset."""
+    models_to_train = selected_models or ALL_MODELS
+    logger.info(f"=== TRAINING on {dataset.dataset_name} (models: {models_to_train}) ===")
     log_gpu_memory("pre-train")
     output_dir = config.output_dir / dataset.dataset_name
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Train DNN
-    dnn_model, dnn_wrapper, dnn_metrics = train_dnn(dataset, config.dnn, device, num_gpus)
-    log_gpu_memory("post-DNN-train")
+    train_results = {}
+    dnn_model = rf_model = xgb_model = None
+    xgb_label_map = None
+    cnn_lstm_model = cnn_gru_model = None
 
-    # Train RF
-    rf_model, rf_wrapper, rf_metrics = train_rf(dataset, config.rf)
+    if "dnn" in models_to_train:
+        dnn_model, dnn_wrapper, dnn_metrics = train_dnn(dataset, config.dnn, device, num_gpus)
+        train_results["dnn"] = dnn_metrics
+        log_gpu_memory("post-DNN-train")
 
-    # Train XGBoost
-    xgb_model, xgb_wrapper, xgb_metrics = train_xgb(dataset, config.xgb)
+    if "rf" in models_to_train:
+        rf_model, rf_wrapper, rf_metrics = train_rf(dataset, config.rf)
+        train_results["rf"] = rf_metrics
+
+    if "xgb" in models_to_train:
+        xgb_model, xgb_wrapper, xgb_metrics = train_xgb(dataset, config.xgb)
+        train_results["xgb"] = xgb_metrics
+        xgb_label_map = xgb_wrapper.label_map
+
+    if "cnn-lstm" in models_to_train:
+        cnn_lstm_model, cnn_lstm_wrapper, cnn_lstm_metrics = train_cnn_lstm(
+            dataset, config.cnn_lstm, device, num_gpus,
+        )
+        train_results["cnn_lstm"] = cnn_lstm_metrics
+        log_gpu_memory("post-CNN-LSTM-train")
+
+    if "cnn-gru" in models_to_train:
+        cnn_gru_model, cnn_gru_wrapper, cnn_gru_metrics = train_cnn_gru(
+            dataset, config.cnn_gru, device, num_gpus,
+        )
+        train_results["cnn_gru"] = cnn_gru_metrics
+        log_gpu_memory("post-CNN-GRU-train")
 
     # Save models
-    save_models(
-        dnn_model, rf_model, config.output_dir, dataset.dataset_name,
-        xgb_model=xgb_model, xgb_label_map=xgb_wrapper.label_map,
-    )
+    if dnn_model is not None or rf_model is not None:
+        save_models(
+            dnn_model, rf_model, config.output_dir, dataset.dataset_name,
+            xgb_model=xgb_model, xgb_label_map=xgb_label_map,
+        )
+    if cnn_lstm_model is not None or cnn_gru_model is not None:
+        save_cnn_models(
+            config.output_dir, dataset.dataset_name,
+            cnn_lstm_model=cnn_lstm_model,
+            cnn_lstm_config=config.cnn_lstm if cnn_lstm_model else None,
+            cnn_gru_model=cnn_gru_model,
+            cnn_gru_config=config.cnn_gru if cnn_gru_model else None,
+        )
 
     # Save training metrics
-    train_results = {"dnn": dnn_metrics, "rf": rf_metrics, "xgb": xgb_metrics}
     results_path = output_dir / "train_metrics.json"
     with open(results_path, "w") as f:
         json.dump(train_results, f, indent=2, default=_json_serialize)
@@ -138,29 +185,72 @@ def phase_train(
 
 
 def phase_explain(
-    dataset: DatasetBundle, config: ExperimentConfig, device: torch.device
+    dataset: DatasetBundle, config: ExperimentConfig, device: torch.device,
+    selected_models: list[str] | None = None,
 ) -> tuple[list[ExplanationResult], np.ndarray]:
     """Generate XAI explanations using all methods."""
-    logger.info(f"=== EXPLAINING on {dataset.dataset_name} ===")
+    models_to_explain = selected_models or ALL_MODELS
+    logger.info(f"=== EXPLAINING on {dataset.dataset_name} (models: {models_to_explain}) ===")
     log_gpu_memory("pre-explain")
     output_dir = config.output_dir / dataset.dataset_name
 
-    # Load trained models
-    dnn_model, rf_model, xgb_model, xgb_label_map = load_models(
-        config.output_dir, dataset.dataset_name,
-        dataset.X_train.shape[1], dataset.num_classes,
-        config.dnn, device,
-    )
-    dnn_wrapper = DNNWrapper(dnn_model, device)
-    rf_wrapper = RFWrapper(rf_model, num_classes=dataset.num_classes)
-    xgb_wrapper = XGBWrapper(xgb_model, num_classes=dataset.num_classes, label_map=xgb_label_map) if xgb_model else None
+    # Load trained models (only those selected)
+    dnn_model = rf_model = xgb_model = xgb_label_map = None
+    dnn_wrapper = rf_wrapper = xgb_wrapper = None
 
-    # Generate explanations
+    if any(m in models_to_explain for m in ["dnn", "rf", "xgb"]):
+        dnn_model, rf_model, xgb_model, xgb_label_map = load_models(
+            config.output_dir, dataset.dataset_name,
+            dataset.X_train.shape[1], dataset.num_classes,
+            config.dnn, device,
+        )
+        if "dnn" in models_to_explain:
+            dnn_wrapper = DNNWrapper(dnn_model, device)
+        if "rf" in models_to_explain:
+            rf_wrapper = RFWrapper(rf_model, num_classes=dataset.num_classes)
+        if "xgb" in models_to_explain and xgb_model is not None:
+            xgb_wrapper = XGBWrapper(xgb_model, num_classes=dataset.num_classes, label_map=xgb_label_map)
+
+    # Load CNN models if selected
+    cnn_lstm_model = cnn_lstm_wrapper = cnn_lstm_flat = None
+    cnn_gru_model = cnn_gru_wrapper = cnn_gru_flat = None
+    if any(m in models_to_explain for m in ["cnn-lstm", "cnn-gru"]):
+        cnn_lstm_raw, cnn_lstm_cfg, cnn_gru_raw, cnn_gru_cfg = load_cnn_models(
+            config.output_dir, dataset.dataset_name, dataset.num_classes, device,
+        )
+        if "cnn-lstm" in models_to_explain and cnn_lstm_raw is not None:
+            gs = cnn_lstm_cfg.grid_size
+            cnn_lstm_model = cnn_lstm_raw
+            cnn_lstm_wrapper = CNNLSTMWrapper(cnn_lstm_raw, device, gs)
+            cnn_lstm_flat = FlatCNNLSTM(cnn_lstm_raw, gs)
+        if "cnn-gru" in models_to_explain and cnn_gru_raw is not None:
+            gs = cnn_gru_cfg.input_spatial_size
+            cnn_gru_model = cnn_gru_raw
+            cnn_gru_wrapper = CNNGRUWrapper(cnn_gru_raw, device, gs)
+            cnn_gru_flat = FlatCNNGRU(cnn_gru_raw, gs)
+
+    # Generate explanations for classic models
     results, indices = generate_all_explanations(
-        dnn_model, rf_model, dnn_wrapper, rf_wrapper,
+        dnn_model if "dnn" in models_to_explain else None,
+        rf_model if "rf" in models_to_explain else None,
+        dnn_wrapper, rf_wrapper,
         dataset, device, config.explainer,
-        xgb_model=xgb_model, xgb_wrapper=xgb_wrapper,
+        xgb_model=xgb_model if "xgb" in models_to_explain else None,
+        xgb_wrapper=xgb_wrapper,
     )
+
+    # Generate explanations for CNN models (reuse same indices)
+    X_explain = dataset.X_test[indices]
+    if cnn_lstm_flat is not None:
+        _generate_cnn_explanations(
+            results, cnn_lstm_flat, cnn_lstm_wrapper,
+            "CNN-LSTM", X_explain, dataset, device, config.explainer,
+        )
+    if cnn_gru_flat is not None:
+        _generate_cnn_explanations(
+            results, cnn_gru_flat, cnn_gru_wrapper,
+            "CNN-GRU", X_explain, dataset, device, config.explainer,
+        )
 
     # Generate and time global summary plots
     X_explain = dataset.X_test[indices]
@@ -196,22 +286,46 @@ def phase_evaluate(
     device: torch.device,
     explanation_results: list[ExplanationResult] | None = None,
     explain_indices: np.ndarray | None = None,
+    selected_models: list[str] | None = None,
 ) -> list[dict]:
     """Evaluate all metrics on the generated explanations."""
-    logger.info(f"=== EVALUATING on {dataset.dataset_name} ===")
+    models_to_eval = selected_models or ALL_MODELS
+    logger.info(f"=== EVALUATING on {dataset.dataset_name} (models: {models_to_eval}) ===")
     log_gpu_memory("pre-evaluate")
     output_dir = config.output_dir / dataset.dataset_name
     explain_dir = output_dir / "explanations"
 
-    # Load models
-    dnn_model, rf_model, xgb_model, xgb_label_map = load_models(
-        config.output_dir, dataset.dataset_name,
-        dataset.X_train.shape[1], dataset.num_classes,
-        config.dnn, device,
-    )
-    dnn_wrapper = DNNWrapper(dnn_model, device)
-    rf_wrapper = RFWrapper(rf_model, num_classes=dataset.num_classes)
-    xgb_wrapper = XGBWrapper(xgb_model, num_classes=dataset.num_classes, label_map=xgb_label_map) if xgb_model else None
+    # Load classic models
+    dnn_model = rf_model = xgb_model = xgb_label_map = None
+    dnn_wrapper = rf_wrapper = xgb_wrapper = None
+    if any(m in models_to_eval for m in ["dnn", "rf", "xgb"]):
+        dnn_model, rf_model, xgb_model, xgb_label_map = load_models(
+            config.output_dir, dataset.dataset_name,
+            dataset.X_train.shape[1], dataset.num_classes,
+            config.dnn, device,
+        )
+        if "dnn" in models_to_eval:
+            dnn_wrapper = DNNWrapper(dnn_model, device)
+        if "rf" in models_to_eval:
+            rf_wrapper = RFWrapper(rf_model, num_classes=dataset.num_classes)
+        if "xgb" in models_to_eval and xgb_model is not None:
+            xgb_wrapper = XGBWrapper(xgb_model, num_classes=dataset.num_classes, label_map=xgb_label_map)
+
+    # Load CNN models
+    cnn_lstm_wrapper = cnn_lstm_flat = None
+    cnn_gru_wrapper = cnn_gru_flat = None
+    if any(m in models_to_eval for m in ["cnn-lstm", "cnn-gru"]):
+        cnn_lstm_raw, cnn_lstm_cfg, cnn_gru_raw, cnn_gru_cfg = load_cnn_models(
+            config.output_dir, dataset.dataset_name, dataset.num_classes, device,
+        )
+        if "cnn-lstm" in models_to_eval and cnn_lstm_raw is not None:
+            gs = cnn_lstm_cfg.grid_size
+            cnn_lstm_wrapper = CNNLSTMWrapper(cnn_lstm_raw, device, gs)
+            cnn_lstm_flat = FlatCNNLSTM(cnn_lstm_raw, gs)
+        if "cnn-gru" in models_to_eval and cnn_gru_raw is not None:
+            gs = cnn_gru_cfg.input_spatial_size
+            cnn_gru_wrapper = CNNGRUWrapper(cnn_gru_raw, device, gs)
+            cnn_gru_flat = FlatCNNGRU(cnn_gru_raw, gs)
 
     # Load or use provided explanations
     if explain_indices is None:
@@ -219,6 +333,12 @@ def phase_evaluate(
 
     if explanation_results is None:
         explanation_results = _load_explanations(explain_dir, dataset, config)
+
+    # Filter to only selected models
+    explanation_results = [
+        r for r in explanation_results
+        if _model_name_to_key(r.model_name) in models_to_eval
+    ]
 
     all_metrics = []
 
@@ -237,6 +357,18 @@ def phase_evaluate(
             explain_fn = _make_explain_fn(
                 exp_result.method_name, "XGB", None, xgb_wrapper,
                 dataset, device, config.explainer, rf_model=xgb_model,
+            )
+        elif exp_result.model_name == "CNN-LSTM":
+            predict_fn = cnn_lstm_wrapper.predict_proba
+            explain_fn = _make_explain_fn(
+                exp_result.method_name, "CNN-LSTM", cnn_lstm_flat, cnn_lstm_wrapper,
+                dataset, device, config.explainer,
+            )
+        elif exp_result.model_name == "CNN-GRU":
+            predict_fn = cnn_gru_wrapper.predict_proba
+            explain_fn = _make_explain_fn(
+                exp_result.method_name, "CNN-GRU", cnn_gru_flat, cnn_gru_wrapper,
+                dataset, device, config.explainer,
             )
         else:
             predict_fn = rf_wrapper.predict_proba
@@ -277,6 +409,66 @@ def phase_evaluate(
     return all_metrics
 
 
+def _model_name_to_key(model_name: str) -> str:
+    """Map model display names (e.g. 'CNN-LSTM') to CLI keys (e.g. 'cnn-lstm')."""
+    return model_name.lower().replace("_", "-")
+
+
+def _generate_cnn_explanations(
+    results: list[ExplanationResult],
+    flat_model: torch.nn.Module,
+    wrapper,
+    model_name: str,
+    X_explain: np.ndarray,
+    dataset: DatasetBundle,
+    device: torch.device,
+    config,
+) -> None:
+    """Generate SHAP, LIME, IG, and DeepLIFT explanations for a CNN model.
+
+    The flat_model (FlatCNNLSTM or FlatCNNGRU) accepts flat input, making it
+    compatible with the standard explainer functions.
+    """
+    rng = np.random.RandomState(42)
+    bg_indices = rng.choice(len(dataset.X_train), size=config.shap_background_samples, replace=False)
+    X_background = dataset.X_train[bg_indices]
+
+    # SHAP (DeepExplainer)
+    try:
+        r = explain_shap_dnn(flat_model, X_explain, X_background, device, config)
+        r.model_name = model_name
+        results.append(r)
+    except Exception as e:
+        logger.warning(f"  SHAP failed for {model_name}: {e}")
+
+    # LIME
+    try:
+        r = explain_lime(
+            wrapper.predict_proba, X_explain, dataset.X_train,
+            dataset.feature_names, dataset.num_classes, model_name, config,
+        )
+        r.model_name = model_name
+        results.append(r)
+    except Exception as e:
+        logger.warning(f"  LIME failed for {model_name}: {e}")
+
+    # Integrated Gradients
+    try:
+        r = explain_ig(flat_model, X_explain, device, config)
+        r.model_name = model_name
+        results.append(r)
+    except Exception as e:
+        logger.warning(f"  IG failed for {model_name}: {e}")
+
+    # DeepLIFT
+    try:
+        r = explain_deeplift(flat_model, X_explain, device, config)
+        r.model_name = model_name
+        results.append(r)
+    except Exception as e:
+        logger.warning(f"  DeepLIFT failed for {model_name}: {e}")
+
+
 def _make_explain_fn(
     method_name: str,
     model_type: str,
@@ -292,7 +484,7 @@ def _make_explain_fn(
     bg_indices = rng.choice(len(dataset.X_train), size=config.shap_background_samples, replace=False)
     X_background = dataset.X_train[bg_indices]
 
-    if method_name == "SHAP" and model_type == "DNN":
+    if method_name == "SHAP" and model_type in ("DNN", "CNN-LSTM", "CNN-GRU"):
         def fn(X):
             r = explain_shap_dnn(dnn_model, X, X_background, device, config)
             return r.attributions
@@ -394,7 +586,10 @@ def _json_serialize(obj):
     raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
 
 
-def run_experiment(config: ExperimentConfig, datasets: list[str], phases: list[str]):
+def run_experiment(
+    config: ExperimentConfig, datasets: list[str], phases: list[str],
+    selected_models: list[str] | None = None,
+):
     """Main experiment runner."""
     device, num_gpus = setup_device()
     config.output_dir.mkdir(parents=True, exist_ok=True)
@@ -404,9 +599,12 @@ def run_experiment(config: ExperimentConfig, datasets: list[str], phases: list[s
         json.dump({
             "datasets": datasets,
             "phases": phases,
+            "models": selected_models or ALL_MODELS,
             "dnn": vars(config.dnn),
             "rf": vars(config.rf),
             "xgb": vars(config.xgb),
+            "cnn_lstm": vars(config.cnn_lstm),
+            "cnn_gru": vars(config.cnn_gru),
             "explainer": vars(config.explainer),
             "metric": vars(config.metric),
             "seed": config.seed,
@@ -431,7 +629,7 @@ def run_experiment(config: ExperimentConfig, datasets: list[str], phases: list[s
         # Phase: Train
         if "train" in phases or "all" in phases:
             try:
-                train_results = phase_train(dataset, config, device, num_gpus)
+                train_results = phase_train(dataset, config, device, num_gpus, selected_models)
                 ds_results["train"] = train_results
             except Exception as e:
                 logger.error(f"Training failed for {ds_name}: {e}", exc_info=True)
@@ -445,7 +643,7 @@ def run_experiment(config: ExperimentConfig, datasets: list[str], phases: list[s
         explain_indices = None
         if "explain" in phases or "all" in phases:
             try:
-                explanation_results, explain_indices = phase_explain(dataset, config, device)
+                explanation_results, explain_indices = phase_explain(dataset, config, device, selected_models)
                 ds_results["explain"] = {
                     r.method_name + "_" + r.model_name: {
                         "time_per_sample_ms": r.time_per_sample_ms,
@@ -465,7 +663,8 @@ def run_experiment(config: ExperimentConfig, datasets: list[str], phases: list[s
         if "evaluate" in phases or "all" in phases:
             try:
                 eval_results = phase_evaluate(
-                    dataset, config, device, explanation_results, explain_indices
+                    dataset, config, device, explanation_results, explain_indices,
+                    selected_models,
                 )
                 ds_results["evaluate"] = eval_results
             except Exception as e:
@@ -640,6 +839,13 @@ def parse_args():
         help="Output directory for results",
     )
     parser.add_argument(
+        "--models",
+        nargs="+",
+        default=None,
+        choices=ALL_MODELS,
+        help=f"Models to run (default: all). Choices: {', '.join(ALL_MODELS)}",
+    )
+    parser.add_argument(
         "--no-smote",
         action="store_true",
         help="Disable SMOTE oversampling",
@@ -667,9 +873,9 @@ def main():
 
     datasets = args.datasets or config.ALL_DATASETS
     phases = args.phase
+    selected_models = args.models  # None means all
 
-    # Set seeds
-    np.random.seed(config.seed)
+    # Set seeds (use default_rng instead of deprecated np.random.seed)
     torch.manual_seed(config.seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(config.seed)
@@ -677,10 +883,11 @@ def main():
     logger.info("Experiment 1: Quantitative Benchmarking of Explanation Quality")
     logger.info(f"Datasets: {datasets}")
     logger.info(f"Phases: {phases}")
+    logger.info(f"Models: {selected_models or ALL_MODELS}")
     logger.info(f"Output: {config.output_dir}")
     logger.info(f"Explain samples: {config.explainer.num_explain_samples}")
 
-    run_experiment(config, datasets, phases)
+    run_experiment(config, datasets, phases, selected_models)
 
 
 if __name__ == "__main__":

@@ -1,20 +1,24 @@
-"""DNN (multi-GPU) and Random Forest model training for NIDS classification."""
+"""DNN, RF, XGBoost, CNN-LSTM, and CNN-GRU model training for NIDS classification."""
 
+import json
 import logging
+import math
 import time
 import warnings
+from dataclasses import asdict
 from pathlib import Path
 
 import numpy as np
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, f1_score, roc_auc_score
 from torch.amp import GradScaler, autocast
 from torch.utils.data import DataLoader, TensorDataset
 from tqdm import tqdm
 
-from config import DNNConfig, RFConfig, XGBConfig
+from config import CNNGRUConfig, CNNLSTMConfig, DNNConfig, RFConfig, XGBConfig
 from data_loader import DatasetBundle
 
 logger = logging.getLogger(__name__)
@@ -163,15 +167,29 @@ def _evaluate_model(wrapper, X_test: np.ndarray, y_test: np.ndarray, num_classes
     f1 = f1_score(y_test, y_pred, average="weighted", zero_division=0)
 
     try:
-        if len(np.unique(y_test)) < 2:
+        unique_classes = np.unique(y_test)
+        if len(unique_classes) < 2:
             auc = float("nan")
         elif num_classes == 2:
             auc = roc_auc_score(y_test, y_proba[:, 1])
         else:
-            auc = roc_auc_score(
-                y_test, y_proba, multi_class="ovr", average="weighted",
-                labels=np.arange(num_classes),
-            )
+            # Manual OVR: only compute AUC for classes with both pos and neg samples
+            per_class_auc = []
+            per_class_weight = []
+            for c in range(num_classes):
+                binary_true = (y_test == c).astype(int)
+                n_pos = binary_true.sum()
+                n_neg = len(binary_true) - n_pos
+                if n_pos == 0 or n_neg == 0:
+                    continue
+                auc_c = roc_auc_score(binary_true, y_proba[:, c])
+                per_class_auc.append(auc_c)
+                per_class_weight.append(n_pos)
+            if per_class_auc:
+                weights = np.array(per_class_weight, dtype=float)
+                auc = float(np.average(per_class_auc, weights=weights))
+            else:
+                auc = float("nan")
     except ValueError:
         auc = float("nan")
 
@@ -420,8 +438,8 @@ def train_xgb(
 
 
 def save_models(
-    dnn_model: nn.Module,
-    rf_model: RandomForestClassifier,
+    dnn_model: nn.Module | None,
+    rf_model: RandomForestClassifier | None,
     output_dir: Path,
     dataset_name: str,
     xgb_model=None,
@@ -434,11 +452,13 @@ def save_models(
     model_dir.mkdir(parents=True, exist_ok=True)
 
     # Save DNN
-    base = dnn_model.module if isinstance(dnn_model, nn.DataParallel) else dnn_model
-    torch.save(base.state_dict(), model_dir / "dnn.pt")
+    if dnn_model is not None:
+        base = dnn_model.module if isinstance(dnn_model, nn.DataParallel) else dnn_model
+        torch.save(base.state_dict(), model_dir / "dnn.pt")
 
     # Save RF
-    joblib.dump(rf_model, model_dir / "rf.joblib")
+    if rf_model is not None:
+        joblib.dump(rf_model, model_dir / "rf.joblib")
 
     # Save XGBoost
     if xgb_model is not None:
@@ -488,3 +508,663 @@ def load_models(
     xgb_label_map = np.load(xgb_label_map_path) if xgb_label_map_path.exists() else None
 
     return dnn, rf, xgb_model, xgb_label_map
+
+
+# ---------------------------------------------------------------------------
+# Grid reshaping utilities for CNN models
+# ---------------------------------------------------------------------------
+
+def _compute_grid_size(n_features: int) -> int:
+    """Compute the smallest grid size such that grid_size² >= n_features."""
+    return math.ceil(math.sqrt(n_features))
+
+
+def _features_to_grid(X: torch.Tensor, grid_size: int) -> torch.Tensor:
+    """Reshape flat features (B, F) to a 2D grid (B, 1, grid_size, grid_size).
+
+    Zero-pads if F < grid_size².
+    """
+    B, F = X.shape
+    total = grid_size * grid_size
+    if F < total:
+        X = F_pad(X, (0, total - F))
+    elif F > total:
+        X = X[:, :total]
+    return X.view(B, 1, grid_size, grid_size)
+
+
+def F_pad(tensor: torch.Tensor, pad: tuple) -> torch.Tensor:
+    """Functional pad wrapper (avoids shadowing torch.nn.functional)."""
+    return F.pad(tensor, pad)
+
+
+# ---------------------------------------------------------------------------
+# CNN-LSTM Model
+# ---------------------------------------------------------------------------
+
+class CNNLSTM(nn.Module):
+    """CNN-LSTM hybrid: spatial feature extraction (CNN) followed by temporal
+    modelling (LSTM) for network intrusion detection."""
+
+    def __init__(self, num_classes: int, grid_size: int = 11,
+                 hidden_size: int = 128, num_lstm_layers: int = 1,
+                 dropout: float = 0.5):
+        super().__init__()
+        self.grid_size = grid_size
+
+        self.cnn = nn.Sequential(
+            nn.BatchNorm2d(1),
+            nn.Conv2d(1, 64, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2),
+            nn.Dropout2d(dropout),
+        )
+
+        self.conv_out_size = 64 * (grid_size // 2) * (grid_size // 2)
+
+        self.lstm = nn.LSTM(
+            input_size=self.conv_out_size,
+            hidden_size=hidden_size,
+            num_layers=num_lstm_layers,
+            batch_first=True,
+            dropout=dropout if num_lstm_layers > 1 else 0.0,
+        )
+
+        self.fc = nn.Sequential(
+            nn.Linear(hidden_size, 128),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(128, num_classes),
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # x: (B, 1, grid_size, grid_size)
+        x = self.cnn(x)
+        x = x.view(x.size(0), 1, -1)  # (B, 1, conv_out_size)
+        _, (h_n, _) = self.lstm(x)
+        x = h_n[-1]
+        return self.fc(x)
+
+
+class FlatCNNLSTM(nn.Module):
+    """Wraps CNNLSTM to accept flat input (B, n_features) for use with
+    explainers (SHAP, IG, DeepLIFT) that require an nn.Module interface."""
+
+    def __init__(self, cnn_lstm: CNNLSTM, grid_size: int):
+        super().__init__()
+        self.cnn_lstm = cnn_lstm
+        self.grid_size = grid_size
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = _features_to_grid(x, self.grid_size)
+        return self.cnn_lstm(x)
+
+
+class CNNLSTMWrapper:
+    """Sklearn-style predict/predict_proba interface for CNNLSTM.
+    Accepts flat numpy arrays and handles grid reshaping internally."""
+
+    def __init__(self, model: nn.Module, device: torch.device, grid_size: int):
+        self.model = model
+        self.device = device
+        self.grid_size = grid_size
+        self.base_model = model.module if isinstance(model, nn.DataParallel) else model
+
+    def predict_proba(self, X: np.ndarray) -> np.ndarray:
+        self.model.eval()
+        with torch.no_grad():
+            tensor = torch.tensor(X, dtype=torch.float32).to(self.device)
+            tensor = _features_to_grid(tensor, self.grid_size)
+            batch_size = 2048
+            if len(tensor) <= batch_size:
+                logits = self.model(tensor)
+                return torch.softmax(logits, dim=1).cpu().numpy()
+            probs_list = []
+            for i in range(0, len(tensor), batch_size):
+                batch = tensor[i : i + batch_size]
+                logits = self.model(batch)
+                probs_list.append(torch.softmax(logits, dim=1).cpu().numpy())
+            return np.concatenate(probs_list, axis=0)
+
+    def predict(self, X: np.ndarray) -> np.ndarray:
+        return np.argmax(self.predict_proba(X), axis=1)
+
+
+# ---------------------------------------------------------------------------
+# CNN-GRU Model
+# ---------------------------------------------------------------------------
+
+class CNNGRU(nn.Module):
+    """CNN-GRU hybrid: parallel spatial (CNN) and temporal (GRU) feature
+    extraction with late fusion for network intrusion detection."""
+
+    def __init__(self, num_classes: int, input_channels: int = 1,
+                 cnn_filters: int = 64, cnn_kernel_size: int = 3,
+                 pool_kernel_size: int = 2, cnn_dropout: float = 0.5,
+                 gru_hidden_size: int = 75, gru_num_layers: int = 1,
+                 gru_dropout: float = 0.5, fc_hidden_size: int = 128,
+                 input_spatial_size: int = 11):
+        super().__init__()
+        self.input_spatial_size = input_spatial_size
+
+        self.cnn_branch = nn.Sequential(
+            nn.BatchNorm2d(input_channels),
+            nn.Conv2d(input_channels, cnn_filters, kernel_size=cnn_kernel_size,
+                      padding=cnn_kernel_size // 2),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=pool_kernel_size),
+            nn.Dropout2d(cnn_dropout),
+        )
+
+        self.gru_bn = nn.BatchNorm1d(input_channels)
+        self.gru = nn.GRU(
+            input_size=input_channels, hidden_size=gru_hidden_size,
+            num_layers=gru_num_layers, batch_first=True,
+            dropout=gru_dropout if gru_num_layers > 1 else 0,
+        )
+
+        cnn_output_size = input_spatial_size // pool_kernel_size
+        self.fc1_input_size = gru_hidden_size + cnn_filters * cnn_output_size * cnn_output_size
+
+        self.fc = nn.Sequential(
+            nn.Linear(self.fc1_input_size, fc_hidden_size),
+            nn.ReLU(),
+            nn.Dropout(gru_dropout),
+            nn.Linear(fc_hidden_size, num_classes),
+        )
+
+    def forward(self, x_spatial: torch.Tensor, x_temporal: torch.Tensor) -> torch.Tensor:
+        # x_spatial:  (B, channels, H, W)
+        # x_temporal: (B, seq_len, channels)
+        cnn_out = self.cnn_branch(x_spatial)
+        cnn_out = torch.flatten(cnn_out, 1)
+
+        x_temporal = self.gru_bn(x_temporal.transpose(1, 2)).transpose(1, 2)
+        _, h_n = self.gru(x_temporal)
+        gru_out = h_n[-1]
+
+        combined = torch.cat((cnn_out, gru_out), dim=1)
+        return self.fc(combined)
+
+
+class FlatCNNGRU(nn.Module):
+    """Wraps CNNGRU to accept flat input (B, n_features) for explainers.
+
+    Internally creates spatial (2D grid) and temporal (sequence) views from
+    the flat feature vector.
+    """
+
+    def __init__(self, cnn_gru: CNNGRU, grid_size: int):
+        super().__init__()
+        self.cnn_gru = cnn_gru
+        self.grid_size = grid_size
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x_spatial = _features_to_grid(x, self.grid_size)
+        # Temporal: (B, grid_size², 1) — each padded feature as a timestep
+        B, F = x.shape
+        total = self.grid_size * self.grid_size
+        if F < total:
+            x_pad = F_pad(x, (0, total - F))
+        elif F > total:
+            x_pad = x[:, :total]
+        else:
+            x_pad = x
+        x_temporal = x_pad.unsqueeze(2)  # (B, seq_len, 1)
+        return self.cnn_gru(x_spatial, x_temporal)
+
+
+class CNNGRUWrapper:
+    """Sklearn-style predict/predict_proba interface for CNNGRU.
+    Accepts flat numpy arrays and handles grid reshaping internally."""
+
+    def __init__(self, model: nn.Module, device: torch.device, grid_size: int):
+        self.model = model
+        self.device = device
+        self.grid_size = grid_size
+        self.base_model = model.module if isinstance(model, nn.DataParallel) else model
+
+    def _prepare_inputs(self, tensor: torch.Tensor):
+        """Convert flat tensor to spatial + temporal views."""
+        B, F = tensor.shape
+        total = self.grid_size * self.grid_size
+        if F < total:
+            tensor_pad = F_pad(tensor, (0, total - F))
+        elif F > total:
+            tensor_pad = tensor[:, :total]
+        else:
+            tensor_pad = tensor
+        x_spatial = tensor_pad.view(B, 1, self.grid_size, self.grid_size)
+        x_temporal = tensor_pad.unsqueeze(2)  # (B, seq_len, 1)
+        return x_spatial, x_temporal
+
+    def predict_proba(self, X: np.ndarray) -> np.ndarray:
+        self.model.eval()
+        with torch.no_grad():
+            tensor = torch.tensor(X, dtype=torch.float32).to(self.device)
+            batch_size = 2048
+            probs_list = []
+            for i in range(0, len(tensor), batch_size):
+                batch = tensor[i : i + batch_size]
+                x_spatial, x_temporal = self._prepare_inputs(batch)
+                logits = self.model(x_spatial, x_temporal)
+                probs_list.append(torch.softmax(logits, dim=1).cpu().numpy())
+            return np.concatenate(probs_list, axis=0)
+
+    def predict(self, X: np.ndarray) -> np.ndarray:
+        return np.argmax(self.predict_proba(X), axis=1)
+
+
+class FocalLoss(nn.Module):
+    """Focal Loss for handling class imbalance."""
+
+    def __init__(self, weight=None, gamma: float = 2.0):
+        super().__init__()
+        self.gamma = gamma
+        self.weight = weight
+
+    def forward(self, inputs: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
+        ce_loss = F.cross_entropy(inputs, targets, reduction="none", weight=self.weight)
+        pt = torch.exp(-ce_loss)
+        return ((1 - pt) ** self.gamma * ce_loss).mean()
+
+
+# ---------------------------------------------------------------------------
+# CNN-LSTM training
+# ---------------------------------------------------------------------------
+
+def train_cnn_lstm(
+    dataset: DatasetBundle,
+    config: CNNLSTMConfig,
+    device: torch.device,
+    num_gpus: int = 1,
+) -> tuple[CNNLSTM, CNNLSTMWrapper, dict]:
+    """Train CNN-LSTM with multi-GPU DataParallel and AMP support."""
+    n_features = dataset.X_train.shape[1]
+    grid_size = config.grid_size or _compute_grid_size(n_features)
+    logger.info(
+        f"Training CNN-LSTM on {dataset.dataset_name} "
+        f"({dataset.X_train.shape}, grid={grid_size}x{grid_size})"
+    )
+
+    model = CNNLSTM(
+        num_classes=dataset.num_classes,
+        grid_size=grid_size,
+        hidden_size=config.hidden_size,
+        num_lstm_layers=config.num_lstm_layers,
+        dropout=config.dropout,
+    )
+
+    if num_gpus > 1 and torch.cuda.device_count() > 1:
+        logger.info(f"  Using DataParallel with {torch.cuda.device_count()} GPUs")
+        model = nn.DataParallel(model)
+    model = model.to(device)
+
+    if device.type == "cuda":
+        with torch.no_grad():
+            dummy = torch.zeros(1, 1, grid_size, grid_size, device=device)
+            base = model.module if isinstance(model, nn.DataParallel) else model
+            base(dummy)
+
+    use_amp = device.type == "cuda"
+    if use_amp:
+        logger.info("  Using Automatic Mixed Precision (AMP) training")
+
+    # Reshape flat features to grid for dataloaders
+    def _to_grid(X: np.ndarray) -> np.ndarray:
+        total = grid_size * grid_size
+        if X.shape[1] < total:
+            X = np.pad(X, ((0, 0), (0, total - X.shape[1])))
+        elif X.shape[1] > total:
+            X = X[:, :total]
+        return X.reshape(-1, 1, grid_size, grid_size)
+
+    train_ds = TensorDataset(
+        torch.tensor(_to_grid(dataset.X_train), dtype=torch.float32),
+        torch.tensor(dataset.y_train, dtype=torch.long),
+    )
+    val_ds = TensorDataset(
+        torch.tensor(_to_grid(dataset.X_val), dtype=torch.float32),
+        torch.tensor(dataset.y_val, dtype=torch.long),
+    )
+    train_loader = DataLoader(
+        train_ds, batch_size=config.batch_size, shuffle=True,
+        num_workers=4, pin_memory=True, persistent_workers=True,
+    )
+    val_loader = DataLoader(
+        val_ds, batch_size=config.batch_size, shuffle=False,
+        num_workers=4, pin_memory=True, persistent_workers=True,
+    )
+
+    optimizer = torch.optim.Adam(model.parameters(), lr=config.learning_rate)
+    criterion = nn.CrossEntropyLoss()
+    scaler = GradScaler("cuda", enabled=use_amp)
+
+    best_val_loss = float("inf")
+    patience_counter = 0
+    best_state = None
+    train_start = time.time()
+
+    for epoch in range(config.epochs):
+        model.train()
+        train_loss = 0.0
+        for X_batch, y_batch in train_loader:
+            X_batch = X_batch.to(device, non_blocking=True)
+            y_batch = y_batch.to(device, non_blocking=True)
+            optimizer.zero_grad(set_to_none=True)
+            with autocast("cuda", enabled=use_amp):
+                outputs = model(X_batch)
+                loss = criterion(outputs, y_batch)
+            scaler.scale(loss).backward()
+            scaler.unscale_(optimizer)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+            scaler.step(optimizer)
+            scaler.update()
+            train_loss += loss.item() * len(X_batch)
+        train_loss /= len(train_ds)
+
+        model.eval()
+        val_loss = 0.0
+        with torch.no_grad(), autocast("cuda", enabled=use_amp):
+            for X_batch, y_batch in val_loader:
+                X_batch = X_batch.to(device, non_blocking=True)
+                y_batch = y_batch.to(device, non_blocking=True)
+                outputs = model(X_batch)
+                loss = criterion(outputs, y_batch)
+                val_loss += loss.item() * len(X_batch)
+        val_loss /= len(val_ds)
+
+        if (epoch + 1) % 10 == 0 or epoch == 0:
+            logger.info(
+                f"  Epoch {epoch + 1}/{config.epochs} - "
+                f"Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}"
+            )
+
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
+            patience_counter = 0
+            best_state = {k: v.cpu().clone() for k, v in model.state_dict().items()}
+        else:
+            patience_counter += 1
+            if patience_counter >= config.early_stopping_patience:
+                logger.info(f"  Early stopping at epoch {epoch + 1}")
+                break
+
+    train_time = time.time() - train_start
+    logger.info(f"  CNN-LSTM training completed in {train_time:.1f}s")
+
+    if best_state is not None:
+        model.load_state_dict(best_state)
+    model = model.to(device)
+
+    if device.type == "cuda":
+        with torch.no_grad():
+            base = model.module if isinstance(model, nn.DataParallel) else model
+            base(torch.zeros(1, 1, grid_size, grid_size, device=device))
+
+    wrapper = CNNLSTMWrapper(model, device, grid_size)
+    metrics = _evaluate_model(wrapper, dataset.X_test, dataset.y_test, dataset.num_classes)
+    metrics["train_time_seconds"] = train_time
+    metrics["grid_size"] = grid_size
+    logger.info(f"  CNN-LSTM Metrics: {metrics}")
+
+    return model, wrapper, metrics
+
+
+# ---------------------------------------------------------------------------
+# CNN-GRU training
+# ---------------------------------------------------------------------------
+
+def train_cnn_gru(
+    dataset: DatasetBundle,
+    config: CNNGRUConfig,
+    device: torch.device,
+    num_gpus: int = 1,
+) -> tuple[CNNGRU, CNNGRUWrapper, dict]:
+    """Train CNN-GRU with multi-GPU DataParallel and AMP support."""
+    n_features = dataset.X_train.shape[1]
+    grid_size = config.input_spatial_size or _compute_grid_size(n_features)
+    total = grid_size * grid_size
+    logger.info(
+        f"Training CNN-GRU on {dataset.dataset_name} "
+        f"({dataset.X_train.shape}, grid={grid_size}x{grid_size})"
+    )
+
+    model = CNNGRU(
+        num_classes=dataset.num_classes,
+        input_channels=config.input_channels,
+        cnn_filters=config.cnn_filters,
+        cnn_kernel_size=config.cnn_kernel_size,
+        pool_kernel_size=config.pool_kernel_size,
+        cnn_dropout=config.cnn_dropout,
+        gru_hidden_size=config.gru_hidden_size,
+        gru_num_layers=config.gru_num_layers,
+        gru_dropout=config.gru_dropout,
+        fc_hidden_size=config.fc_hidden_size,
+        input_spatial_size=grid_size,
+    )
+
+    if num_gpus > 1 and torch.cuda.device_count() > 1:
+        logger.info(f"  Using DataParallel with {torch.cuda.device_count()} GPUs")
+        model = nn.DataParallel(model)
+    model = model.to(device)
+
+    if device.type == "cuda":
+        with torch.no_grad():
+            base = model.module if isinstance(model, nn.DataParallel) else model
+            dummy_s = torch.zeros(1, config.input_channels, grid_size, grid_size, device=device)
+            dummy_t = torch.zeros(1, total, config.gru_input_size, device=device)
+            base(dummy_s, dummy_t)
+
+    use_amp = device.type == "cuda"
+    if use_amp:
+        logger.info("  Using Automatic Mixed Precision (AMP) training")
+
+    def _prepare(X: np.ndarray):
+        """Convert flat features to spatial + temporal arrays."""
+        if X.shape[1] < total:
+            X = np.pad(X, ((0, 0), (0, total - X.shape[1])))
+        elif X.shape[1] > total:
+            X = X[:, :total]
+        spatial = X.reshape(-1, 1, grid_size, grid_size)
+        temporal = X.reshape(-1, total, 1)
+        return spatial, temporal
+
+    X_train_s, X_train_t = _prepare(dataset.X_train)
+    X_val_s, X_val_t = _prepare(dataset.X_val)
+
+    train_ds = TensorDataset(
+        torch.tensor(X_train_s, dtype=torch.float32),
+        torch.tensor(X_train_t, dtype=torch.float32),
+        torch.tensor(dataset.y_train, dtype=torch.long),
+    )
+    val_ds = TensorDataset(
+        torch.tensor(X_val_s, dtype=torch.float32),
+        torch.tensor(X_val_t, dtype=torch.float32),
+        torch.tensor(dataset.y_val, dtype=torch.long),
+    )
+    train_loader = DataLoader(
+        train_ds, batch_size=config.batch_size, shuffle=True,
+        num_workers=4, pin_memory=True, persistent_workers=True,
+    )
+    val_loader = DataLoader(
+        val_ds, batch_size=config.batch_size, shuffle=False,
+        num_workers=4, pin_memory=True, persistent_workers=True,
+    )
+
+    optimizer = torch.optim.Adam(model.parameters(), lr=config.learning_rate)
+    criterion = nn.CrossEntropyLoss()
+    scaler = GradScaler("cuda", enabled=use_amp)
+
+    best_val_loss = float("inf")
+    patience_counter = 0
+    best_state = None
+    train_start = time.time()
+
+    for epoch in range(config.epochs):
+        model.train()
+        train_loss = 0.0
+        for X_s, X_t, y_batch in train_loader:
+            X_s = X_s.to(device, non_blocking=True)
+            X_t = X_t.to(device, non_blocking=True)
+            y_batch = y_batch.to(device, non_blocking=True)
+            optimizer.zero_grad(set_to_none=True)
+            with autocast("cuda", enabled=use_amp):
+                outputs = model(X_s, X_t)
+                loss = criterion(outputs, y_batch)
+            scaler.scale(loss).backward()
+            scaler.unscale_(optimizer)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+            scaler.step(optimizer)
+            scaler.update()
+            train_loss += loss.item() * len(y_batch)
+        train_loss /= len(train_ds)
+
+        model.eval()
+        val_loss = 0.0
+        with torch.no_grad(), autocast("cuda", enabled=use_amp):
+            for X_s, X_t, y_batch in val_loader:
+                X_s = X_s.to(device, non_blocking=True)
+                X_t = X_t.to(device, non_blocking=True)
+                y_batch = y_batch.to(device, non_blocking=True)
+                outputs = model(X_s, X_t)
+                loss = criterion(outputs, y_batch)
+                val_loss += loss.item() * len(y_batch)
+        val_loss /= len(val_ds)
+
+        if (epoch + 1) % 10 == 0 or epoch == 0:
+            logger.info(
+                f"  Epoch {epoch + 1}/{config.epochs} - "
+                f"Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}"
+            )
+
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
+            patience_counter = 0
+            best_state = {k: v.cpu().clone() for k, v in model.state_dict().items()}
+        else:
+            patience_counter += 1
+            if patience_counter >= config.early_stopping_patience:
+                logger.info(f"  Early stopping at epoch {epoch + 1}")
+                break
+
+    train_time = time.time() - train_start
+    logger.info(f"  CNN-GRU training completed in {train_time:.1f}s")
+
+    if best_state is not None:
+        model.load_state_dict(best_state)
+    model = model.to(device)
+
+    if device.type == "cuda":
+        with torch.no_grad():
+            base = model.module if isinstance(model, nn.DataParallel) else model
+            dummy_s = torch.zeros(1, config.input_channels, grid_size, grid_size, device=device)
+            dummy_t = torch.zeros(1, total, config.gru_input_size, device=device)
+            base(dummy_s, dummy_t)
+
+    wrapper = CNNGRUWrapper(model, device, grid_size)
+    metrics = _evaluate_model(wrapper, dataset.X_test, dataset.y_test, dataset.num_classes)
+    metrics["train_time_seconds"] = train_time
+    metrics["grid_size"] = grid_size
+    logger.info(f"  CNN-GRU Metrics: {metrics}")
+
+    return model, wrapper, metrics
+
+
+# ---------------------------------------------------------------------------
+# CNN model save/load
+# ---------------------------------------------------------------------------
+
+def save_cnn_models(
+    output_dir: Path,
+    dataset_name: str,
+    cnn_lstm_model: nn.Module | None = None,
+    cnn_lstm_config: CNNLSTMConfig | None = None,
+    cnn_gru_model: nn.Module | None = None,
+    cnn_gru_config: CNNGRUConfig | None = None,
+) -> None:
+    """Save trained CNN models and their configs to disk."""
+    model_dir = output_dir / "models" / dataset_name
+    model_dir.mkdir(parents=True, exist_ok=True)
+
+    if cnn_lstm_model is not None:
+        base = cnn_lstm_model.module if isinstance(cnn_lstm_model, nn.DataParallel) else cnn_lstm_model
+        torch.save(base.state_dict(), model_dir / "cnn_lstm.pt")
+        if cnn_lstm_config is not None:
+            with open(model_dir / "cnn_lstm_config.json", "w") as f:
+                json.dump(asdict(cnn_lstm_config), f, indent=2)
+        logger.info(f"  CNN-LSTM model saved to {model_dir}")
+
+    if cnn_gru_model is not None:
+        base = cnn_gru_model.module if isinstance(cnn_gru_model, nn.DataParallel) else cnn_gru_model
+        torch.save(base.state_dict(), model_dir / "cnn_gru.pt")
+        if cnn_gru_config is not None:
+            with open(model_dir / "cnn_gru_config.json", "w") as f:
+                json.dump(asdict(cnn_gru_config), f, indent=2)
+        logger.info(f"  CNN-GRU model saved to {model_dir}")
+
+
+def load_cnn_models(
+    output_dir: Path,
+    dataset_name: str,
+    num_classes: int,
+    device: torch.device,
+) -> tuple[CNNLSTM | None, CNNLSTMConfig | None, CNNGRU | None, CNNGRUConfig | None]:
+    """Load previously trained CNN models from disk."""
+    model_dir = output_dir / "models" / dataset_name
+    cnn_lstm = None
+    cnn_lstm_config = None
+    cnn_gru = None
+    cnn_gru_config = None
+
+    # Load CNN-LSTM
+    cnn_lstm_path = model_dir / "cnn_lstm.pt"
+    if cnn_lstm_path.exists():
+        with open(model_dir / "cnn_lstm_config.json") as f:
+            cnn_lstm_config = CNNLSTMConfig(**json.load(f))
+        cnn_lstm = CNNLSTM(
+            num_classes=num_classes,
+            grid_size=cnn_lstm_config.grid_size,
+            hidden_size=cnn_lstm_config.hidden_size,
+            num_lstm_layers=cnn_lstm_config.num_lstm_layers,
+            dropout=cnn_lstm_config.dropout,
+        )
+        cnn_lstm.load_state_dict(torch.load(cnn_lstm_path, map_location=device, weights_only=True))
+        cnn_lstm = cnn_lstm.to(device)
+        cnn_lstm.eval()
+        if device.type == "cuda":
+            with torch.no_grad():
+                cnn_lstm(torch.zeros(1, 1, cnn_lstm_config.grid_size, cnn_lstm_config.grid_size, device=device))
+        logger.info(f"  CNN-LSTM model loaded from {model_dir}")
+
+    # Load CNN-GRU
+    cnn_gru_path = model_dir / "cnn_gru.pt"
+    if cnn_gru_path.exists():
+        with open(model_dir / "cnn_gru_config.json") as f:
+            cnn_gru_config = CNNGRUConfig(**json.load(f))
+        gs = cnn_gru_config.input_spatial_size
+        cnn_gru = CNNGRU(
+            num_classes=num_classes,
+            input_channels=cnn_gru_config.input_channels,
+            cnn_filters=cnn_gru_config.cnn_filters,
+            cnn_kernel_size=cnn_gru_config.cnn_kernel_size,
+            pool_kernel_size=cnn_gru_config.pool_kernel_size,
+            cnn_dropout=cnn_gru_config.cnn_dropout,
+            gru_hidden_size=cnn_gru_config.gru_hidden_size,
+            gru_num_layers=cnn_gru_config.gru_num_layers,
+            gru_dropout=cnn_gru_config.gru_dropout,
+            fc_hidden_size=cnn_gru_config.fc_hidden_size,
+            input_spatial_size=gs,
+        )
+        cnn_gru.load_state_dict(torch.load(cnn_gru_path, map_location=device, weights_only=True))
+        cnn_gru = cnn_gru.to(device)
+        cnn_gru.eval()
+        if device.type == "cuda":
+            with torch.no_grad():
+                total = gs * gs
+                dummy_s = torch.zeros(1, cnn_gru_config.input_channels, gs, gs, device=device)
+                dummy_t = torch.zeros(1, total, cnn_gru_config.gru_input_size, device=device)
+                cnn_gru(dummy_s, dummy_t)
+        logger.info(f"  CNN-GRU model loaded from {model_dir}")
+
+    return cnn_lstm, cnn_lstm_config, cnn_gru, cnn_gru_config

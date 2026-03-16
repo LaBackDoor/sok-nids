@@ -18,6 +18,8 @@ class AttackConfig:
     pgd_step_size_factor: float = 2.5  # step_size = factor * epsilon / num_steps
     num_attack_samples: int = 1000
     attack_batch_size: int = 512
+    run_constrained: bool = True
+    run_unconstrained: bool = True
 
 
 @dataclass
@@ -68,5 +70,5 @@ class Experiment2Config:
     output_dir: Path = Path("experiments/2/results")
     seed: int = 42
     datasets: list[str] = field(
-        default_factory=lambda: ["nsl-kdd", "cic-ids-2017", "unsw-nb15", "cse-cic-ids2018"]
+        default_factory=lambda: ["nsl-kdd", "cic-ids-2017", "unsw-nb15", "cse-cic-ids2018", "cic-iov-2024"]
     )
