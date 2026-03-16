@@ -21,6 +21,51 @@ from config import MetricConfig
 logger = logging.getLogger(__name__)
 
 
+def _safe_roc_auc(
+    y_true: np.ndarray,
+    y_proba: np.ndarray,
+    num_classes: int,
+    context: str = "",
+) -> float:
+    """Compute ROC AUC only over classes that have both positive and negative samples.
+
+    sklearn's OVR mode warns when a class has only one value in y_true.
+    This computes per-class AUC only for valid classes and returns the
+    weighted average, avoiding the UndefinedMetricWarning entirely.
+    """
+    from sklearn.metrics import roc_auc_score
+
+    unique_classes = np.unique(y_true)
+    if len(unique_classes) < 2:
+        logger.warning(f"AUC requires at least 2 classes in y ({context}); skipping.")
+        return float("nan")
+
+    try:
+        if num_classes == 2:
+            return roc_auc_score(y_true, y_proba[:, 1])
+
+        # Manual OVR: compute per-class AUC only for classes present in y_true
+        per_class_auc = []
+        per_class_weight = []
+        for c in range(num_classes):
+            binary_true = (y_true == c).astype(int)
+            n_pos = binary_true.sum()
+            n_neg = len(binary_true) - n_pos
+            if n_pos == 0 or n_neg == 0:
+                continue
+            auc_c = roc_auc_score(binary_true, y_proba[:, c])
+            per_class_auc.append(auc_c)
+            per_class_weight.append(n_pos)
+
+        if not per_class_auc:
+            return float("nan")
+        weights = np.array(per_class_weight, dtype=float)
+        return float(np.average(per_class_auc, weights=weights))
+    except ValueError as e:
+        logger.warning(f"AUC computation failed ({context}): {e}")
+        return float("nan")
+
+
 def faithfulness(
     predict_fn,
     X: np.ndarray,
@@ -41,20 +86,7 @@ def faithfulness(
     y_proba_base = predict_fn(X)
     y_pred_base = np.argmax(y_proba_base, axis=1)
     base_f1 = f1_score(y, y_pred_base, average="weighted", zero_division=0)
-    try:
-        if len(np.unique(y)) < 2:
-            logger.warning("AUC requires at least 2 classes in y; skipping.")
-            base_auc = float("nan")
-        elif num_classes == 2:
-            base_auc = roc_auc_score(y, y_proba_base[:, 1])
-        else:
-            base_auc = roc_auc_score(
-                y, y_proba_base, multi_class="ovr", average="weighted",
-                labels=np.arange(num_classes),
-            )
-    except ValueError as e:
-        logger.warning(f"AUC computation failed (baseline): {e}")
-        base_auc = float("nan")
+    base_auc = _safe_roc_auc(y, y_proba_base, num_classes, "baseline")
 
     results["baseline_f1"] = base_f1
     results["baseline_auc"] = base_auc
@@ -74,19 +106,7 @@ def faithfulness(
         y_proba_masked = predict_fn(X_masked)
         y_pred_masked = np.argmax(y_proba_masked, axis=1)
         masked_f1 = f1_score(y, y_pred_masked, average="weighted", zero_division=0)
-        try:
-            if len(np.unique(y)) < 2:
-                masked_auc = float("nan")
-            elif num_classes == 2:
-                masked_auc = roc_auc_score(y, y_proba_masked[:, 1])
-            else:
-                masked_auc = roc_auc_score(
-                    y, y_proba_masked, multi_class="ovr", average="weighted",
-                    labels=np.arange(num_classes),
-                )
-        except ValueError as e:
-            logger.warning(f"AUC computation failed (masked k={k}): {e}")
-            masked_auc = float("nan")
+        masked_auc = _safe_roc_auc(y, y_proba_masked, num_classes, f"masked k={k}")
 
         results[f"f1_drop_k{k}"] = base_f1 - masked_f1
         results[f"auc_drop_k{k}"] = base_auc - masked_auc if not np.isnan(base_auc) else float("nan")
