@@ -1,42 +1,77 @@
 {
+  "DNN_SHAP": {
+    "time_per_sample_ms": 31.57052149772644,
+    "total_time_s": 315.7052149772644,
+    "summary_plot_time_s": 3.1312732696533203
+  },
+  "DNN_LIME": {
+    "time_per_sample_ms": 176.76970000267028,
+    "total_time_s": 1767.6970000267029,
+    "summary_plot_time_s": 3.0670979022979736
+  },
+  "DNN_IG": {
+    "time_per_sample_ms": 0.799893569946289,
+    "total_time_s": 7.998935699462891,
+    "summary_plot_time_s": 3.2489309310913086
+  },
+  "DNN_DeepLIFT": {
+    "time_per_sample_ms": 0.03091146945953369,
+    "total_time_s": 0.3091146945953369,
+    "summary_plot_time_s": 3.0516109466552734
+  },
+  "RF_SHAP": {
+    "time_per_sample_ms": 8.733112406730653,
+    "total_time_s": 87.33112406730652,
+    "summary_plot_time_s": 3.1107499599456787
+  },
+  "RF_LIME": {
+    "time_per_sample_ms": 238.69121496677397,
+    "total_time_s": 2386.91214966774,
+    "summary_plot_time_s": 3.0632975101470947
+  },
+  "XGB_LIME": {
+    "time_per_sample_ms": 183.76723868846892,
+    "total_time_s": 1837.6723868846893,
+    "summary_plot_time_s": 3.0610568523406982
+  },
   "CNN-LSTM_SHAP": {
-    "time_per_sample_ms": 65.48010952472687,
-    "total_time_s": 654.8010952472687,
-    "summary_plot_time_s": 3.344615936279297
+    "time_per_sample_ms": 286.6237067699432,
+    "total_time_s": 2866.2370676994324,
+    "summary_plot_time_s": 3.1063742637634277
   },
   "CNN-LSTM_LIME": {
-    "time_per_sample_ms": 167.90881898403168,
-    "total_time_s": 1679.0881898403168,
-    "summary_plot_time_s": 3.104529857635498
+    "time_per_sample_ms": 184.95761268138887,
+    "total_time_s": 1849.5761268138885,
+    "summary_plot_time_s": 3.098116159439087
   },
   "CNN-LSTM_IG": {
-    "time_per_sample_ms": 2.3396692276000977,
-    "total_time_s": 23.396692276000977,
-    "summary_plot_time_s": 3.0997912883758545
+    "time_per_sample_ms": 2.5887083768844605,
+    "total_time_s": 25.887083768844604,
+    "summary_plot_time_s": 3.0932888984680176
   },
   "CNN-LSTM_DeepLIFT": {
-    "time_per_sample_ms": 0.09244406223297119,
-    "total_time_s": 0.9244406223297119,
-    "summary_plot_time_s": 3.0616815090179443
+    "time_per_sample_ms": 0.10534279346466065,
+    "total_time_s": 1.0534279346466064,
+    "summary_plot_time_s": 3.054297685623169
   },
   "CNN-GRU_SHAP": {
-    "time_per_sample_ms": 179.40000903606415,
-    "total_time_s": 1794.0000903606415,
-    "summary_plot_time_s": 3.0922675132751465
+    "time_per_sample_ms": 719.6652886629105,
+    "total_time_s": 7196.652886629105,
+    "summary_plot_time_s": 3.3272268772125244
   },
   "CNN-GRU_LIME": {
-    "time_per_sample_ms": 167.3479198217392,
-    "total_time_s": 1673.479198217392,
-    "summary_plot_time_s": 3.080214023590088
+    "time_per_sample_ms": 187.45945699214937,
+    "total_time_s": 1874.5945699214935,
+    "summary_plot_time_s": 3.0695931911468506
   },
   "CNN-GRU_IG": {
-    "time_per_sample_ms": 3.3314861536026,
-    "total_time_s": 33.314861536026,
-    "summary_plot_time_s": 3.0902419090270996
+    "time_per_sample_ms": 3.6598615884780883,
+    "total_time_s": 36.598615884780884,
+    "summary_plot_time_s": 3.0815911293029785
   },
   "CNN-GRU_DeepLIFT": {
-    "time_per_sample_ms": 0.11201415061950683,
-    "total_time_s": 1.1201415061950684,
-    "summary_plot_time_s": 3.064141035079956
+    "time_per_sample_ms": 0.12285630702972412,
+    "total_time_s": 1.2285630702972412,
+    "summary_plot_time_s": 3.0565385818481445
   }
 }

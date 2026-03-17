@@ -1,5 +1,7 @@
 """XAI explanation methods: SHAP, LIME, Integrated Gradients, DeepLIFT."""
 
+import io
+import json
 import logging
 import time
 import warnings
@@ -40,6 +42,29 @@ def _disable_cudnn_for_rnn(model):
     finally:
         if has_rnn:
             torch.backends.cudnn.enabled = prev
+
+
+def _fix_xgb_base_score(model):
+    """Fix XGBoost 2.x base_score vector for SHAP compatibility.
+
+    XGBoost 2.x stores base_score as a per-class vector (e.g. '[0E0,0E0,0E0]')
+    for multi:softprob. SHAP's TreeExplainer expects a scalar float and fails
+    to parse the vector string. This resets it to a scalar in-place.
+    """
+    if not hasattr(model, 'get_booster'):
+        return model
+    booster = model.get_booster()
+    try:
+        raw_bytes = booster.save_raw('json')
+        model_json = json.loads(raw_bytes)
+        lmp = model_json.get('learner', {}).get('learner_model_param', {})
+        bs = lmp.get('base_score', '')
+        if isinstance(bs, str) and bs.startswith('['):
+            lmp['base_score'] = '5e-01'
+            booster.load_model(io.BytesIO(json.dumps(model_json).encode()))
+    except Exception:
+        pass
+    return model
 
 
 @dataclass
@@ -444,6 +469,7 @@ def generate_all_explanations(
     if xgb_model is not None and xgb_wrapper is not None:
         logger.info("--- XGBoost Explanations ---")
         try:
+            _fix_xgb_base_score(xgb_model)
             results.append(explain_shap_rf(xgb_model, X_explain, config))
             # Rename model_name to XGB
             results[-1].model_name = "XGB"

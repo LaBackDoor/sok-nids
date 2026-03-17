@@ -144,10 +144,14 @@ class XGBWrapper:
 
     def predict_proba(self, X: np.ndarray) -> np.ndarray:
         proba = self.model.predict_proba(X)
-        if self.label_map is not None and self.num_classes is not None:
+        if self.num_classes is not None and proba.shape[1] < self.num_classes:
             full_proba = np.zeros((proba.shape[0], self.num_classes), dtype=proba.dtype)
-            for compact_idx, orig_idx in enumerate(self.label_map):
-                full_proba[:, orig_idx] = proba[:, compact_idx]
+            if self.label_map is not None:
+                for compact_idx, orig_idx in enumerate(self.label_map):
+                    full_proba[:, orig_idx] = proba[:, compact_idx]
+            else:
+                # Labels were already contiguous [0, K), so compact == original
+                full_proba[:, :proba.shape[1]] = proba
             return full_proba
         return proba
 

@@ -10,6 +10,9 @@
     "all"
   ],
   "models": [
+    "dnn",
+    "rf",
+    "xgb",
     "cnn-lstm",
     "cnn-gru"
   ],
