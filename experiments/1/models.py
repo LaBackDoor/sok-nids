@@ -15,7 +15,7 @@ import torch.nn.functional as F
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, f1_score, roc_auc_score
 from torch.amp import GradScaler, autocast
-from torch.utils.data import DataLoader, TensorDataset
+from torch.utils.data import DataLoader, Dataset, TensorDataset
 from tqdm import tqdm
 
 from config import CNNGRUConfig, CNNLSTMConfig, DNNConfig, RFConfig, XGBConfig
@@ -25,6 +25,58 @@ logger = logging.getLogger(__name__)
 
 # Enable cuDNN auto-tuner for optimal convolution algorithms
 torch.backends.cudnn.benchmark = True
+
+
+class LazyGridDataset(Dataset):
+    """Reshapes flat features to a grid on-the-fly to avoid pre-materialising
+    the full reshaped array.  Keeps only the original numpy array in memory."""
+
+    def __init__(self, X: np.ndarray, y: np.ndarray, grid_size: int):
+        total = grid_size * grid_size
+        if X.shape[1] < total:
+            X = np.pad(X, ((0, 0), (0, total - X.shape[1])))
+        elif X.shape[1] > total:
+            X = X[:, :total]
+        self.X = X
+        self.y = y
+        self.grid_size = grid_size
+
+    def __len__(self):
+        return len(self.y)
+
+    def __getitem__(self, idx):
+        x = torch.from_numpy(
+            self.X[idx].reshape(1, self.grid_size, self.grid_size)
+        ).float()
+        return x, torch.tensor(self.y[idx], dtype=torch.long)
+
+
+class LazyDualGridDataset(Dataset):
+    """Lazy dataset for CNN-GRU: returns (spatial, temporal, label) on-the-fly."""
+
+    def __init__(self, X: np.ndarray, y: np.ndarray, grid_size: int):
+        total = grid_size * grid_size
+        if X.shape[1] < total:
+            X = np.pad(X, ((0, 0), (0, total - X.shape[1])))
+        elif X.shape[1] > total:
+            X = X[:, :total]
+        self.X = X
+        self.y = y
+        self.grid_size = grid_size
+        self.total = total
+
+    def __len__(self):
+        return len(self.y)
+
+    def __getitem__(self, idx):
+        row = self.X[idx]
+        spatial = torch.from_numpy(
+            row.reshape(1, self.grid_size, self.grid_size)
+        ).float()
+        temporal = torch.from_numpy(
+            row.reshape(self.total, 1)
+        ).float()
+        return spatial, temporal, torch.tensor(self.y[idx], dtype=torch.long)
 
 # Suppress XGBoost device mismatch warning (prediction still uses GPU via DMatrix fallback)
 warnings.filterwarnings("ignore", message=".*Falling back to prediction using DMatrix.*")
@@ -335,13 +387,27 @@ def train_rf(
     """Train Random Forest classifier."""
     logger.info(f"Training RF on {dataset.dataset_name} ({dataset.X_train.shape})")
 
+    # For large datasets, limit parallelism to avoid OOM from per-worker
+    # sorting buffers, and subsample rows per tree via max_samples.
+    n_train = dataset.X_train.shape[0]
+    n_jobs = config.n_jobs
+    kwargs = {}
+    if n_train > 5_000_000:
+        n_jobs = min(n_jobs, 2) if n_jobs > 0 else 2
+        kwargs["max_samples"] = min(2_000_000, n_train)
+        logger.info(
+            f"  Large dataset ({n_train} rows): n_jobs={n_jobs}, "
+            f"max_samples={kwargs['max_samples']}"
+        )
+
     model = RandomForestClassifier(
         n_estimators=config.n_estimators,
         max_depth=config.max_depth,
         min_samples_split=config.min_samples_split,
         criterion=config.criterion,
-        n_jobs=config.n_jobs,
+        n_jobs=n_jobs,
         random_state=42,
+        **kwargs,
     )
 
     train_start = time.time()
@@ -409,6 +475,11 @@ def train_xgb(
         random_state=42,
         objective=objective,
         eval_metric=eval_metric,
+        # XGBoost 3.x defaults to multi_output_tree which stores per-class
+        # vector leaf values.  SHAP TreeExplainer cannot parse these string
+        # vectors and raises "could not convert string to float".  Using the
+        # classic one-output-per-tree format keeps SHAP compatibility.
+        multi_strategy="one_output_per_tree",
     )
 
     train_start = time.time()
@@ -814,30 +885,38 @@ def train_cnn_lstm(
     if use_amp:
         logger.info("  Using Automatic Mixed Precision (AMP) training")
 
-    # Reshape flat features to grid for dataloaders
-    def _to_grid(X: np.ndarray) -> np.ndarray:
-        total = grid_size * grid_size
-        if X.shape[1] < total:
-            X = np.pad(X, ((0, 0), (0, total - X.shape[1])))
-        elif X.shape[1] > total:
-            X = X[:, :total]
-        return X.reshape(-1, 1, grid_size, grid_size)
+    # For large datasets, use lazy reshaping to avoid duplicating the full array
+    n_train = dataset.X_train.shape[0]
+    if n_train > 5_000_000:
+        logger.info(f"  Using lazy grid dataset ({n_train} rows)")
+        train_ds = LazyGridDataset(dataset.X_train, dataset.y_train, grid_size)
+        val_ds = LazyGridDataset(dataset.X_val, dataset.y_val, grid_size)
+        num_workers = 2
+    else:
+        def _to_grid(X: np.ndarray) -> np.ndarray:
+            total = grid_size * grid_size
+            if X.shape[1] < total:
+                X = np.pad(X, ((0, 0), (0, total - X.shape[1])))
+            elif X.shape[1] > total:
+                X = X[:, :total]
+            return X.reshape(-1, 1, grid_size, grid_size)
 
-    train_ds = TensorDataset(
-        torch.tensor(_to_grid(dataset.X_train), dtype=torch.float32),
-        torch.tensor(dataset.y_train, dtype=torch.long),
-    )
-    val_ds = TensorDataset(
-        torch.tensor(_to_grid(dataset.X_val), dtype=torch.float32),
-        torch.tensor(dataset.y_val, dtype=torch.long),
-    )
+        train_ds = TensorDataset(
+            torch.tensor(_to_grid(dataset.X_train), dtype=torch.float32),
+            torch.tensor(dataset.y_train, dtype=torch.long),
+        )
+        val_ds = TensorDataset(
+            torch.tensor(_to_grid(dataset.X_val), dtype=torch.float32),
+            torch.tensor(dataset.y_val, dtype=torch.long),
+        )
+        num_workers = 4
     train_loader = DataLoader(
         train_ds, batch_size=config.batch_size, shuffle=True,
-        num_workers=4, pin_memory=True, persistent_workers=True,
+        num_workers=num_workers, pin_memory=True, persistent_workers=True,
     )
     val_loader = DataLoader(
         val_ds, batch_size=config.batch_size, shuffle=False,
-        num_workers=4, pin_memory=True, persistent_workers=True,
+        num_workers=num_workers, pin_memory=True, persistent_workers=True,
     )
 
     optimizer = torch.optim.Adam(model.parameters(), lr=config.learning_rate)
@@ -964,36 +1043,44 @@ def train_cnn_gru(
     if use_amp:
         logger.info("  Using Automatic Mixed Precision (AMP) training")
 
-    def _prepare(X: np.ndarray):
-        """Convert flat features to spatial + temporal arrays."""
-        if X.shape[1] < total:
-            X = np.pad(X, ((0, 0), (0, total - X.shape[1])))
-        elif X.shape[1] > total:
-            X = X[:, :total]
-        spatial = X.reshape(-1, 1, grid_size, grid_size)
-        temporal = X.reshape(-1, total, 1)
-        return spatial, temporal
+    n_train = dataset.X_train.shape[0]
+    if n_train > 5_000_000:
+        logger.info(f"  Using lazy dual-grid dataset ({n_train} rows)")
+        train_ds = LazyDualGridDataset(dataset.X_train, dataset.y_train, grid_size)
+        val_ds = LazyDualGridDataset(dataset.X_val, dataset.y_val, grid_size)
+        num_workers = 2
+    else:
+        def _prepare(X: np.ndarray):
+            """Convert flat features to spatial + temporal arrays."""
+            if X.shape[1] < total:
+                X = np.pad(X, ((0, 0), (0, total - X.shape[1])))
+            elif X.shape[1] > total:
+                X = X[:, :total]
+            spatial = X.reshape(-1, 1, grid_size, grid_size)
+            temporal = X.reshape(-1, total, 1)
+            return spatial, temporal
 
-    X_train_s, X_train_t = _prepare(dataset.X_train)
-    X_val_s, X_val_t = _prepare(dataset.X_val)
+        X_train_s, X_train_t = _prepare(dataset.X_train)
+        X_val_s, X_val_t = _prepare(dataset.X_val)
 
-    train_ds = TensorDataset(
-        torch.tensor(X_train_s, dtype=torch.float32),
-        torch.tensor(X_train_t, dtype=torch.float32),
-        torch.tensor(dataset.y_train, dtype=torch.long),
-    )
-    val_ds = TensorDataset(
-        torch.tensor(X_val_s, dtype=torch.float32),
-        torch.tensor(X_val_t, dtype=torch.float32),
-        torch.tensor(dataset.y_val, dtype=torch.long),
-    )
+        train_ds = TensorDataset(
+            torch.tensor(X_train_s, dtype=torch.float32),
+            torch.tensor(X_train_t, dtype=torch.float32),
+            torch.tensor(dataset.y_train, dtype=torch.long),
+        )
+        val_ds = TensorDataset(
+            torch.tensor(X_val_s, dtype=torch.float32),
+            torch.tensor(X_val_t, dtype=torch.float32),
+            torch.tensor(dataset.y_val, dtype=torch.long),
+        )
+        num_workers = 4
     train_loader = DataLoader(
         train_ds, batch_size=config.batch_size, shuffle=True,
-        num_workers=4, pin_memory=True, persistent_workers=True,
+        num_workers=num_workers, pin_memory=True, persistent_workers=True,
     )
     val_loader = DataLoader(
         val_ds, batch_size=config.batch_size, shuffle=False,
-        num_workers=4, pin_memory=True, persistent_workers=True,
+        num_workers=num_workers, pin_memory=True, persistent_workers=True,
     )
 
     optimizer = torch.optim.Adam(model.parameters(), lr=config.learning_rate)

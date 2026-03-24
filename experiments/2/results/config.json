@@ -1,9 +1,13 @@
 {
   "datasets": [
-    "nsl-kdd"
+    "nsl-kdd",
+    "cic-ids-2017",
+    "unsw-nb15",
+    "cse-cic-ids2018",
+    "cic-iov-2024"
   ],
   "phases": [
-    "robustness"
+    "all"
   ],
   "attack": {
     "fgsm_epsilons": [
@@ -20,8 +24,10 @@
     ],
     "pgd_num_steps": 20,
     "pgd_step_size_factor": 2.5,
-    "num_attack_samples": 20,
-    "attack_batch_size": 512
+    "num_attack_samples": 1000,
+    "attack_batch_size": 512,
+    "run_constrained": true,
+    "run_unconstrained": true
   },
   "scaffolding": {
     "biased_feature": null,
@@ -44,7 +50,7 @@
     ]
   },
   "robustness": {
-    "num_samples": 10,
+    "num_samples": 1000,
     "explanation_methods": [
       "SHAP",
       "LIME",

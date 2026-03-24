@@ -5,6 +5,7 @@ Implements M1 (Input Manipulation) threat model attacks with L-infinity norm con
 
 import logging
 import time
+from typing import Callable, Optional
 
 import numpy as np
 import torch
@@ -29,7 +30,7 @@ def fgsm_attack(
     y: np.ndarray,
     epsilon: float,
     device: torch.device,
-    constraint_projector: callable | None = None,
+    constraint_projector: Optional[Callable] = None,
 ) -> np.ndarray:
     """Fast Gradient Sign Method (FGSM) single-step attack.
 
@@ -63,7 +64,7 @@ def pgd_attack(
     step_size: float,
     num_steps: int,
     device: torch.device,
-    constraint_projector: callable | None = None,
+    constraint_projector: Optional[Callable] = None,
 ) -> np.ndarray:
     """Projected Gradient Descent (PGD) iterative attack.
 
@@ -108,7 +109,7 @@ def generate_adversarial_examples(
     y: np.ndarray,
     config: AttackConfig,
     device: torch.device,
-    constraint_projector: callable | None = None,
+    constraint_projector: Optional[Callable] = None,
 ) -> dict:
     """Generate adversarial examples using FGSM and PGD at multiple epsilon values.
 

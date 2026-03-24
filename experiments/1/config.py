@@ -6,7 +6,7 @@ from pathlib import Path
 
 @dataclass
 class DataConfig:
-    data_root: Path = Path(__file__).resolve().parents[2] / "data"
+    data_root: Path = Path("/mnt/c/Users/abanisenioluwa_oroj1/Downloads/data/data")
     nsl_kdd_dir: str = "nsl-kdd"
     cic_ids_2017_dir: str = "cic-ids-2017"
     unsw_nb15_dir: str = "cic_unsw-nb15_augmented_dataset"
@@ -119,5 +119,11 @@ class ExperimentConfig:
     seed: int = 42
 
     ALL_DATASETS: list[str] = field(
-        default_factory=lambda: ["nsl-kdd", "cic-ids-2017", "unsw-nb15", "cse-cic-ids2018", "cic-iov-2024"]
+        default_factory=lambda: [
+            "nsl-kdd",
+            "cic-ids-2017",
+            "unsw-nb15",
+            "cse-cic-ids2018",
+            "cic-iov-2024",
+        ]
     )

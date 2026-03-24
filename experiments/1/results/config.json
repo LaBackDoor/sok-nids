@@ -1,9 +1,9 @@
 {
   "datasets": [
-    "cse-cic-ids2018"
+    "nsl-kdd"
   ],
   "phases": [
-    "explain"
+    "train"
   ],
   "models": [
     "dnn",

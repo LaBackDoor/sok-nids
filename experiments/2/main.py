@@ -123,7 +123,7 @@ def ensure_models_trained(
 
     if (model_dir / "dnn.pt").exists() and (model_dir / "rf.joblib").exists():
         logger.info(f"  Loading pre-trained models from {model_dir}")
-        dnn_model, rf_model = load_models(
+        dnn_model, rf_model, _, _ = load_models(
             exp1_results_dir,
             dataset.dataset_name,
             dataset.X_train.shape[1],

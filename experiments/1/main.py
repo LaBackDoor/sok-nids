@@ -229,6 +229,23 @@ def phase_explain(
             cnn_gru_wrapper = CNNGRUWrapper(cnn_gru_raw, device, gs)
             cnn_gru_flat = FlatCNNGRU(cnn_gru_raw, gs)
 
+    # For large datasets, free training/val arrays to reclaim memory.
+    # Explain/evaluate only need X_test + a small LIME/SHAP background sample.
+    import gc
+    _LIME_BG = 50_000
+    if dataset.X_train.shape[0] > _LIME_BG:
+        logger.info(
+            f"  Subsampling X_train for explanations: "
+            f"{dataset.X_train.shape[0]} -> {_LIME_BG}"
+        )
+        rng_bg = np.random.RandomState(42)
+        bg_idx = rng_bg.choice(dataset.X_train.shape[0], size=_LIME_BG, replace=False)
+        dataset.X_train = dataset.X_train[bg_idx]
+        dataset.y_train = dataset.y_train[bg_idx]
+        dataset.X_val = dataset.X_val[:1]
+        dataset.y_val = dataset.y_val[:1]
+        gc.collect()
+
     # Generate explanations for classic models
     results, indices = generate_all_explanations(
         dnn_model if "dnn" in models_to_explain else None,

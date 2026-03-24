@@ -61,7 +61,7 @@ def _fix_xgb_base_score(model):
         bs = lmp.get('base_score', '')
         if isinstance(bs, str) and bs.startswith('['):
             lmp['base_score'] = '5e-01'
-            booster.load_model(io.BytesIO(json.dumps(model_json).encode()))
+            booster.load_model(bytearray(json.dumps(model_json).encode()))
     except Exception:
         pass
     return model
@@ -245,19 +245,34 @@ def explain_lime(
     # Get predicted classes so LIME explains the predicted label
     preds = np.argmax(predict_fn(X_explain), axis=1)
 
-    # Use 75% of available CPUs
+    # Use 75% of available CPUs, but cap for large datasets to limit memory
     total_cpus = os.cpu_count() or 1
     n_jobs = max(1, int(total_cpus * 0.75))
-    logger.info(f"  LIME parallelizing with {n_jobs}/{total_cpus} CPUs (75%)")
+    n_train = X_train.shape[0]
+    if n_train > 5_000_000:
+        n_jobs = min(n_jobs, 4)
+    logger.info(f"  LIME parallelizing with {n_jobs}/{total_cpus} CPUs")
+
+    # Subsample training data for LIME background statistics to limit memory.
+    # LIME only uses this for mean/std/discretizer — 50k rows is sufficient.
+    _LIME_BG_LIMIT = 50_000
+    if n_train > _LIME_BG_LIMIT:
+        rng = np.random.RandomState(42)
+        bg_idx = rng.choice(n_train, size=_LIME_BG_LIMIT, replace=False)
+        X_train_bg = X_train[bg_idx]
+        logger.info(f"  LIME background subsampled: {n_train} -> {_LIME_BG_LIMIT}")
+    else:
+        X_train_bg = X_train
 
     # Instantiate once — avoids recomputing X_train statistics per sample
     explainer = LimeTabularExplainer(
-        training_data=X_train,
+        training_data=X_train_bg,
         feature_names=feature_names,
         class_names=[str(c) for c in range(num_classes)],
         mode="classification",
         discretize_continuous=True,
     )
+    del X_train_bg
 
     def _explain_one(i):
         exp = explainer.explain_instance(
