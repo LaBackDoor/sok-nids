@@ -1,0 +1,77 @@
+{
+  "DNN_SHAP": {
+    "time_per_sample_ms": 84.39188594818116,
+    "total_time_s": 843.9188594818115,
+    "summary_plot_time_s": 1.4750621318817139
+  },
+  "DNN_LIME": {
+    "time_per_sample_ms": 198.61883718967437,
+    "total_time_s": 1986.1883718967438,
+    "summary_plot_time_s": 1.428905725479126
+  },
+  "DNN_IG": {
+    "time_per_sample_ms": 0.7195518255233765,
+    "total_time_s": 7.195518255233765,
+    "summary_plot_time_s": 1.4447417259216309
+  },
+  "DNN_DeepLIFT": {
+    "time_per_sample_ms": 0.03040754795074463,
+    "total_time_s": 0.3040754795074463,
+    "summary_plot_time_s": 1.4596824645996094
+  },
+  "RF_SHAP": {
+    "time_per_sample_ms": 7.484513974189758,
+    "total_time_s": 74.84513974189758,
+    "summary_plot_time_s": 1.4990565776824951
+  },
+  "RF_LIME": {
+    "time_per_sample_ms": 256.019882440567,
+    "total_time_s": 2560.19882440567,
+    "summary_plot_time_s": 1.5619325637817383
+  },
+  "XGB_LIME": {
+    "time_per_sample_ms": 198.9945527076721,
+    "total_time_s": 1989.9455270767212,
+    "summary_plot_time_s": 1.5202081203460693
+  },
+  "CNN-LSTM_SHAP": {
+    "time_per_sample_ms": 879.4435192346573,
+    "total_time_s": 8794.435192346573,
+    "summary_plot_time_s": 1.422581434249878
+  },
+  "CNN-LSTM_LIME": {
+    "time_per_sample_ms": 206.41829810142517,
+    "total_time_s": 2064.1829810142517,
+    "summary_plot_time_s": 1.4473743438720703
+  },
+  "CNN-LSTM_IG": {
+    "time_per_sample_ms": 2.439774250984192,
+    "total_time_s": 24.39774250984192,
+    "summary_plot_time_s": 1.4270410537719727
+  },
+  "CNN-LSTM_DeepLIFT": {
+    "time_per_sample_ms": 0.11593363285064696,
+    "total_time_s": 1.1593363285064697,
+    "summary_plot_time_s": 1.4324429035186768
+  },
+  "CNN-GRU_SHAP": {
+    "time_per_sample_ms": 1857.6540102243423,
+    "total_time_s": 18576.540102243423,
+    "summary_plot_time_s": 1.430948257446289
+  },
+  "CNN-GRU_LIME": {
+    "time_per_sample_ms": 212.6872722864151,
+    "total_time_s": 2126.872722864151,
+    "summary_plot_time_s": 1.4396119117736816
+  },
+  "CNN-GRU_IG": {
+    "time_per_sample_ms": 3.827497363090515,
+    "total_time_s": 38.27497363090515,
+    "summary_plot_time_s": 1.5216035842895508
+  },
+  "CNN-GRU_DeepLIFT": {
+    "time_per_sample_ms": 0.3852410793304443,
+    "total_time_s": 3.8524107933044434,
+    "summary_plot_time_s": 1.4290416240692139
+  }
+}

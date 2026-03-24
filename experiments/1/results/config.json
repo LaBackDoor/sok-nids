@@ -3,7 +3,7 @@
     "cse-cic-ids2018"
   ],
   "phases": [
-    "all"
+    "explain"
   ],
   "models": [
     "dnn",
