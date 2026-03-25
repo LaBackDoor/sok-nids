@@ -1,0 +1,839 @@
+{
+  "dataset_name": "nsl-kdd",
+  "num_features": 122,
+  "feature_types": {
+    "continuous": 1,
+    "integer": 16,
+    "binary": 6,
+    "rate": 15,
+    "one_hot": 84
+  },
+  "one_hot_groups": {
+    "flag": [
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24
+    ],
+    "protocol_type": [
+      37,
+      38,
+      39
+    ],
+    "service": [
+      44,
+      45,
+      46,
+      47,
+      48,
+      49,
+      50,
+      51,
+      52,
+      53,
+      54,
+      55,
+      56,
+      57,
+      58,
+      59,
+      60,
+      61,
+      62,
+      63,
+      64,
+      65,
+      66,
+      67,
+      68,
+      69,
+      70,
+      71,
+      72,
+      73,
+      74,
+      75,
+      76,
+      77,
+      78,
+      79,
+      80,
+      81,
+      82,
+      83,
+      84,
+      85,
+      86,
+      87,
+      88,
+      89,
+      90,
+      91,
+      92,
+      93,
+      94,
+      95,
+      96,
+      97,
+      98,
+      99,
+      100,
+      101,
+      102,
+      103,
+      104,
+      105,
+      106,
+      107,
+      108,
+      109,
+      110,
+      111,
+      112,
+      113
+    ]
+  },
+  "num_ordering_constraints": 0,
+  "ordering_constraints": [],
+  "bounds_summary": [
+    {
+      "name": "count",
+      "type": "integer",
+      "original_min": 0.0,
+      "original_max": 511.0
+    },
+    {
+      "name": "diff_srv_rate",
+      "type": "rate",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "dst_bytes",
+      "type": "integer",
+      "original_min": 0.0,
+      "original_max": 1309937408.0
+    },
+    {
+      "name": "dst_host_count",
+      "type": "integer",
+      "original_min": 0.0,
+      "original_max": 255.0
+    },
+    {
+      "name": "dst_host_diff_srv_rate",
+      "type": "rate",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "dst_host_rerror_rate",
+      "type": "rate",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "dst_host_same_src_port_rate",
+      "type": "rate",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "dst_host_same_srv_rate",
+      "type": "rate",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "dst_host_serror_rate",
+      "type": "rate",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "dst_host_srv_count",
+      "type": "integer",
+      "original_min": 0.0,
+      "original_max": 255.0
+    },
+    {
+      "name": "dst_host_srv_diff_host_rate",
+      "type": "rate",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "dst_host_srv_rerror_rate",
+      "type": "rate",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "dst_host_srv_serror_rate",
+      "type": "rate",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "duration",
+      "type": "continuous",
+      "original_min": 0.0,
+      "original_max": 42888.0
+    },
+    {
+      "name": "flag_OTH",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "flag_REJ",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "flag_RSTO",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "flag_RSTOS0",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "flag_RSTR",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "flag_S0",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "flag_S1",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "flag_S2",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "flag_S3",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "flag_SF",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "flag_SH",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "hot",
+      "type": "integer",
+      "original_min": 0.0,
+      "original_max": 77.0
+    },
+    {
+      "name": "is_guest_login",
+      "type": "binary",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "is_host_login",
+      "type": "binary",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "land",
+      "type": "binary",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "logged_in",
+      "type": "binary",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "num_access_files",
+      "type": "integer",
+      "original_min": 0.0,
+      "original_max": 9.0
+    },
+    {
+      "name": "num_compromised",
+      "type": "integer",
+      "original_min": 0.0,
+      "original_max": 7479.0
+    },
+    {
+      "name": "num_failed_logins",
+      "type": "integer",
+      "original_min": 0.0,
+      "original_max": 5.0
+    },
+    {
+      "name": "num_file_creations",
+      "type": "integer",
+      "original_min": 0.0,
+      "original_max": 43.0
+    },
+    {
+      "name": "num_outbound_cmds",
+      "type": "integer",
+      "original_min": 0.0,
+      "original_max": 0.0
+    },
+    {
+      "name": "num_root",
+      "type": "integer",
+      "original_min": 0.0,
+      "original_max": 7468.0
+    },
+    {
+      "name": "num_shells",
+      "type": "integer",
+      "original_min": 0.0,
+      "original_max": 2.0
+    },
+    {
+      "name": "protocol_type_icmp",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "protocol_type_tcp",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "protocol_type_udp",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "rerror_rate",
+      "type": "rate",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "root_shell",
+      "type": "binary",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "same_srv_rate",
+      "type": "rate",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "serror_rate",
+      "type": "rate",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_IRC",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_X11",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_Z39_50",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_aol",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_auth",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_bgp",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_courier",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_csnet_ns",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_ctf",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_daytime",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_discard",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_domain",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_domain_u",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_echo",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_eco_i",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_ecr_i",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_efs",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_exec",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_finger",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_ftp",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_ftp_data",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_gopher",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_harvest",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_hostnames",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_http",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_http_2784",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_http_443",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_http_8001",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_imap4",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_iso_tsap",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_klogin",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_kshell",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_ldap",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_link",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_login",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_mtp",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_name",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_netbios_dgm",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_netbios_ns",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_netbios_ssn",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_netstat",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_nnsp",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_nntp",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_ntp_u",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_other",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_pm_dump",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_pop_2",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_pop_3",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_printer",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_private",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_red_i",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_remote_job",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_rje",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_shell",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_smtp",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_sql_net",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_ssh",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_sunrpc",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_supdup",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_systat",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_telnet",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_tftp_u",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_tim_i",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_time",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_urh_i",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_urp_i",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_uucp",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_uucp_path",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_vmnet",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "service_whois",
+      "type": "one_hot",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "src_bytes",
+      "type": "integer",
+      "original_min": 0.0,
+      "original_max": 1379963904.0
+    },
+    {
+      "name": "srv_count",
+      "type": "integer",
+      "original_min": 0.0,
+      "original_max": 511.0
+    },
+    {
+      "name": "srv_diff_host_rate",
+      "type": "rate",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "srv_rerror_rate",
+      "type": "rate",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "srv_serror_rate",
+      "type": "rate",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "su_attempted",
+      "type": "binary",
+      "original_min": 0.0,
+      "original_max": 1.0
+    },
+    {
+      "name": "urgent",
+      "type": "integer",
+      "original_min": 0.0,
+      "original_max": 3.0
+    },
+    {
+      "name": "wrong_fragment",
+      "type": "integer",
+      "original_min": 0.0,
+      "original_max": 3.0
+    }
+  ]
+}
