@@ -1,6 +1,9 @@
 """Core infrastructure for Protocol-Aware XAI."""
 
+from pa_xai.core.baseline import get_protocol_valid_baseline
 from pa_xai.core.constraints import ConstraintEnforcer
+from pa_xai.core.metrics import sparsity
+from pa_xai.core.result import ExplanationResult
 from pa_xai.core.schemas import (
     BUILTIN_SCHEMAS,
     CIC_IDS_2017,
@@ -18,6 +21,7 @@ from pa_xai.core.schemas import (
 __all__ = [
     "ConstraintEnforcer",
     "DatasetSchema",
+    "ExplanationResult",
     "HierarchicalConstraint",
     "CIC_IDS_2017",
     "CSE_CIC_IDS2018",
@@ -27,5 +31,7 @@ __all__ = [
     "BUILTIN_SCHEMAS",
     "get_schema",
     "detect_protocol_encoding",
+    "get_protocol_valid_baseline",
+    "sparsity",
     "TCP_PROTOCOL_INT",
 ]
