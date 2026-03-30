@@ -143,18 +143,8 @@ class DNNWrapper:
         self.model.eval()
         with torch.no_grad():
             tensor = torch.tensor(X, dtype=torch.float32).to(self.device)
-            # Process in batches to avoid OOM
-            batch_size = 4096
-            if len(tensor) <= batch_size:
-                logits = self.model(tensor)
-                probs = torch.softmax(logits, dim=1)
-                return probs.cpu().numpy()
-            probs_list = []
-            for i in range(0, len(tensor), batch_size):
-                batch = tensor[i : i + batch_size]
-                logits = self.model(batch)
-                probs_list.append(torch.softmax(logits, dim=1).cpu().numpy())
-            return np.concatenate(probs_list, axis=0)
+            logits = self.model(tensor)
+            return torch.softmax(logits, dim=1).cpu().numpy()
 
     def predict(self, X: np.ndarray) -> np.ndarray:
         probs = self.predict_proba(X)
@@ -690,16 +680,8 @@ class CNNLSTMWrapper:
         with torch.no_grad():
             tensor = torch.tensor(X, dtype=torch.float32).to(self.device)
             tensor = _features_to_grid(tensor, self.grid_size)
-            batch_size = 2048
-            if len(tensor) <= batch_size:
-                logits = self.model(tensor)
-                return torch.softmax(logits, dim=1).cpu().numpy()
-            probs_list = []
-            for i in range(0, len(tensor), batch_size):
-                batch = tensor[i : i + batch_size]
-                logits = self.model(batch)
-                probs_list.append(torch.softmax(logits, dim=1).cpu().numpy())
-            return np.concatenate(probs_list, axis=0)
+            logits = self.model(tensor)
+            return torch.softmax(logits, dim=1).cpu().numpy()
 
     def predict(self, X: np.ndarray) -> np.ndarray:
         return np.argmax(self.predict_proba(X), axis=1)
@@ -817,14 +799,9 @@ class CNNGRUWrapper:
         self.model.eval()
         with torch.no_grad():
             tensor = torch.tensor(X, dtype=torch.float32).to(self.device)
-            batch_size = 2048
-            probs_list = []
-            for i in range(0, len(tensor), batch_size):
-                batch = tensor[i : i + batch_size]
-                x_spatial, x_temporal = self._prepare_inputs(batch)
-                logits = self.model(x_spatial, x_temporal)
-                probs_list.append(torch.softmax(logits, dim=1).cpu().numpy())
-            return np.concatenate(probs_list, axis=0)
+            x_spatial, x_temporal = self._prepare_inputs(tensor)
+            logits = self.model(x_spatial, x_temporal)
+            return torch.softmax(logits, dim=1).cpu().numpy()
 
     def predict(self, X: np.ndarray) -> np.ndarray:
         return np.argmax(self.predict_proba(X), axis=1)

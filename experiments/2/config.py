@@ -17,7 +17,7 @@ class AttackConfig:
     pgd_num_steps: int = 20
     pgd_step_size_factor: float = 2.5  # step_size = factor * epsilon / num_steps
     num_attack_samples: int = 1000
-    attack_batch_size: int = 512
+    attack_batch_size: int = 4096
     run_constrained: bool = True
     run_unconstrained: bool = True
 
@@ -56,7 +56,7 @@ class RobustnessConfig:
     lime_num_samples: int = 5000
     lime_num_features: int = 10
     ig_n_steps: int = 50
-    ig_internal_batch_size: int = 64
+    ig_internal_batch_size: int = 4096
 
 
 @dataclass

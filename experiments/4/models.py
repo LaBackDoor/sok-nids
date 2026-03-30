@@ -112,16 +112,8 @@ class NNWrapper:
         self.model.eval()
         with torch.no_grad():
             tensor = torch.tensor(X, dtype=torch.float32).to(self.device)
-            batch_size = 4096
-            if len(tensor) <= batch_size:
-                logits = self.model(tensor)
-                return torch.softmax(logits, dim=1).cpu().numpy()
-            probs_list = []
-            for i in range(0, len(tensor), batch_size):
-                batch = tensor[i:i + batch_size]
-                logits = self.model(batch)
-                probs_list.append(torch.softmax(logits, dim=1).cpu().numpy())
-            return np.concatenate(probs_list, axis=0)
+            logits = self.model(tensor)
+            return torch.softmax(logits, dim=1).cpu().numpy()
 
     def predict(self, X: np.ndarray) -> np.ndarray:
         return np.argmax(self.predict_proba(X), axis=1)
@@ -313,11 +305,10 @@ def train_svm(
     num_classes: int, config: SVMConfig,
 ) -> tuple[SVC, SKLearnWrapper, float]:
     """Train SVM on given features. Subsamples if dataset is too large."""
-    n_train = len(X_train)
-    if n_train > config.max_train_samples:
-        logger.info(f"  SVM: Subsampling {n_train} -> {config.max_train_samples} samples")
+    if config.max_train_samples is not None and len(X_train) > config.max_train_samples:
+        logger.info(f"  SVM: Subsampling {len(X_train)} -> {config.max_train_samples} samples")
         rng = np.random.RandomState(42)
-        idx = rng.choice(n_train, config.max_train_samples, replace=False)
+        idx = rng.choice(len(X_train), config.max_train_samples, replace=False)
         X_sub, y_sub = X_train[idx], y_train[idx]
     else:
         X_sub, y_sub = X_train, y_train

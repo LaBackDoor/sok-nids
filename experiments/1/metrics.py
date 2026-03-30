@@ -7,7 +7,6 @@ Metrics implemented:
 4. Efficiency - Timing (captured during explanation generation)
 5. Stability - Jaccard similarity across repeated runs
 6. Completeness - Success rate on corrupted inputs
-7. Robustness - Explanation variance under input perturbation
 """
 
 import logging
@@ -334,60 +333,6 @@ def completeness(
     }
 
 
-def robustness(
-    explain_fn,
-    X_samples: np.ndarray,
-    noise_std: float,
-    num_perturbations: int,
-    rng: np.random.RandomState,
-) -> dict:
-    """Robustness: explanation variance under small Gaussian noise perturbations."""
-    n_samples = min(50, len(X_samples))  # Limit for efficiency
-    X_subset = X_samples[:n_samples]
-
-    # Get base explanations
-    base_attrs = explain_fn(X_subset)
-
-    # Generate perturbed explanations
-    all_deviations = []
-    for _ in range(num_perturbations):
-        noise = rng.normal(0, noise_std, size=X_subset.shape).astype(np.float32)
-        X_perturbed = np.clip(X_subset + noise, 0, 1)
-        perturbed_attrs = explain_fn(X_perturbed)
-
-        # Normalized L2 deviation
-        diff = perturbed_attrs - base_attrs
-        norms = np.linalg.norm(diff, axis=1)
-        base_norms = np.linalg.norm(base_attrs, axis=1)
-        base_norms = np.maximum(base_norms, 1e-8)
-        relative_deviation = norms / base_norms
-        all_deviations.append(relative_deviation)
-
-    deviations = np.concatenate(all_deviations)
-
-    # Rank stability under perturbation
-    rank_changes = []
-    for _ in range(num_perturbations):
-        noise = rng.normal(0, noise_std, size=X_subset.shape).astype(np.float32)
-        X_perturbed = np.clip(X_subset + noise, 0, 1)
-        perturbed_attrs = explain_fn(X_perturbed)
-
-        for i in range(n_samples):
-            base_rank = np.argsort(np.abs(base_attrs[i]))[::-1]
-            pert_rank = np.argsort(np.abs(perturbed_attrs[i]))[::-1]
-            # Spearman correlation of ranks
-            corr, _ = stats.spearmanr(base_rank, pert_rank)
-            rank_changes.append(corr)
-
-    return {
-        "robustness_mean_deviation": float(np.mean(deviations)),
-        "robustness_std_deviation": float(np.std(deviations)),
-        "robustness_max_deviation": float(np.max(deviations)),
-        "robustness_rank_correlation_mean": float(np.mean(rank_changes)),
-        "robustness_rank_correlation_std": float(np.std(rank_changes)),
-    }
-
-
 def evaluate_all_metrics(
     predict_fn,
     explain_fn,
@@ -450,13 +395,5 @@ def evaluate_all_metrics(
         predict_fn, explain_fn, X_test, config.completeness_num_corrupted, rng,
     )
     metrics.update(comp_result)
-
-    # 7. Robustness
-    logger.info(f"    Computing Robustness...")
-    rob = robustness(
-        explain_fn, X_explain, config.robustness_noise_std,
-        config.robustness_num_perturbations, rng,
-    )
-    metrics.update(rob)
 
     return metrics

@@ -229,22 +229,7 @@ def phase_explain(
             cnn_gru_wrapper = CNNGRUWrapper(cnn_gru_raw, device, gs)
             cnn_gru_flat = FlatCNNGRU(cnn_gru_raw, gs)
 
-    # For large datasets, free training/val arrays to reclaim memory.
-    # Explain/evaluate only need X_test + a small LIME/SHAP background sample.
-    import gc
-    _LIME_BG = 50_000
-    if dataset.X_train.shape[0] > _LIME_BG:
-        logger.info(
-            f"  Subsampling X_train for explanations: "
-            f"{dataset.X_train.shape[0]} -> {_LIME_BG}"
-        )
-        rng_bg = np.random.RandomState(42)
-        bg_idx = rng_bg.choice(dataset.X_train.shape[0], size=_LIME_BG, replace=False)
-        dataset.X_train = dataset.X_train[bg_idx]
-        dataset.y_train = dataset.y_train[bg_idx]
-        dataset.X_val = dataset.X_val[:1]
-        dataset.y_val = dataset.y_val[:1]
-        gc.collect()
+    # Use full training data for explanations (1TB RAM available)
 
     # Generate explanations for classic models
     results, indices = generate_all_explanations(
@@ -575,7 +560,6 @@ def _save_summary_table(all_metrics: list[dict], path: Path) -> None:
         "faithfulness_correlation", "sparsity_mean",
         "complexity_normalized", "time_per_sample_ms",
         "stability_jaccard_mean", "completeness_success_rate",
-        "robustness_mean_deviation", "robustness_rank_correlation_mean",
     ]
 
     with open(path, "w", newline="") as f:
@@ -738,8 +722,7 @@ def _print_final_summary(all_results: dict):
                     f"Cmplx={m.get('complexity_normalized', 0):.3f} "
                     f"Effic={m.get('time_per_sample_ms', 0):.1f}ms "
                     f"Stab={m.get('stability_jaccard_mean', 0):.3f} "
-                    f"Comp={m.get('completeness_success_rate', 0):.3f} "
-                    f"Robust={m.get('robustness_rank_correlation_mean', 0):.3f}"
+                    f"Comp={m.get('completeness_success_rate', 0):.3f}"
                 )
 
 
@@ -779,8 +762,6 @@ def generate_summary_plots(all_results: dict, output_dir: Path) -> None:
         ("time_per_sample_ms", "Efficiency (ms/sample)"),
         ("stability_jaccard_mean", "Stability (Jaccard)"),
         ("completeness_success_rate", "Completeness"),
-        ("robustness_mean_deviation", "Robustness (Mean Deviation)"),
-        ("robustness_rank_correlation_mean", "Robustness (Rank Correlation)"),
     ]
 
     for metric_key, metric_title in plot_metrics:
@@ -833,7 +814,7 @@ def parse_args():
         "--datasets",
         nargs="+",
         default=None,
-        choices=["nsl-kdd", "cic-ids-2017", "unsw-nb15", "cse-cic-ids2018", "cic-iov-2024"],
+        choices=["nsl-kdd", "cic-ids-2017", "unsw-nb15", "cse-cic-ids2018"],
         help="Datasets to process (default: all)",
     )
     parser.add_argument(

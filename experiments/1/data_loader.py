@@ -1,6 +1,5 @@
 """Data loading and preprocessing for all 4 NIDS benchmark datasets."""
 
-import gc
 import logging
 from dataclasses import dataclass
 from pathlib import Path
@@ -13,20 +12,11 @@ from sklearn.preprocessing import LabelEncoder, MinMaxScaler
 
 from config import DataConfig
 
-# Maximum number of background samples used for KNN during per-class SMOTE.
-# Keeps memory bounded regardless of dataset size.
-_SMOTE_BG_SAMPLE_LIMIT = 50_000
-
 logger = logging.getLogger(__name__)
 
 
 def _downcast_numeric(df: pd.DataFrame) -> pd.DataFrame:
-    """Downcast numeric columns to float32/int32 to halve memory usage."""
-    for col in df.select_dtypes(include=[np.number]).columns:
-        if df[col].dtype == np.float64:
-            df[col] = df[col].astype(np.float32)
-        elif df[col].dtype == np.int64:
-            df[col] = df[col].astype(np.int32)
+    """No-op: keep full float64/int64 precision (1TB RAM available)."""
     return df
 
 
@@ -107,30 +97,23 @@ def _clean_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     if n_before != n_after:
         logger.info(f"  Cleaned {n_before - n_after} rows (remaining NaN/duplicates)")
     df.reset_index(drop=True, inplace=True)
-    gc.collect()
     return df
 
 
 def _apply_smote_batched(
     X: np.ndarray, y: np.ndarray, random_state: int
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Apply SMOTE one minority class at a time to avoid OOM on large datasets.
+    """Apply SMOTE one minority class at a time.
 
-    Instead of oversampling every minority class to the majority count (which
-    can create tens of millions of rows), we cap each class target at the
-    *median* class count.  Classes already above the median are left alone.
-    This keeps the dataset balanced enough for training without exploding memory.
+    Caps each class target at the *median* class count.  Classes already
+    above the median are left alone.
 
-    For each minority class we build a small working set (minority samples +
-    a capped random subsample of other classes) and run SMOTE only on that
-    subset.  Synthetic samples are collected and appended to the original data.
+    For each minority class we build a working set (minority samples +
+    all other classes) and run SMOTE only on that subset.  Synthetic samples
+    are collected and appended to the original data.
     """
-    rng = np.random.RandomState(random_state)
     classes, counts = np.unique(y, return_counts=True)
     median_count = int(np.median(counts))
-    # Target: oversample to the median class count (not the majority).
-    # This prevents creating millions of synthetic samples when the majority
-    # class is orders of magnitude larger than the minorities.
     target_count = median_count
     logger.info(
         f"  SMOTE target per class: {target_count} "
@@ -149,16 +132,12 @@ def _apply_smote_batched(
         cls_mask = y == cls
         X_cls = X[cls_mask]
 
-        # Background: subsample from all *other* classes
+        # Background: all other classes (no subsampling)
         bg_mask = ~cls_mask
         X_bg = X[bg_mask]
         y_bg = y[bg_mask]
-        bg_limit = min(len(X_bg), _SMOTE_BG_SAMPLE_LIMIT)
-        bg_idx = rng.choice(len(X_bg), size=bg_limit, replace=False)
-        X_bg = X_bg[bg_idx]
-        y_bg = y_bg[bg_idx]
 
-        # Combine into a small working set
+        # Combine into working set
         X_work = np.concatenate([X_cls, X_bg])
         y_work = np.concatenate([np.full(len(X_cls), cls), y_bg])
 
@@ -233,9 +212,6 @@ def _load_cic_ids_2017(config: DataConfig) -> pd.DataFrame:
             df = chunk
         else:
             df = pd.concat([df, chunk], ignore_index=True)
-        del chunk
-        gc.collect()
-
     logger.info(f"  Combined shape: {df.shape}")
     return df
 
@@ -284,13 +260,10 @@ def _load_and_preprocess_cse_cic_ids2018_streaming(
     y_parts: list[np.ndarray] = []
     feature_names = None
 
-    # Read large CSVs in chunks of 500k rows to avoid OOM during parsing
-    _CHUNK_SIZE = 500_000
-
     for f in csv_files:
         logger.info(f"  Reading {f.name}")
         for ci, chunk in enumerate(
-            pd.read_csv(f, encoding="utf-8", low_memory=False, chunksize=_CHUNK_SIZE)
+            [pd.read_csv(f, encoding="utf-8", low_memory=False)]
         ):
             chunk.columns = chunk.columns.str.strip()
 
@@ -337,36 +310,26 @@ def _load_and_preprocess_cse_cic_ids2018_streaming(
 
             X_parts.append(chunk.values.astype(np.float32))
             y_parts.append(y_chunk)
-            del chunk, y_chunk
-            gc.collect()
 
         logger.info(f"    Done: {sum(p.shape[0] for p in X_parts)} total rows so far")
 
-    # Concatenate numpy arrays (much lighter than DataFrame concat)
     X = np.concatenate(X_parts)
     y_raw = np.concatenate(y_parts)
-    del X_parts, y_parts
-    gc.collect()
     logger.info(f"  Combined: {X.shape[0]} rows, {X.shape[1]} features")
 
     # Encode labels
     le = LabelEncoder()
     y = le.fit_transform(y_raw)
-    del y_raw
     logger.info(f"  Classes ({len(le.classes_)}): {le.classes_[:10]}...")
 
     # Train/test split, then train/val split
     X_trainval, X_test, y_trainval, y_test = train_test_split(
         X, y, test_size=config.test_size, random_state=config.random_state, stratify=y
     )
-    del X, y
-    gc.collect()
     X_train, X_val, y_train, y_val = train_test_split(
         X_trainval, y_trainval, test_size=config.val_split,
         random_state=config.random_state, stratify=y_trainval,
     )
-    del X_trainval, y_trainval
-    gc.collect()
     logger.info(f"  Train/Val/Test split: {len(X_train)}/{len(X_val)}/{len(X_test)}")
 
     # Scale (fit on train only)
@@ -375,7 +338,6 @@ def _load_and_preprocess_cse_cic_ids2018_streaming(
     X_val = scaler.transform(X_val)
     X_test = scaler.transform(X_test)
 
-    # SMOTE on training data only (batched per-class to limit memory)
     if config.apply_smote:
         logger.info("  Applying SMOTE (batched per-class)...")
         X_train, y_train = _apply_smote_batched(X_train, y_train, config.random_state)
@@ -393,36 +355,6 @@ def _load_and_preprocess_cse_cic_ids2018_streaming(
         dataset_name=dataset_name,
         num_classes=len(le.classes_),
     )
-
-
-def _load_cic_iov_2024(config: DataConfig) -> pd.DataFrame:
-    """Load and combine all CIC-IoV-2024 CSV files."""
-    base = config.data_root / config.cic_iov_2024_dir
-    logger.info(f"Loading CIC-IoV-2024 from {base}")
-
-    csv_files = sorted(base.glob("*.csv"))
-    if not csv_files:
-        raise FileNotFoundError(f"No CSV files found in {base}")
-
-    df = None
-    for f in csv_files:
-        logger.info(f"  Reading {f.name}")
-        chunk = pd.read_csv(f, encoding="utf-8", low_memory=False)
-        chunk.columns = chunk.columns.str.strip()
-        chunk = _downcast_numeric(chunk)
-        if df is None:
-            df = chunk
-        else:
-            df = pd.concat([df, chunk], ignore_index=True)
-        del chunk
-        gc.collect()
-
-    # Drop non-feature metadata columns; keep 'label' for _preprocess_flow_dataset
-    for col in ["ID", "category", "specific_class"]:
-        if col in df.columns:
-            df = df.drop(columns=[col])
-    logger.info(f"  Combined shape: {df.shape}")
-    return df
 
 
 def _preprocess_nsl_kdd(
@@ -487,7 +419,6 @@ def _preprocess_nsl_kdd(
     X_val = scaler.transform(X_val)
     X_test = scaler.transform(X_test)
 
-    # SMOTE on training data only (batched per-class to limit memory)
     if config.apply_smote:
         logger.info("  Applying SMOTE (batched per-class)...")
         X_train, y_train = _apply_smote_batched(X_train, y_train, config.random_state)
@@ -529,17 +460,12 @@ def _preprocess_flow_dataset(
     y_raw = df[label_col].astype(str).str.strip()
 
     feature_cols = [c for c in df.columns if c not in drop_cols]
-    # Drop label/metadata columns from df directly instead of copying feature cols
-    # This avoids holding two full DataFrames in memory simultaneously
     X_df = df.drop(columns=drop_cols)
-    del df
-    gc.collect()
 
     # Coerce all feature columns to numeric
     for col in X_df.columns:
         X_df[col] = pd.to_numeric(X_df[col], errors="coerce")
 
-    # Downcast to float32 before cleaning to save memory
     X_df = _downcast_numeric(X_df)
 
     # Combine X and y for cleaning
@@ -550,27 +476,20 @@ def _preprocess_flow_dataset(
     feature_names = X_df.columns.tolist()
 
     X = X_df.values.astype(np.float32)
-    del X_df
-    gc.collect()
 
     # Encode labels
     le = LabelEncoder()
     y = le.fit_transform(y_raw)
-    del y_raw
     logger.info(f"  Classes ({len(le.classes_)}): {le.classes_[:10]}...")
 
     # Train/test split, then train/val split
     X_trainval, X_test, y_trainval, y_test = train_test_split(
         X, y, test_size=config.test_size, random_state=config.random_state, stratify=y
     )
-    del X, y
-    gc.collect()
     X_train, X_val, y_train, y_val = train_test_split(
         X_trainval, y_trainval, test_size=config.val_split,
         random_state=config.random_state, stratify=y_trainval,
     )
-    del X_trainval, y_trainval
-    gc.collect()
     logger.info(f"  Train/Val/Test split: {len(X_train)}/{len(X_val)}/{len(X_test)}")
 
     # Scale (fit on train only)
@@ -579,7 +498,6 @@ def _preprocess_flow_dataset(
     X_val = scaler.transform(X_val)
     X_test = scaler.transform(X_test)
 
-    # SMOTE on training data only (batched per-class to limit memory)
     if config.apply_smote:
         logger.info("  Applying SMOTE (batched per-class)...")
         X_train, y_train = _apply_smote_batched(X_train, y_train, config.random_state)
@@ -619,10 +537,6 @@ def load_dataset(name: str, config: DataConfig) -> DatasetBundle:
 
     elif name == "cse-cic-ids2018":
         bundle = _load_and_preprocess_cse_cic_ids2018_streaming(config, name)
-
-    elif name == "cic-iov-2024":
-        df = _load_cic_iov_2024(config)
-        bundle = _preprocess_flow_dataset(df, name, config)
 
     else:
         raise ValueError(f"Unknown dataset: {name}")

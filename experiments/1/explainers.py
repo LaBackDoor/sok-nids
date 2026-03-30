@@ -253,26 +253,14 @@ def explain_lime(
         n_jobs = min(n_jobs, 4)
     logger.info(f"  LIME parallelizing with {n_jobs}/{total_cpus} CPUs")
 
-    # Subsample training data for LIME background statistics to limit memory.
-    # LIME only uses this for mean/std/discretizer — 50k rows is sufficient.
-    _LIME_BG_LIMIT = 50_000
-    if n_train > _LIME_BG_LIMIT:
-        rng = np.random.RandomState(42)
-        bg_idx = rng.choice(n_train, size=_LIME_BG_LIMIT, replace=False)
-        X_train_bg = X_train[bg_idx]
-        logger.info(f"  LIME background subsampled: {n_train} -> {_LIME_BG_LIMIT}")
-    else:
-        X_train_bg = X_train
-
     # Instantiate once — avoids recomputing X_train statistics per sample
     explainer = LimeTabularExplainer(
-        training_data=X_train_bg,
+        training_data=X_train,
         feature_names=feature_names,
         class_names=[str(c) for c in range(num_classes)],
         mode="classification",
         discretize_continuous=True,
     )
-    del X_train_bg
 
     def _explain_one(i):
         exp = explainer.explain_instance(

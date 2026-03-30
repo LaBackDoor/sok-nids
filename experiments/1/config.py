@@ -11,7 +11,7 @@ class DataConfig:
     cic_ids_2017_dir: str = "cic-ids-2017"
     unsw_nb15_dir: str = "cic_unsw-nb15_augmented_dataset"
     cse_cic_ids2018_dir: str = "cse-cic-ids2018"
-    cic_iov_2024_dir: str = "cic_iov_2024"
+
     test_size: float = 0.2
     val_split: float = 0.1  # fraction of training data reserved for validation
     random_state: int = 42
@@ -23,7 +23,7 @@ class DNNConfig:
     hidden_layers: list[int] = field(default_factory=lambda: [1024, 768, 512])
     dropout_rate: float = 0.01
     learning_rate: float = 0.01
-    batch_size: int = 1024
+    batch_size: int = 8192
     epochs: int = 100
     early_stopping_patience: int = 10
 
@@ -56,7 +56,7 @@ class CNNLSTMConfig:
     num_lstm_layers: int = 1
     dropout: float = 0.5
     learning_rate: float = 0.001
-    batch_size: int = 512
+    batch_size: int = 4096
     epochs: int = 100
     early_stopping_patience: int = 10
 
@@ -76,7 +76,7 @@ class CNNGRUConfig:
     input_spatial_size: int = 11
     seq_len: int = 121
     learning_rate: float = 0.001
-    batch_size: int = 512
+    batch_size: int = 4096
     epochs: int = 100
     early_stopping_patience: int = 10
 
@@ -87,7 +87,7 @@ class ExplainerConfig:
     lime_num_features: int = 10
     lime_num_samples: int = 5000
     ig_n_steps: int = 50
-    ig_internal_batch_size: int = 1024
+    ig_internal_batch_size: int = 8192
     num_explain_samples: int = 10000
 
 
@@ -101,8 +101,6 @@ class MetricConfig:
     stability_runs: int = 3
     stability_top_k: int = 10
     completeness_num_corrupted: int = 500
-    robustness_noise_std: float = 0.01
-    robustness_num_perturbations: int = 10
 
 
 @dataclass
@@ -124,6 +122,5 @@ class ExperimentConfig:
             "cic-ids-2017",
             "unsw-nb15",
             "cse-cic-ids2018",
-            "cic-iov-2024",
         ]
     )

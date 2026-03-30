@@ -22,7 +22,7 @@ class DNNConfig:
     hidden_layers: list[int] = field(default_factory=lambda: [1024, 768, 512])
     dropout_rate: float = 0.01
     learning_rate: float = 0.01
-    batch_size: int = 1024
+    batch_size: int = 8192
     epochs: int = 100
     early_stopping_patience: int = 10
 
@@ -35,7 +35,7 @@ class CNNConfig:
     kernel_size: int = 3
     dropout_rate: float = 0.1
     learning_rate: float = 0.001
-    batch_size: int = 1024
+    batch_size: int = 8192
     epochs: int = 100
     early_stopping_patience: int = 10
 
@@ -56,8 +56,7 @@ class SVMConfig:
     gamma: str = "scale"
     max_iter: int = 5000
     probability: bool = True
-    # SVM can't handle huge datasets efficiently; subsample for training
-    max_train_samples: int = 50000
+    max_train_samples: int = None  # train on full dataset (1TB RAM available)
 
 
 @dataclass

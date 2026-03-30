@@ -98,7 +98,7 @@ def train_biased_classifier(
         torch.tensor(X_single, dtype=torch.float32),
         torch.tensor(y_train, dtype=torch.long),
     )
-    loader = DataLoader(dataset, batch_size=1024, shuffle=True)
+    loader = DataLoader(dataset, batch_size=8192, shuffle=True)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=config.biased_model_lr)
     criterion = nn.CrossEntropyLoss()
