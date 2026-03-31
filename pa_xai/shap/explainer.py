@@ -50,6 +50,10 @@ def _has_rnn_modules(model: nn.Module) -> bool:
 
 
 def _extract_class_attributions(shap_values, target: int, n_features: int) -> np.ndarray:
+    # Handle shap.Explanation objects (newer SHAP API)
+    if hasattr(shap_values, 'values'):
+        shap_values = shap_values.values
+
     if isinstance(shap_values, list):
         return np.asarray(shap_values[target]).flatten()[:n_features]
     elif isinstance(shap_values, np.ndarray):
@@ -180,7 +184,13 @@ class ProtocolAwareSHAP:
                 shap_values = explainer.shap_values(x_tensor, check_additivity=False)
         n_features = len(x_row)
         attributions = _extract_class_attributions(shap_values, target, n_features)
-        ev = explainer.expected_value
+        if use_gradient:
+            # GradientExplainer does not set expected_value — compute manually
+            with torch.no_grad():
+                ev_tensor = base_model(bg_tensor).mean(0).cpu().numpy()
+            ev = ev_tensor
+        else:
+            ev = explainer.expected_value
         expected_value = float(ev[target]) if isinstance(ev, (list, np.ndarray)) else float(ev)
         return attributions, expected_value
 
