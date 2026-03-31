@@ -256,3 +256,30 @@ class ProtocolAwareSHAP:
             num_samples=nsamples if isinstance(nsamples, int) else None,
             expected_value=expected_value,
         )
+
+    def explain_pcap(
+        self,
+        pcap_path: str,
+        predict_fn,
+        feature_fn,
+        feature_names: list[str],
+        mode: str = "packet",
+        target: int | None = None,
+        nsamples: int | str = "auto",
+    ) -> ExplanationResult:
+        """Generate a SHAP explanation from a PCAP file."""
+        from pa_xai.pcap.pipeline import PcapPipeline
+
+        pipeline = PcapPipeline()
+        if mode == "packet":
+            packets = pipeline.parser.parse_packets(pcap_path)
+            if not packets:
+                raise ValueError("No packets found in PCAP")
+            x_row = feature_fn(packets[0])
+        else:
+            flows = pipeline.parser.parse_flows(pcap_path)
+            if not flows:
+                raise ValueError("No flows found in PCAP")
+            x_row = feature_fn(flows[0])
+
+        return self.explain_instance(x_row, target=target, nsamples=nsamples)

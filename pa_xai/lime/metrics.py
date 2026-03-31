@@ -61,3 +61,40 @@ def semantic_robustness(
     if not scores:
         return 0.0
     return float(np.mean(scores))
+
+
+def semantic_robustness_pcap(
+    pcap_path: str,
+    explainer,
+    predict_fn,
+    feature_fn,
+    feature_names: list[str],
+    mode: str = "packet",
+    n_iter: int = 50,
+    num_samples: int = 5000,
+    sigma: float = 0.1,
+) -> float:
+    """Evaluate explanation stability under semantically valid PCAP mutations.
+
+    Returns:
+        Mean Spearman rank correlation (float in [-1, 1]).
+    """
+    base = explainer.explain_pcap(
+        pcap_path, predict_fn, feature_fn, feature_names,
+        mode=mode, num_samples=num_samples, sigma=sigma,
+    )
+    base_attr = base.attributions
+
+    scores = []
+    for _ in range(n_iter):
+        mut_result = explainer.explain_pcap(
+            pcap_path, predict_fn, feature_fn, feature_names,
+            mode=mode, num_samples=num_samples, sigma=sigma,
+        )
+        corr, _ = spearmanr(base_attr, mut_result.attributions)
+        if not np.isnan(corr):
+            scores.append(corr)
+
+    if not scores:
+        return 0.0
+    return float(np.mean(scores))

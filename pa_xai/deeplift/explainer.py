@@ -150,3 +150,29 @@ class ProtocolAwareDeepLIFT:
             convergence_delta=convergence_delta,
             baseline_used=baseline,
         )
+
+    def explain_pcap(
+        self,
+        pcap_path: str,
+        feature_fn,
+        feature_names: list[str],
+        mode: str = "packet",
+        target: int | None = None,
+        return_convergence_delta: bool = False,
+    ) -> ExplanationResult:
+        """Generate a DeepLIFT explanation from a PCAP file."""
+        from pa_xai.pcap.pipeline import PcapPipeline
+
+        pipeline = PcapPipeline()
+        if mode == "packet":
+            packets = pipeline.parser.parse_packets(pcap_path)
+            if not packets:
+                raise ValueError("No packets found in PCAP")
+            x_row = feature_fn(packets[0])
+        else:
+            flows = pipeline.parser.parse_flows(pcap_path)
+            if not flows:
+                raise ValueError("No flows found in PCAP")
+            x_row = feature_fn(flows[0])
+
+        return self.explain_instance(x_row, target=target, return_convergence_delta=return_convergence_delta)
