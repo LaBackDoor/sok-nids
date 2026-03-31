@@ -274,3 +274,51 @@ def test_dataset_schema_new_fields_computed():
     assert len(schema.icmp_only_indices) == 0
     assert len(schema.connection_only_indices) == 0
     assert schema.duplicate_index_pairs == [(7, 8)]
+
+
+def test_cic_2017_has_bounded_range_constraints():
+    from pa_xai.core.schemas import CIC_IDS_2017
+    br_features = [brc.feature for brc in CIC_IDS_2017.bounded_range_constraints]
+    assert "Destination Port" in br_features
+    assert "Init_Win_bytes_forward" in br_features
+
+
+def test_cic_2017_has_cross_feature_constraints():
+    from pa_xai.core.schemas import CIC_IDS_2017
+    derived = [cfc.derived_feature for cfc in CIC_IDS_2017.cross_feature_constraints]
+    assert "Flow Bytes/s" in derived
+    assert "Packet Length Variance" in derived
+    assert "Subflow Fwd Packets" in derived
+
+
+def test_cic_2017_has_std_range_constraints():
+    from pa_xai.core.schemas import CIC_IDS_2017
+    stds = [src.std_feature for src in CIC_IDS_2017.std_range_constraints]
+    assert "Fwd Packet Length Std" in stds
+    assert len(stds) == 8
+
+
+def test_cic_2017_has_duplicate_features():
+    from pa_xai.core.schemas import CIC_IDS_2017
+    assert ("Fwd Header Length", "Fwd Header Length.1") in CIC_IDS_2017.duplicate_features
+
+
+def test_nsl_kdd_has_bounded_range_for_rates():
+    from pa_xai.core.schemas import NSL_KDD
+    br_features = [brc.feature for brc in NSL_KDD.bounded_range_constraints]
+    assert "serror_rate" in br_features
+    assert "land" in br_features
+
+
+def test_nsl_kdd_has_connection_only_features():
+    from pa_xai.core.schemas import NSL_KDD
+    assert "num_failed_logins" in NSL_KDD.connection_only_features
+    assert "logged_in" in NSL_KDD.connection_only_features
+
+
+def test_unsw_native_has_bounded_range_for_ttl():
+    from pa_xai.core.schemas import UNSW_NB15_NATIVE
+    br_features = [brc.feature for brc in UNSW_NB15_NATIVE.bounded_range_constraints]
+    assert "sttl" in br_features
+    assert "dttl" in br_features
+    assert "Srcport" in br_features

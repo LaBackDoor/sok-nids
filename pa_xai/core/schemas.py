@@ -296,6 +296,35 @@ _CIC_2017_HIERARCHICAL = [
     HierarchicalConstraint("Idle Max", "Idle Mean", "Idle Min"),
 ]
 
+_CIC_2017_BOUNDED_RANGE = [
+    BoundedRangeConstraint("Destination Port", 0.0, 65535.0),
+    BoundedRangeConstraint("Init_Win_bytes_forward", 0.0, 65535.0),
+    BoundedRangeConstraint("Init_Win_bytes_backward", 0.0, 65535.0),
+]
+
+_CIC_2017_CROSS_FEATURE = [
+    CrossFeatureConstraint("Flow Bytes/s", "sum_ratio", ["Total Length of Fwd Packets", "Total Length of Bwd Packets", "Flow Duration"]),
+    CrossFeatureConstraint("Flow Packets/s", "sum_ratio", ["Total Fwd Packets", "Total Backward Packets", "Flow Duration"]),
+    CrossFeatureConstraint("Fwd Packets/s", "ratio", ["Total Fwd Packets", "Flow Duration"]),
+    CrossFeatureConstraint("Bwd Packets/s", "ratio", ["Total Backward Packets", "Flow Duration"]),
+    CrossFeatureConstraint("Packet Length Variance", "square", ["Packet Length Std"]),
+    CrossFeatureConstraint("Subflow Fwd Packets", "equal", ["Total Fwd Packets"]),
+    CrossFeatureConstraint("Subflow Fwd Bytes", "equal", ["Total Length of Fwd Packets"]),
+    CrossFeatureConstraint("Subflow Bwd Packets", "equal", ["Total Backward Packets"]),
+    CrossFeatureConstraint("Subflow Bwd Bytes", "equal", ["Total Length of Bwd Packets"]),
+]
+
+_CIC_2017_STD_RANGE = [
+    StdRangeConstraint("Fwd Packet Length Std", "Fwd Packet Length Max", "Fwd Packet Length Min"),
+    StdRangeConstraint("Bwd Packet Length Std", "Bwd Packet Length Max", "Bwd Packet Length Min"),
+    StdRangeConstraint("Packet Length Std", "Max Packet Length", "Min Packet Length"),
+    StdRangeConstraint("Flow IAT Std", "Flow IAT Max", "Flow IAT Min"),
+    StdRangeConstraint("Fwd IAT Std", "Fwd IAT Max", "Fwd IAT Min"),
+    StdRangeConstraint("Bwd IAT Std", "Bwd IAT Max", "Bwd IAT Min"),
+    StdRangeConstraint("Active Std", "Active Max", "Active Min"),
+    StdRangeConstraint("Idle Std", "Idle Max", "Idle Min"),
+]
+
 CIC_IDS_2017 = DatasetSchema(
     name="CIC-IDS-2017",
     feature_names=_CIC_2017_FEATURES,
@@ -305,6 +334,10 @@ CIC_IDS_2017 = DatasetSchema(
     discrete_features=_CIC_2017_DISCRETE,
     hierarchical_constraints=_CIC_2017_HIERARCHICAL,
     protocol_encoding="integer",
+    bounded_range_constraints=_CIC_2017_BOUNDED_RANGE,
+    cross_feature_constraints=_CIC_2017_CROSS_FEATURE,
+    std_range_constraints=_CIC_2017_STD_RANGE,
+    duplicate_features=[("Fwd Header Length", "Fwd Header Length.1")],
 )
 
 
@@ -391,6 +424,35 @@ _CIC_2018_HIERARCHICAL = [
     HierarchicalConstraint("Idle Max", "Idle Mean", "Idle Min"),
 ]
 
+_CIC_2018_BOUNDED_RANGE = [
+    BoundedRangeConstraint("Dst Port", 0.0, 65535.0),
+    BoundedRangeConstraint("Init Fwd Win Byts", 0.0, 65535.0),
+    BoundedRangeConstraint("Init Bwd Win Byts", 0.0, 65535.0),
+]
+
+_CIC_2018_CROSS_FEATURE = [
+    CrossFeatureConstraint("Flow Byts/s", "sum_ratio", ["TotLen Fwd Pkts", "TotLen Bwd Pkts", "Flow Duration"]),
+    CrossFeatureConstraint("Flow Pkts/s", "sum_ratio", ["Tot Fwd Pkts", "Tot Bwd Pkts", "Flow Duration"]),
+    CrossFeatureConstraint("Fwd Pkts/s", "ratio", ["Tot Fwd Pkts", "Flow Duration"]),
+    CrossFeatureConstraint("Bwd Pkts/s", "ratio", ["Tot Bwd Pkts", "Flow Duration"]),
+    CrossFeatureConstraint("Pkt Len Var", "square", ["Pkt Len Std"]),
+    CrossFeatureConstraint("Subflow Fwd Pkts", "equal", ["Tot Fwd Pkts"]),
+    CrossFeatureConstraint("Subflow Fwd Byts", "equal", ["TotLen Fwd Pkts"]),
+    CrossFeatureConstraint("Subflow Bwd Pkts", "equal", ["Tot Bwd Pkts"]),
+    CrossFeatureConstraint("Subflow Bwd Byts", "equal", ["TotLen Bwd Pkts"]),
+]
+
+_CIC_2018_STD_RANGE = [
+    StdRangeConstraint("Fwd Pkt Len Std", "Fwd Pkt Len Max", "Fwd Pkt Len Min"),
+    StdRangeConstraint("Bwd Pkt Len Std", "Bwd Pkt Len Max", "Bwd Pkt Len Min"),
+    StdRangeConstraint("Pkt Len Std", "Pkt Len Max", "Pkt Len Min"),
+    StdRangeConstraint("Flow IAT Std", "Flow IAT Max", "Flow IAT Min"),
+    StdRangeConstraint("Fwd IAT Std", "Fwd IAT Max", "Fwd IAT Min"),
+    StdRangeConstraint("Bwd IAT Std", "Bwd IAT Max", "Bwd IAT Min"),
+    StdRangeConstraint("Active Std", "Active Max", "Active Min"),
+    StdRangeConstraint("Idle Std", "Idle Max", "Idle Min"),
+]
+
 CSE_CIC_IDS2018 = DatasetSchema(
     name="CSE-CIC-IDS2018",
     feature_names=_CIC_2018_FEATURES,
@@ -400,6 +462,9 @@ CSE_CIC_IDS2018 = DatasetSchema(
     discrete_features=_CIC_2018_DISCRETE,
     hierarchical_constraints=_CIC_2018_HIERARCHICAL,
     protocol_encoding="integer",
+    bounded_range_constraints=_CIC_2018_BOUNDED_RANGE,
+    cross_feature_constraints=_CIC_2018_CROSS_FEATURE,
+    std_range_constraints=_CIC_2018_STD_RANGE,
 )
 
 
@@ -451,6 +516,35 @@ _NSL_KDD_DISCRETE = [
     "dst_host_count", "dst_host_srv_count",
 ]
 
+_NSL_KDD_BOUNDED_RANGE = [
+    BoundedRangeConstraint("serror_rate", 0.0, 1.0),
+    BoundedRangeConstraint("srv_serror_rate", 0.0, 1.0),
+    BoundedRangeConstraint("rerror_rate", 0.0, 1.0),
+    BoundedRangeConstraint("srv_rerror_rate", 0.0, 1.0),
+    BoundedRangeConstraint("same_srv_rate", 0.0, 1.0),
+    BoundedRangeConstraint("diff_srv_rate", 0.0, 1.0),
+    BoundedRangeConstraint("srv_diff_host_rate", 0.0, 1.0),
+    BoundedRangeConstraint("dst_host_same_srv_rate", 0.0, 1.0),
+    BoundedRangeConstraint("dst_host_diff_srv_rate", 0.0, 1.0),
+    BoundedRangeConstraint("dst_host_same_src_port_rate", 0.0, 1.0),
+    BoundedRangeConstraint("dst_host_srv_diff_host_rate", 0.0, 1.0),
+    BoundedRangeConstraint("dst_host_serror_rate", 0.0, 1.0),
+    BoundedRangeConstraint("dst_host_srv_serror_rate", 0.0, 1.0),
+    BoundedRangeConstraint("dst_host_rerror_rate", 0.0, 1.0),
+    BoundedRangeConstraint("dst_host_srv_rerror_rate", 0.0, 1.0),
+    BoundedRangeConstraint("land", 0.0, 1.0),
+    BoundedRangeConstraint("logged_in", 0.0, 1.0),
+    BoundedRangeConstraint("root_shell", 0.0, 1.0),
+    BoundedRangeConstraint("su_attempted", 0.0, 1.0),
+    BoundedRangeConstraint("is_host_login", 0.0, 1.0),
+    BoundedRangeConstraint("is_guest_login", 0.0, 1.0),
+]
+
+_NSL_KDD_CONNECTION_ONLY = [
+    "num_failed_logins", "logged_in", "root_shell", "su_attempted",
+    "num_shells", "num_access_files",
+]
+
 NSL_KDD = DatasetSchema(
     name="NSL-KDD",
     feature_names=_NSL_KDD_FEATURES,
@@ -460,6 +554,8 @@ NSL_KDD = DatasetSchema(
     discrete_features=_NSL_KDD_DISCRETE,
     hierarchical_constraints=[],
     protocol_encoding="string",
+    bounded_range_constraints=_NSL_KDD_BOUNDED_RANGE,
+    connection_only_features=_NSL_KDD_CONNECTION_ONLY,
 )
 
 
@@ -515,6 +611,22 @@ _UNSW_NATIVE_DISCRETE = [
     "is_sm_ips_ports", "Srcport", "Dstport",
 ]
 
+_UNSW_NATIVE_BOUNDED_RANGE = [
+    BoundedRangeConstraint("sttl", 0.0, 255.0),
+    BoundedRangeConstraint("dttl", 0.0, 255.0),
+    BoundedRangeConstraint("swin", 0.0, 65535.0),
+    BoundedRangeConstraint("dwin", 0.0, 65535.0),
+    BoundedRangeConstraint("Srcport", 0.0, 65535.0),
+    BoundedRangeConstraint("Dstport", 0.0, 65535.0),
+    BoundedRangeConstraint("is_ftp_login", 0.0, 1.0),
+    BoundedRangeConstraint("is_sm_ips_ports", 0.0, 1.0),
+]
+
+_UNSW_NATIVE_CONNECTION_ONLY = [
+    "trans_depth", "response_body_len", "is_ftp_login",
+    "ct_ftp_cmd", "ct_flw_http_mthd",
+]
+
 UNSW_NB15_NATIVE = DatasetSchema(
     name="UNSW-NB15-Native",
     feature_names=_UNSW_NATIVE_FEATURES,
@@ -524,6 +636,8 @@ UNSW_NB15_NATIVE = DatasetSchema(
     discrete_features=_UNSW_NATIVE_DISCRETE,
     hierarchical_constraints=[],
     protocol_encoding="string",
+    bounded_range_constraints=_UNSW_NATIVE_BOUNDED_RANGE,
+    connection_only_features=_UNSW_NATIVE_CONNECTION_ONLY,
 )
 
 
@@ -610,6 +724,35 @@ _UNSW_CIC_HIERARCHICAL = [
     HierarchicalConstraint("Idle Max", "Idle Mean", "Idle Min"),
 ]
 
+_UNSW_CIC_BOUNDED_RANGE = [
+    BoundedRangeConstraint("Dst Port", 0.0, 65535.0),
+    BoundedRangeConstraint("FWD Init Win Bytes", 0.0, 65535.0),
+    BoundedRangeConstraint("Bwd Init Win Bytes", 0.0, 65535.0),
+]
+
+_UNSW_CIC_CROSS_FEATURE = [
+    CrossFeatureConstraint("Flow Bytes/s", "sum_ratio", ["Total Length of Fwd Packet", "Total Length of Bwd Packet", "Flow Duration"]),
+    CrossFeatureConstraint("Flow Packets/s", "sum_ratio", ["Total Fwd Packet", "Total Bwd packets", "Flow Duration"]),
+    CrossFeatureConstraint("Fwd Packets/s", "ratio", ["Total Fwd Packet", "Flow Duration"]),
+    CrossFeatureConstraint("Bwd Packets/s", "ratio", ["Total Bwd packets", "Flow Duration"]),
+    CrossFeatureConstraint("Packet Length Variance", "square", ["Packet Length Std"]),
+    CrossFeatureConstraint("Subflow Fwd Packets", "equal", ["Total Fwd Packet"]),
+    CrossFeatureConstraint("Subflow Fwd Bytes", "equal", ["Total Length of Fwd Packet"]),
+    CrossFeatureConstraint("Subflow Bwd Packets", "equal", ["Total Bwd packets"]),
+    CrossFeatureConstraint("Subflow Bwd Bytes", "equal", ["Total Length of Bwd Packet"]),
+]
+
+_UNSW_CIC_STD_RANGE = [
+    StdRangeConstraint("Fwd Packet Length Std", "Fwd Packet Length Max", "Fwd Packet Length Min"),
+    StdRangeConstraint("Bwd Packet Length Std", "Bwd Packet Length Max", "Bwd Packet Length Min"),
+    StdRangeConstraint("Packet Length Std", "Packet Length Max", "Packet Length Min"),
+    StdRangeConstraint("Flow IAT Std", "Flow IAT Max", "Flow IAT Min"),
+    StdRangeConstraint("Fwd IAT Std", "Fwd IAT Max", "Fwd IAT Min"),
+    StdRangeConstraint("Bwd IAT Std", "Bwd IAT Max", "Bwd IAT Min"),
+    StdRangeConstraint("Active Std", "Active Max", "Active Min"),
+    StdRangeConstraint("Idle Std", "Idle Max", "Idle Min"),
+]
+
 UNSW_NB15_CIC = DatasetSchema(
     name="UNSW-NB15-CICFlowMeter",
     feature_names=_UNSW_CIC_FEATURES,
@@ -619,6 +762,9 @@ UNSW_NB15_CIC = DatasetSchema(
     discrete_features=_UNSW_CIC_DISCRETE,
     hierarchical_constraints=_UNSW_CIC_HIERARCHICAL,
     protocol_encoding="integer",
+    bounded_range_constraints=_UNSW_CIC_BOUNDED_RANGE,
+    cross_feature_constraints=_UNSW_CIC_CROSS_FEATURE,
+    std_range_constraints=_UNSW_CIC_STD_RANGE,
 )
 
 
