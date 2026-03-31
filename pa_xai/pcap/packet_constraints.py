@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pa_xai.pcap.parser import ParsedPacket
+from pa_xai.pcap.parser import ParsedPacket, ParsedFlow
 
 # Valid ICMP types per IANA
 VALID_ICMP_TYPES = {0, 3, 5, 8, 11, 12}
@@ -134,3 +134,43 @@ class PacketConstraintEnforcer:
             flags = original_flags
 
         return flags
+
+
+class FlowConstraintEnforcer:
+    """5-step flow constraint enforcement:
+    1. Enforce each packet individually
+    2. Pin protocol homogeneity
+    3. Enforce temporal ordering
+    4. TCP sequence repair
+    5. Reconstruct flow PCAP (deferred to pipeline)
+    """
+
+    def __init__(self, packet_enforcer: PacketConstraintEnforcer):
+        self.packet_enforcer = packet_enforcer
+
+    def enforce(self, flow: ParsedFlow, original: ParsedFlow) -> ParsedFlow:
+        # 1. Enforce each packet
+        for i, pkt in enumerate(flow.packets):
+            orig_pkt = original.packets[i] if i < len(original.packets) else original.packets[-1]
+            self.packet_enforcer.enforce(pkt, orig_pkt)
+
+        # 2. Pin protocol homogeneity
+        for pkt in flow.packets:
+            pkt.protocol = flow.protocol
+
+        # 3. Enforce temporal ordering
+        flow.packets.sort(key=lambda p: p.timestamp)
+
+        # 4. TCP sequence repair
+        if flow.protocol == "tcp":
+            self._repair_tcp_sequences(flow)
+
+        return flow
+
+    def _repair_tcp_sequences(self, flow: ParsedFlow) -> None:
+        if not flow.packets:
+            return
+        current_seq = flow.packets[0].tcp_seq
+        for pkt in flow.packets:
+            pkt.tcp_seq = current_seq
+            current_seq += max(pkt.payload_size, 1)
