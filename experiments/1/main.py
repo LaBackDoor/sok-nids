@@ -854,12 +854,24 @@ def parse_args():
         default=42,
         help="Random seed",
     )
+    parser.add_argument(
+        "-x", "--xai-mode",
+        choices=["n", "p"],
+        default="n",
+        help="XAI mode: n=normal (unconstrained), p=protocol-aware (pa_xai)",
+    )
     return parser.parse_args()
 
 
 def main():
     args = parse_args()
     config = ExperimentConfig()
+
+    # Apply XAI mode
+    config.xai_mode = args.xai_mode
+    mode_dir = "normal" if args.xai_mode == "n" else "protocol-aware"
+    config.output_dir = Path("experiments/1/results") / mode_dir
+    config.models_dir = Path("experiments/1/results/normal")
 
     # Apply CLI overrides
     if args.output_dir:
@@ -871,18 +883,20 @@ def main():
 
     datasets = args.datasets or config.ALL_DATASETS
     phases = args.phase
-    selected_models = args.models  # None means all
+    selected_models = args.models
 
-    # Set seeds (use default_rng instead of deprecated np.random.seed)
+    # Set seeds
     torch.manual_seed(config.seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(config.seed)
 
     logger.info("Experiment 1: Quantitative Benchmarking of Explanation Quality")
+    logger.info(f"XAI mode: {'protocol-aware' if args.xai_mode == 'p' else 'normal'}")
     logger.info(f"Datasets: {datasets}")
     logger.info(f"Phases: {phases}")
     logger.info(f"Models: {selected_models or ALL_MODELS}")
     logger.info(f"Output: {config.output_dir}")
+    logger.info(f"Models dir: {config.models_dir}")
     logger.info(f"Explain samples: {config.explainer.num_explain_samples}")
 
     run_experiment(config, datasets, phases, selected_models)
