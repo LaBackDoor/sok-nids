@@ -24,11 +24,11 @@ pa_xai/
 ├── pcap/
 │   ├── __init__.py
 │   ├── parser.py               # Stackforge PCAP reader → ParsedPacket / ParsedFlow
-│   ├── packet_constraints.py   # Protocol-header semantic checks
-│   ├── perturbation.py         # Packet-level header field perturbation
-│   ├── flow_perturbation.py    # Flow-level: perturb packets, re-extract via stackforge
-│   ├── semantic_checker.py     # Hard-reject validator (packet + flow cross-validation)
-│   └── pipeline.py             # Orchestrator: parse → perturb → check → reject/regen
+│   ├── packet_constraints.py   # PacketConstraintEnforcer + FlowConstraintEnforcer (repair)
+│   ├── perturbation.py         # Packet-level header field perturbation (raw noise)
+│   ├── flow_perturbation.py    # Flow-level: perturb packets, enforce, re-extract via stackforge
+│   ├── semantic_checker.py     # Final safety-net validator (post-enforcement)
+│   └── pipeline.py             # Orchestrator: parse → perturb → enforce → check → accept
 ├── lime/
 │   ├── explainer.py            # + explain_pcap() method
 │   ├── fuzzer.py               # unchanged (uses enhanced ConstraintEnforcer automatically)
@@ -260,59 +260,164 @@ class PcapParser:
 
 ### Packet-Level Perturbation (`pcap/perturbation.py`)
 
+Raw perturbation — applies noise to header fields without enforcing cross-field relationships.
+The constraint enforcer (below) repairs these into valid states afterward.
+
 ```python
 class PacketPerturbator:
     def perturb(self, packet: ParsedPacket, sigma: float, num_samples: int) -> list[ParsedPacket]:
-        """Generate num_samples perturbed copies of a single packet (header fields only)."""
+        """Generate num_samples perturbed copies of a single packet (header fields only).
+        Applies raw Gaussian noise to mutable fields. Does NOT enforce constraints —
+        that is the job of PacketConstraintEnforcer."""
 ```
 
-Field-specific perturbation strategies:
+Field-specific perturbation strategies (raw noise, pre-enforcement):
 
-| Field | Strategy | Range |
+| Field | Strategy | Notes |
 |---|---|---|
-| ip_ttl | Gaussian + round + clip | [1, 255] |
-| ip_tos | Gaussian + round + clip | [0, 255] |
-| ip_total_length | Pinned (recomputed from headers) | — |
-| ip_flags | Uniform from valid set {0, 2, 4} | discrete |
-| tcp_window_size | Gaussian + round + clip | [0, 65535] |
-| tcp_flags | Bit-flip with protocol-aware rules | bitmask |
-| tcp_seq / tcp_ack | Gaussian + round + clip | [0, 2^32 - 1] |
-| tcp_urgent_ptr | Zero unless URG flag set | [0, 65535] |
-| udp_length | Pinned (recomputed) | — |
-| icmp_type | Uniform from valid types {0,3,5,8,11,12} | discrete |
-| icmp_code | Uniform from valid codes for type | discrete |
+| ip_ttl | Gaussian + round | Raw integer perturbation, enforcer clamps to [1, 255] |
+| ip_tos | Gaussian + round | Raw integer perturbation, enforcer clamps to [0, 255] |
+| ip_total_length | Not perturbed | Recomputed by enforcer from header + payload |
+| ip_flags | Uniform random from {0, 1, 2, 3, 4, 5, 6, 7} | Enforcer repairs to valid set {0, 2, 4} |
+| tcp_window_size | Gaussian + round | Enforcer clamps to [0, 65535] |
+| tcp_flags | Random bit-flip on all 6 flag bits | Enforcer repairs to valid combinations |
+| tcp_seq / tcp_ack | Gaussian + round | Enforcer clamps to [0, 2^32 - 1] |
+| tcp_urgent_ptr | Gaussian + round | Enforcer sets to 0 when URG flag off |
+| udp_length | Not perturbed | Recomputed by enforcer |
+| icmp_type | Uniform random from [0, 255] | Enforcer repairs to valid IANA types |
+| icmp_code | Uniform random from [0, 255] | Enforcer repairs to valid code for type |
 
-TCP flag perturbation rules:
-- SYN packets: SYN set, FIN and RST off
-- SYN-ACK: SYN+ACK set, FIN and RST off
-- Established: ACK set, SYN off
-- FIN/RST: exactly one, never both
-- PSH/URG: freely toggled when ACK set
+### Packet Constraint Enforcer (`pcap/packet_constraints.py`)
+
+Mirrors the CSV-mode `ConstraintEnforcer` philosophy: systematically repairs perturbed packets
+in a defined order so that each step builds on the previous. This is the PCAP equivalent of
+the 11-step CSV constraint pipeline.
+
+```python
+class PacketConstraintEnforcer:
+    """Applies protocol-aware constraints to perturbed packets in-place.
+    Mirrors core/constraints.py ConstraintEnforcer but operates on
+    ParsedPacket objects instead of numpy arrays."""
+
+    def enforce(self, packet: ParsedPacket, original: ParsedPacket) -> ParsedPacket:
+        """Apply all packet-level constraints in order. Modifies packet in-place."""
+```
+
+**Packet-level enforcement order (7 steps):**
+
+1. **Pin protocol** — `packet.protocol = original.protocol`. Protocol cannot change.
+   TCP fields set to None for non-TCP, UDP fields to None for non-UDP, ICMP fields
+   to None for non-ICMP. (Mirrors CSV steps 1, 8-10: protocol fix + protocol gating)
+
+2. **Pin identity fields** — source/dest IP addresses and ports preserved from original.
+   Flow identity must not change during perturbation. (Mirrors CSV step 1 conceptually:
+   the instance's identity is fixed)
+
+3. **Clamp fields to valid ranges** — (Mirrors CSV steps 2 + 6: non-negativity + bounded range)
+   - ip_ttl: [1, 255] (must be > 0, dead packets wouldn't reach NIDS)
+   - ip_tos: [0, 255]
+   - ip_flags: repair to nearest valid value in {0 (None), 2 (DF), 4 (MF)}
+   - tcp_window_size: [0, 65535]
+   - tcp_seq, tcp_ack: [0, 2^32 - 1]
+   - tcp_urgent_ptr: [0, 65535]
+   - icmp_type: clamp then snap to nearest valid IANA type {0, 3, 5, 8, 11, 12}
+   - icmp_code: snap to nearest valid code for the current icmp_type
+
+4. **TCP flag state repair** — (Mirrors CSV step 8: TCP-specific enforcement, but deeper)
+   Detect the original packet's connection state and enforce valid flag combinations:
+   - SYN state: SYN must be set, FIN and RST forced off. ACK allowed only for SYN-ACK.
+   - Established state: ACK must be set, SYN forced off. PSH/URG freely toggled.
+   - FIN state: exactly one of FIN or RST, never both simultaneously.
+   - RST state: RST set, all others forced off except ACK.
+   - If flags are irrecoverably incoherent, fall back to original packet's flags.
+
+5. **Cross-field enforcement** — (Mirrors CSV step 5: cross-feature arithmetic)
+   - tcp_urgent_ptr = 0 when URG flag is not set
+   - ip_total_length recomputed from IP header length + transport header length + payload_size
+   - udp_length recomputed from UDP header (8) + payload_size
+   - Ensures derived fields are consistent with their components
+
+6. **Discrete field rounding** — (Mirrors CSV step 7)
+   All integer fields rounded: ip_ttl, ip_tos, ip_flags, tcp_window_size, tcp_seq,
+   tcp_ack, tcp_urgent_ptr, icmp_type, icmp_code. Applied after all repairs so
+   rounding doesn't break fixed cross-field relationships.
+
+7. **Reconstruct raw packet** — Writes enforced field values back into the stackforge
+   packet object so the packet can be serialized to PCAP. Updates checksums
+   (IP header checksum, TCP/UDP checksum) via stackforge's packet reconstruction.
+
+### Flow Constraint Enforcer (`pcap/packet_constraints.py`)
+
+```python
+class FlowConstraintEnforcer:
+    """Applies flow-level constraints after individual packets are enforced.
+    Mirrors CSV hierarchical/cross-feature constraints at the flow level."""
+
+    def __init__(self, packet_enforcer: PacketConstraintEnforcer):
+        self.packet_enforcer = packet_enforcer
+
+    def enforce(self, flow: ParsedFlow, original: ParsedFlow) -> ParsedFlow:
+        """Apply packet-level enforcement to each packet, then flow-level constraints."""
+```
+
+**Flow-level enforcement order (5 steps):**
+
+1. **Enforce each packet** — run PacketConstraintEnforcer.enforce() on every packet
+   in the flow. (Ensures all packets are individually valid before flow-level checks)
+
+2. **Pin protocol homogeneity** — force all packets to the flow's dominant protocol.
+   (Mirrors CSV step 1: protocol column fixed across all rows)
+
+3. **Enforce temporal ordering** — if packet timestamps are out of order after
+   perturbation, sort by timestamp. Preserve relative spacing where possible.
+   (Mirrors CSV step 3 conceptually: hierarchical ordering, here temporal)
+
+4. **TCP sequence repair** — recalculate sequence numbers so they advance correctly
+   by payload size from packet to packet within each direction (client→server,
+   server→client independently). ACK numbers set to the other direction's
+   expected next sequence number. (Mirrors CSV step 5: cross-feature arithmetic,
+   but applied to the packet sequence)
+
+5. **Reconstruct flow PCAP** — write all enforced packets to a temp PCAP via
+   stackforge.wrpcap(), re-extract flow via stackforge to guarantee the result
+   is a valid flow that stackforge itself would produce. (No CSV equivalent —
+   this is PCAP-specific round-trip validation)
 
 ### Flow-Level Perturbation (`pcap/flow_perturbation.py`)
 
 ```python
 class FlowPerturbator:
+    def __init__(self, packet_perturbator: PacketPerturbator,
+                 flow_enforcer: FlowConstraintEnforcer):
+        ...
+
     def perturb(self, flow: ParsedFlow, sigma: float, num_samples: int) -> list[ParsedFlow]:
-        """Perturb each packet in the flow independently using PacketPerturbator,
-        write perturbed packets to temp PCAP via stackforge.wrpcap(),
-        re-extract flow via stackforge to guarantee valid flow structure."""
+        """For each sample:
+        1. Perturb each packet independently using PacketPerturbator (raw noise)
+        2. Apply FlowConstraintEnforcer (repairs all packets + flow-level constraints)
+        3. Return enforced flow"""
 ```
 
 ### Semantic Checker (`pcap/semantic_checker.py`)
 
-Hard-reject validation. A sample must pass ALL checks or be discarded.
+Final safety net after constraint enforcement. Only catches edge cases that the
+enforcer cannot repair. With proper enforcement, rejection rate should be very low.
+
+The PCAP pipeline follows the same philosophy as CSV mode:
+**perturb → enforce (repair) → validate (reject unrepairable) → accept**
+
+This mirrors CSV mode's: **perturb → ConstraintEnforcer (repair) → valid sample**
 
 ```python
 class SemanticChecker:
     def check_packet(self, packet: ParsedPacket) -> bool:
-        """Validate a single perturbed packet."""
+        """Validate a single enforced packet. Should rarely reject after enforcement."""
 
     def check_flow(self, flow: ParsedFlow) -> bool:
-        """Validate a perturbed flow (runs check_packet on each, plus flow-level checks)."""
+        """Validate an enforced flow. Should rarely reject after enforcement."""
 ```
 
-**Packet-level checks:**
+**Packet-level checks (post-enforcement validation):**
 1. IP header: `ip_total_length >= 20`, total_length matches header + payload
 2. TCP flag legality: no SYN+FIN+RST simultaneously, URG ptr = 0 when URG off, seq/ack within 32-bit
 3. TCP state coherence: SYN packets have no payload (or <= MSS), RST minimal payload
@@ -320,14 +425,16 @@ class SemanticChecker:
 5. ICMP: only valid (type, code) pairs per IANA registry
 6. TTL: > 0
 7. Protocol mutual exclusion: TCP fields None for UDP/ICMP, vice versa
+8. Checksum validity: IP and TCP/UDP checksums correct after reconstruction
 
-**Flow-level cross-validation checks:**
+**Flow-level cross-validation checks (post-enforcement validation):**
 1. Protocol homogeneity: all packets share L4 protocol
 2. Temporal ordering: timestamps monotonically non-decreasing
 3. TCP sequence consistency: seq numbers advance by payload size within window
 4. Byte count: sum of payload sizes matches expected total
 5. Packet count: len(packets) == expected
 6. Bidirectionality: at least one packet per direction for TCP with handshake
+7. Stackforge round-trip: flow PCAP re-parsed by stackforge produces same flow structure
 
 ### Pipeline Orchestrator (`pcap/pipeline.py`)
 
@@ -337,7 +444,9 @@ class PcapPipeline:
         self,
         parser: PcapParser | None = None,
         packet_perturbator: PacketPerturbator | None = None,
+        packet_enforcer: PacketConstraintEnforcer | None = None,
         flow_perturbator: FlowPerturbator | None = None,
+        flow_enforcer: FlowConstraintEnforcer | None = None,
         checker: SemanticChecker | None = None,
         max_retries: int = 10,
     ):
@@ -352,11 +461,32 @@ class PcapPipeline:
     ) -> list[ParsedPacket] | list[ParsedFlow]:
         """Generate num_samples semantically valid perturbed samples.
 
-        Generates in batches. Each batch: perturb → check → keep valid.
+        Pipeline: perturb → enforce (repair) → validate (reject unrepairable)
+        Mirrors CSV mode: perturb → ConstraintEnforcer → valid sample
+
+        Generates in batches. Each batch: perturb → enforce → check → keep valid.
         Accumulates until num_samples reached. Raises RuntimeError if
-        max_retries * num_samples total attempts exhausted.
+        max_retries * num_samples total attempts exhausted. With proper enforcement,
+        rejection rate should be very low (<5%).
         """
 ```
+
+### CSV vs PCAP Constraint Pipeline Comparison
+
+| CSV Mode | PCAP Packet Mode | PCAP Flow Mode |
+|---|---|---|
+| 1. Pin protocol column | 1. Pin protocol | 1. Enforce each packet (steps 1-7) |
+| 2. Non-negativity clamp | 2. Pin identity (IP/ports) | 2. Pin protocol homogeneity |
+| 3. Hierarchical ordering | 3. Clamp to valid ranges | 3. Enforce temporal ordering |
+| 4. Std <= range | 4. TCP flag state repair | 4. TCP sequence repair |
+| 5. Cross-feature arithmetic | 5. Cross-field enforcement | 5. Reconstruct flow PCAP |
+| 6. Bounded range clamp | 6. Discrete rounding | — |
+| 7. Discrete rounding | 7. Reconstruct raw packet | — |
+| 8. TCP-only zeroing | — (handled in step 1) | — |
+| 9. UDP-specific zeroing | — (handled in step 1) | — |
+| 10. ICMP-specific zeroing | — (handled in step 1) | — |
+| 11. Duplicate equality | — (no duplicates at packet level) | — |
+| **Then: valid sample** | **Then: SemanticChecker** | **Then: SemanticChecker** |
 
 ---
 
@@ -492,8 +622,11 @@ def semantic_robustness_pcap(
 
 ## Key Design Decisions
 
-1. **Two separate constraint systems**: numpy-array constraints in `core/` for CSV mode, packet-object validation in `pcap/` for PCAP mode. No forced abstraction between fundamentally different data types.
-2. **Hard-reject for PCAP**: perturbed samples that fail semantic checks are discarded and regenerated, guaranteeing 100% valid neighborhoods.
-3. **User provides feature_fn**: PA-XAI is model-agnostic. The user extracts features from packets/flows however their model expects. PA-XAI handles perturbation and validity.
-4. **Stackforge for flow reconstruction**: perturbed packets are written back as PCAPs, stackforge re-extracts flows, guaranteeing valid flow structure.
-5. **11-step enforcement order** for CSV constraints: protocol fix → non-negativity → hierarchical → std-range → cross-feature arithmetic → bounded range → discrete rounding → TCP zeroing → UDP zeroing → ICMP zeroing → duplicate equality.
+1. **Two separate constraint systems**: numpy-array constraints in `core/` for CSV mode, packet-object constraints in `pcap/` for PCAP mode. No forced abstraction between fundamentally different data types. Both follow the same philosophy: **perturb → enforce (repair) → validate**.
+2. **Enforce-first, reject-second for PCAP**: `PacketConstraintEnforcer` and `FlowConstraintEnforcer` systematically repair perturbed packets/flows (mirroring CSV mode's `ConstraintEnforcer`). `SemanticChecker` is a final safety net that catches only unrepairable edge cases. This keeps rejection rates low (<5%) while guaranteeing 100% valid neighborhoods.
+3. **Parallel constraint pipelines with matching structure**: CSV mode has an 11-step enforcement order. PCAP packet mode has a 7-step enforcement order. PCAP flow mode has a 5-step enforcement order. Each step in the PCAP pipeline has a direct analogue in the CSV pipeline (documented in the comparison table).
+4. **User provides feature_fn**: PA-XAI is model-agnostic. The user extracts features from packets/flows however their model expects. PA-XAI handles perturbation, constraint enforcement, and validity.
+5. **Stackforge for flow reconstruction**: perturbed packets are written back as PCAPs, stackforge re-extracts flows, guaranteeing valid flow structure. This is the PCAP equivalent of CSV cross-feature arithmetic — derived structure is recomputed from components.
+6. **11-step CSV enforcement order**: protocol fix → non-negativity → hierarchical → std-range → cross-feature arithmetic → bounded range → discrete rounding → TCP zeroing → UDP zeroing → ICMP zeroing → duplicate equality.
+7. **7-step PCAP packet enforcement order**: pin protocol → pin identity → clamp ranges → TCP flag repair → cross-field enforcement → discrete rounding → reconstruct raw packet.
+8. **5-step PCAP flow enforcement order**: enforce each packet → pin protocol homogeneity → enforce temporal ordering → TCP sequence repair → reconstruct flow PCAP.
