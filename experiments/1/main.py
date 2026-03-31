@@ -889,7 +889,7 @@ def main():
     config.xai_mode = args.xai_mode
     mode_dir = "normal" if args.xai_mode == "n" else "protocol-aware"
     config.output_dir = Path("experiments/1/results") / mode_dir
-    config.models_dir = Path("experiments/1/results/normal")
+    config.models_dir = Path("experiments/1/results")
 
     # Apply CLI overrides
     if args.output_dir:

@@ -114,7 +114,7 @@ class ExperimentConfig:
     explainer: ExplainerConfig = field(default_factory=ExplainerConfig)
     metric: MetricConfig = field(default_factory=MetricConfig)
     output_dir: Path = Path("experiments/1/results/normal")
-    models_dir: Path = Path("experiments/1/results/normal")
+    models_dir: Path = Path("experiments/1/results")
     xai_mode: str = "n"
     seed: int = 42
 

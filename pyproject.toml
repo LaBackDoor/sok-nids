@@ -3,7 +3,7 @@ name = "sok-nids"
 version = "0.1.0"
 description = "SoK: Experimental Design for Modeling and Evaluating Explainable AI in NIDS"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.13"
 dependencies = [
     "torch>=2.2.0",
     "numpy>=1.26.0",
@@ -35,12 +35,11 @@ dependencies = [
     "nvidia-cuda-cupti-cu12>=12.9.79; sys_platform == 'linux'",
     "nvidia-cufile-cu12>=1.14.1.1; sys_platform == 'linux'",
     "xgboost>=3.2.0",
+    "stackforge>=0.7.3",
 ]
 
 [project.optional-dependencies]
-dev = [
-    "pytest>=8.0.0",
-]
+dev = ["pytest>=8.0.0"]
 
 [[tool.uv.index]]
 name = "pytorch-cu130"
@@ -56,9 +55,7 @@ torchvision = [
 ]
 
 [dependency-groups]
-dev = [
-    "pytest>=9.0.2",
-]
+dev = ["pytest>=9.0.2"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
