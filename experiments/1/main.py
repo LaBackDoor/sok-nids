@@ -163,12 +163,12 @@ def phase_train(
     # Save models
     if dnn_model is not None or rf_model is not None:
         save_models(
-            dnn_model, rf_model, config.output_dir, dataset.dataset_name,
+            dnn_model, rf_model, config.models_dir, dataset.dataset_name,
             xgb_model=xgb_model, xgb_label_map=xgb_label_map,
         )
     if cnn_lstm_model is not None or cnn_gru_model is not None:
         save_cnn_models(
-            config.output_dir, dataset.dataset_name,
+            config.models_dir, dataset.dataset_name,
             cnn_lstm_model=cnn_lstm_model,
             cnn_lstm_config=config.cnn_lstm if cnn_lstm_model else None,
             cnn_gru_model=cnn_gru_model,
@@ -200,7 +200,7 @@ def phase_explain(
 
     if any(m in models_to_explain for m in ["dnn", "rf", "xgb"]):
         dnn_model, rf_model, xgb_model, xgb_label_map = load_models(
-            config.output_dir, dataset.dataset_name,
+            config.models_dir, dataset.dataset_name,
             dataset.X_train.shape[1], dataset.num_classes,
             config.dnn, device,
         )
@@ -216,7 +216,7 @@ def phase_explain(
     cnn_gru_model = cnn_gru_wrapper = cnn_gru_flat = None
     if any(m in models_to_explain for m in ["cnn-lstm", "cnn-gru"]):
         cnn_lstm_raw, cnn_lstm_cfg, cnn_gru_raw, cnn_gru_cfg = load_cnn_models(
-            config.output_dir, dataset.dataset_name, dataset.num_classes, device,
+            config.models_dir, dataset.dataset_name, dataset.num_classes, device,
         )
         if "cnn-lstm" in models_to_explain and cnn_lstm_raw is not None:
             gs = cnn_lstm_cfg.grid_size
@@ -302,7 +302,7 @@ def phase_evaluate(
     dnn_wrapper = rf_wrapper = xgb_wrapper = None
     if any(m in models_to_eval for m in ["dnn", "rf", "xgb"]):
         dnn_model, rf_model, xgb_model, xgb_label_map = load_models(
-            config.output_dir, dataset.dataset_name,
+            config.models_dir, dataset.dataset_name,
             dataset.X_train.shape[1], dataset.num_classes,
             config.dnn, device,
         )
@@ -318,7 +318,7 @@ def phase_evaluate(
     cnn_gru_wrapper = cnn_gru_flat = None
     if any(m in models_to_eval for m in ["cnn-lstm", "cnn-gru"]):
         cnn_lstm_raw, cnn_lstm_cfg, cnn_gru_raw, cnn_gru_cfg = load_cnn_models(
-            config.output_dir, dataset.dataset_name, dataset.num_classes, device,
+            config.models_dir, dataset.dataset_name, dataset.num_classes, device,
         )
         if "cnn-lstm" in models_to_eval and cnn_lstm_raw is not None:
             gs = cnn_lstm_cfg.grid_size
