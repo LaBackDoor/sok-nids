@@ -48,7 +48,10 @@ class RobustnessConfig:
 
     num_samples: int = 1000
     explanation_methods: list[str] = field(
-        default_factory=lambda: ["SHAP", "LIME", "IG"]
+        default_factory=lambda: ["SHAP", "LIME", "IG", "DeepLIFT"]
+    )
+    pa_explanation_methods: list[str] = field(
+        default_factory=lambda: ["PA-SHAP", "PA-LIME", "PA-IG", "PA-DeepLIFT"]
     )
     distance_norm: str = "l2"  # l2 or linf for Lipschitz computation
     explanation_similarity_epsilon: float = 0.1
@@ -57,6 +60,7 @@ class RobustnessConfig:
     lime_num_features: int = 10
     ig_n_steps: int = 50
     ig_internal_batch_size: int = 4096
+    deeplift_internal_batch_size: int = 4096
 
 
 @dataclass
