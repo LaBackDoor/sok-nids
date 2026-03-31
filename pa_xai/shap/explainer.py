@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import warnings
 
 import numpy as np
@@ -131,6 +132,23 @@ class ProtocolAwareSHAP:
         self.tcp_label_value = tcp_label_value
         self.enforcer = ConstraintEnforcer(schema)
         self._background_cache: dict[float | None, np.ndarray] = {}
+        # Fix XGBoost 2.x base_score vector string for SHAP TreeExplainer compat
+        if backend == "tree" and hasattr(model, 'get_booster'):
+            self._fix_xgb_base_score()
+
+    def _fix_xgb_base_score(self):
+        """Fix XGBoost 2.x base_score vector string for SHAP compatibility."""
+        booster = self.model.get_booster()
+        try:
+            raw_bytes = booster.save_raw('json')
+            model_json = json.loads(raw_bytes)
+            lmp = model_json.get('learner', {}).get('learner_model_param', {})
+            bs = lmp.get('base_score', '')
+            if isinstance(bs, str) and bs.startswith('['):
+                lmp['base_score'] = '5e-01'
+                booster.load_model(bytearray(json.dumps(model_json).encode()))
+        except Exception:
+            pass
 
     def _get_background(self, protocol_value: float | None) -> np.ndarray:
         """Get protocol-filtered background, cached per protocol value."""
@@ -189,17 +207,25 @@ class ProtocolAwareSHAP:
         base_model = self.model.module if isinstance(self.model, torch.nn.DataParallel) else self.model
         base_model.eval()
         use_gradient = _has_rnn_modules(base_model)
-        with warnings.catch_warnings():
-            warnings.filterwarnings("ignore")
+        # Disable cuDNN for RNN models — fused kernels don't support backward in eval mode
+        prev_cudnn = torch.backends.cudnn.enabled
+        if use_gradient:
+            torch.backends.cudnn.enabled = False
+        try:
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore")
+                if use_gradient:
+                    explainer = shap.GradientExplainer(base_model, bg_tensor)
+                else:
+                    explainer = shap.DeepExplainer(base_model, bg_tensor)
+                x_tensor = torch.tensor(x_row, dtype=torch.float32).unsqueeze(0).to(device)
+                if use_gradient:
+                    shap_values = explainer.shap_values(x_tensor)
+                else:
+                    shap_values = explainer.shap_values(x_tensor, check_additivity=False)
+        finally:
             if use_gradient:
-                explainer = shap.GradientExplainer(base_model, bg_tensor)
-            else:
-                explainer = shap.DeepExplainer(base_model, bg_tensor)
-            x_tensor = torch.tensor(x_row, dtype=torch.float32).unsqueeze(0).to(device)
-            if use_gradient:
-                shap_values = explainer.shap_values(x_tensor)
-            else:
-                shap_values = explainer.shap_values(x_tensor, check_additivity=False)
+                torch.backends.cudnn.enabled = prev_cudnn
         n_features = len(x_row)
         attributions = _extract_class_attributions(shap_values, target, n_features)
         if use_gradient:
@@ -219,7 +245,7 @@ class ProtocolAwareSHAP:
             explainer = shap.TreeExplainer(
                 self.model, data=background, feature_perturbation="interventional",
             )
-            shap_values = explainer.shap_values(x_row.reshape(1, -1))
+            shap_values = explainer.shap_values(x_row.reshape(1, -1), check_additivity=False)
         n_features = len(x_row)
         attributions = _extract_class_attributions(shap_values, target, n_features)
         ev = explainer.expected_value

@@ -78,9 +78,6 @@ class LazyDualGridDataset(Dataset):
         ).float()
         return spatial, temporal, torch.tensor(self.y[idx], dtype=torch.long)
 
-# Suppress XGBoost device mismatch warning (prediction still uses GPU via DMatrix fallback)
-warnings.filterwarnings("ignore", message=".*Falling back to prediction using DMatrix.*")
-
 # Suppress cuBLAS context initialization warning (context is set successfully, warning is cosmetic)
 warnings.filterwarnings("ignore", message=".*Attempting to run cuBLAS, but there was no current CUDA context.*")
 
@@ -480,6 +477,10 @@ def train_xgb(
     )
     train_time = time.time() - train_start
     logger.info(f"  XGBoost training completed in {train_time:.1f}s")
+
+    # Switch to CPU for inference — tree model prediction is CPU-bound and
+    # this avoids the device mismatch warning when predict_proba receives numpy.
+    model.set_params(device="cpu")
 
     wrapper = XGBWrapper(model, num_classes=dataset.num_classes, label_map=label_map)
 

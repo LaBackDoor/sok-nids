@@ -9,9 +9,11 @@ import logging
 import os
 import time
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
 
 import numpy as np
 import torch
+import torch.nn as nn
 from joblib import Parallel, delayed
 
 from explainers import ExplanationResult
@@ -45,6 +47,20 @@ def _clone_model_to_device(model: torch.nn.Module, target_device: torch.device):
     return cloned
 
 
+@contextmanager
+def _disable_cudnn_for_rnn(model):
+    """Disable cuDNN if model contains RNN layers (fused kernels don't support backward in eval)."""
+    has_rnn = any(isinstance(m, (nn.LSTM, nn.GRU, nn.RNN)) for m in model.modules())
+    if has_rnn:
+        prev = torch.backends.cudnn.enabled
+        torch.backends.cudnn.enabled = False
+    try:
+        yield
+    finally:
+        if has_rnn:
+            torch.backends.cudnn.enabled = prev
+
+
 # ---------------------------------------------------------------------------
 # Protocol-Aware SHAP (DNN -- DeepExplainer backend)
 # ---------------------------------------------------------------------------
@@ -74,9 +90,10 @@ def pa_explain_shap_dnn(
 
     start = time.time()
     all_attrs = []
-    for i in range(len(X_explain)):
-        result = explainer.explain_instance(X_explain[i])
-        all_attrs.append(result.attributions)
+    with _disable_cudnn_for_rnn(base_model):
+        for i in range(len(X_explain)):
+            result = explainer.explain_instance(X_explain[i])
+            all_attrs.append(result.attributions)
     elapsed = time.time() - start
 
     attributions = np.stack(all_attrs, axis=0)
@@ -215,12 +232,13 @@ def pa_explain_ig(
 
     start = time.time()
     all_attrs = []
-    for i in range(len(X_explain)):
-        result = explainer.explain_instance(
-            X_explain[i].astype(np.float32),
-            n_steps=config.ig_n_steps,
-        )
-        all_attrs.append(result.attributions)
+    with _disable_cudnn_for_rnn(base_model):
+        for i in range(len(X_explain)):
+            result = explainer.explain_instance(
+                X_explain[i].astype(np.float32),
+                n_steps=config.ig_n_steps,
+            )
+            all_attrs.append(result.attributions)
     elapsed = time.time() - start
 
     attributions = np.stack(all_attrs, axis=0)
@@ -263,11 +281,12 @@ def pa_explain_deeplift(
 
     start = time.time()
     all_attrs = []
-    for i in range(len(X_explain)):
-        result = explainer.explain_instance(
-            X_explain[i].astype(np.float32),
-        )
-        all_attrs.append(result.attributions)
+    with _disable_cudnn_for_rnn(base_model):
+        for i in range(len(X_explain)):
+            result = explainer.explain_instance(
+                X_explain[i].astype(np.float32),
+            )
+            all_attrs.append(result.attributions)
     elapsed = time.time() - start
 
     attributions = np.stack(all_attrs, axis=0)
