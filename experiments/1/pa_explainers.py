@@ -5,11 +5,13 @@ network protocol domain constraints during explanation generation.
 """
 
 import logging
+import os
 import time
-import warnings
+from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
 import torch
+from joblib import Parallel, delayed
 
 from explainers import ExplanationResult
 
@@ -102,14 +104,20 @@ def pa_explain_shap_tree(
         backend="tree", n_background=config.shap_background_samples,
     )
 
+    total_cpus = os.cpu_count() or 1
+    n_jobs = max(1, int(total_cpus * 0.75))
+    logger.info(f"  PA-SHAP Tree parallelizing with {n_jobs}/{total_cpus} CPUs")
+
+    def _explain_one(i):
+        return explainer.explain_instance(X_explain[i]).attributions
+
     start = time.time()
-    all_attrs = []
-    for i in range(len(X_explain)):
-        result = explainer.explain_instance(X_explain[i])
-        all_attrs.append(result.attributions)
+    results = Parallel(n_jobs=n_jobs, backend="threading", verbose=1)(
+        delayed(_explain_one)(i) for i in range(len(X_explain))
+    )
     elapsed = time.time() - start
 
-    attributions = np.stack(all_attrs, axis=0)
+    attributions = np.stack(results, axis=0)
 
     return ExplanationResult(
         attributions=attributions,
@@ -139,17 +147,24 @@ def pa_explain_lime(
 
     explainer = ProtocolAwareLIME(schema)
 
-    start = time.time()
-    all_attrs = []
-    for i in range(len(X_explain)):
-        result = explainer.explain_instance(
+    total_cpus = os.cpu_count() or 1
+    n_jobs = max(1, int(total_cpus * 0.75))
+    logger.info(f"  PA-LIME parallelizing with {n_jobs}/{total_cpus} CPUs")
+
+    def _explain_one(i):
+        r = explainer.explain_instance(
             X_explain[i], predict_fn,
             num_samples=config.lime_num_samples,
         )
-        all_attrs.append(result.attributions)
+        return r.attributions
+
+    start = time.time()
+    results = Parallel(n_jobs=n_jobs, backend="threading", verbose=1)(
+        delayed(_explain_one)(i) for i in range(len(X_explain))
+    )
     elapsed = time.time() - start
 
-    attributions = np.stack(all_attrs, axis=0)
+    attributions = np.stack(results, axis=0)
 
     return ExplanationResult(
         attributions=attributions,
@@ -285,6 +300,7 @@ def pa_generate_all_explanations(
     # === DNN explanations ===
     if dnn_model is not None and dnn_wrapper is not None:
         logger.info("--- DNN PA-Explanations ---")
+        # SHAP (GPU) runs first alone — it needs exclusive GPU access
         try:
             results.append(pa_explain_shap_dnn(
                 dnn_model, X_explain, dataset.X_train, dataset.y_train,
@@ -293,28 +309,38 @@ def pa_generate_all_explanations(
         except Exception as e:
             logger.error(f"PA-SHAP DNN failed: {e}")
 
-        try:
-            results.append(pa_explain_lime(
+        # Overlap LIME (CPU) with IG+DeepLIFT (GPU) via background thread
+        lime_future = None
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            logger.info("  Launching PA-LIME DNN in background (CPU) "
+                        "while GPU methods run")
+            lime_future = pool.submit(
+                pa_explain_lime,
                 dnn_wrapper.predict_proba, X_explain, ds_name, "DNN", config,
-            ))
+            )
+
+            # GPU methods run on main thread while LIME works on CPU
+            try:
+                results.append(pa_explain_ig(
+                    dnn_model, X_explain, dataset.X_train, dataset.y_train,
+                    ds_name, device, config,
+                ))
+            except Exception as e:
+                logger.error(f"PA-IG failed: {e}")
+
+            try:
+                results.append(pa_explain_deeplift(
+                    dnn_model, X_explain, dataset.X_train, dataset.y_train,
+                    ds_name, device, config,
+                ))
+            except Exception as e:
+                logger.error(f"PA-DeepLIFT failed: {e}")
+
+        # Collect LIME result (already finished or wait for it)
+        try:
+            results.append(lime_future.result())
         except Exception as e:
             logger.error(f"PA-LIME DNN failed: {e}")
-
-        try:
-            results.append(pa_explain_ig(
-                dnn_model, X_explain, dataset.X_train, dataset.y_train,
-                ds_name, device, config,
-            ))
-        except Exception as e:
-            logger.error(f"PA-IG failed: {e}")
-
-        try:
-            results.append(pa_explain_deeplift(
-                dnn_model, X_explain, dataset.X_train, dataset.y_train,
-                ds_name, device, config,
-            ))
-        except Exception as e:
-            logger.error(f"PA-DeepLIFT failed: {e}")
 
     # === RF explanations ===
     if rf_model is not None and rf_wrapper is not None:
@@ -374,6 +400,7 @@ def pa_generate_cnn_explanations(
     """Generate protocol-aware explanations for a CNN model."""
     ds_name = dataset.dataset_name
 
+    # SHAP (GPU) runs first alone
     try:
         r = pa_explain_shap_dnn(
             flat_model, X_explain, dataset.X_train, dataset.y_train,
@@ -384,34 +411,43 @@ def pa_generate_cnn_explanations(
     except Exception as e:
         logger.warning(f"  PA-SHAP failed for {model_name}: {e}")
 
-    try:
-        r = pa_explain_lime(
+    # Overlap LIME (CPU) with IG+DeepLIFT (GPU)
+    lime_future = None
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        logger.info(f"  Launching PA-LIME {model_name} in background (CPU) "
+                    "while GPU methods run")
+        lime_future = pool.submit(
+            pa_explain_lime,
             wrapper.predict_proba, X_explain, ds_name, model_name, config,
         )
+
+        try:
+            r = pa_explain_ig(
+                flat_model, X_explain, dataset.X_train, dataset.y_train,
+                ds_name, device, config, model_name=model_name,
+            )
+            r.model_name = model_name
+            results.append(r)
+        except Exception as e:
+            logger.warning(f"  PA-IG failed for {model_name}: {e}")
+
+        try:
+            r = pa_explain_deeplift(
+                flat_model, X_explain, dataset.X_train, dataset.y_train,
+                ds_name, device, config, model_name=model_name,
+            )
+            r.model_name = model_name
+            results.append(r)
+        except Exception as e:
+            logger.warning(f"  PA-DeepLIFT failed for {model_name}: {e}")
+
+    # Collect LIME result
+    try:
+        r = lime_future.result()
         r.model_name = model_name
         results.append(r)
     except Exception as e:
         logger.warning(f"  PA-LIME failed for {model_name}: {e}")
-
-    try:
-        r = pa_explain_ig(
-            flat_model, X_explain, dataset.X_train, dataset.y_train,
-            ds_name, device, config, model_name=model_name,
-        )
-        r.model_name = model_name
-        results.append(r)
-    except Exception as e:
-        logger.warning(f"  PA-IG failed for {model_name}: {e}")
-
-    try:
-        r = pa_explain_deeplift(
-            flat_model, X_explain, dataset.X_train, dataset.y_train,
-            ds_name, device, config, model_name=model_name,
-        )
-        r.model_name = model_name
-        results.append(r)
-    except Exception as e:
-        logger.warning(f"  PA-DeepLIFT failed for {model_name}: {e}")
 
 
 # ---------------------------------------------------------------------------
