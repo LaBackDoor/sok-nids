@@ -113,7 +113,9 @@ class ExperimentConfig:
     cnn_gru: CNNGRUConfig = field(default_factory=CNNGRUConfig)
     explainer: ExplainerConfig = field(default_factory=ExplainerConfig)
     metric: MetricConfig = field(default_factory=MetricConfig)
-    output_dir: Path = Path("experiments/1/results")
+    output_dir: Path = Path("experiments/1/results/normal")
+    models_dir: Path = Path("experiments/1/results/normal")
+    xai_mode: str = "n"
     seed: int = 42
 
     ALL_DATASETS: list[str] = field(
