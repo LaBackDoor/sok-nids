@@ -45,6 +45,7 @@ sys.path.insert(0, exp1_dir)
 from data_loader import DataConfig, DatasetBundle, load_dataset
 from explainers import (
     ExplanationResult,
+    explain_deeplift,
     explain_ig,
     explain_lime,
     explain_shap_dnn,
@@ -74,7 +75,8 @@ ExplainerConfig = _exp1_cfg.ExplainerConfig
 sys.path.insert(0, exp2_dir)
 
 from attacks import generate_adversarial_examples  # noqa: E402
-from feature_constraints import build_constraints, make_constraint_projector, spec_to_dict  # noqa: E402
+from pa_constraints import make_pa_constraint_projector, pa_constraint_spec_to_dict  # noqa: E402
+from pa_explainers import make_pa_explain_fn  # noqa: E402
 from robustness import evaluate_robustness_for_method  # noqa: E402
 from scaffolding import run_scaffolding_attack  # noqa: E402
 
@@ -152,7 +154,18 @@ def make_explain_fn(
     device: torch.device,
     config: Experiment2Config,
 ):
-    """Create a callable explain function for robustness evaluation."""
+    """Create a callable explain function for robustness evaluation.
+
+    Supports vanilla methods (SHAP, LIME, IG, DeepLIFT) and
+    protocol-aware methods (PA-SHAP, PA-LIME, PA-IG, PA-DeepLIFT).
+    """
+    # PA methods delegate to pa_explainers module
+    if method.startswith("PA-"):
+        return make_pa_explain_fn(
+            method, dnn_model, dnn_wrapper, dataset, device, config,
+        )
+
+    # Vanilla methods
     rng = np.random.RandomState(42)
     bg_idx = rng.choice(
         len(dataset.X_train),
@@ -187,6 +200,12 @@ def make_explain_fn(
     elif method == "IG":
         def fn(X):
             r = explain_ig(dnn_model, X, device, explainer_cfg)
+            return r.attributions
+        return fn
+
+    elif method == "DeepLIFT":
+        def fn(X):
+            r = explain_deeplift(dnn_model, X, device, explainer_cfg)
             return r.attributions
         return fn
 
@@ -275,23 +294,30 @@ def phase_adversarial(
             adv_results, config.output_dir, dataset.dataset_name, "unconstrained"
         )
 
-    # Constrained attacks
+    # Constrained attacks (using pa_xai ConstraintEnforcer)
     if config.attack.run_constrained:
-        logger.info("  Running CONSTRAINED attacks...")
-        spec = build_constraints(dataset.dataset_name, dataset.feature_names, dataset.scaler)
-        projector = make_constraint_projector(spec, dataset.scaler, device)
-        adv_results = generate_adversarial_examples(
-            model=dnn_model,
-            X=dataset.X_test,
-            y=dataset.y_test,
-            config=config.attack,
-            device=device,
-            constraint_projector=projector,
+        projector = make_pa_constraint_projector(
+            dataset.dataset_name, dataset.scaler, device,
         )
-        summary["constrained"] = _save_adversarial_results(
-            adv_results, config.output_dir, dataset.dataset_name, "constrained",
-            constraint_spec_dict=spec_to_dict(spec),
-        )
+        if projector is None:
+            logger.warning(
+                f"  Skipping CONSTRAINED attacks for {dataset.dataset_name}: "
+                "no pa_xai schema available."
+            )
+        else:
+            logger.info("  Running CONSTRAINED attacks (pa_xai constraints)...")
+            adv_results = generate_adversarial_examples(
+                model=dnn_model,
+                X=dataset.X_test,
+                y=dataset.y_test,
+                config=config.attack,
+                device=device,
+                constraint_projector=projector,
+            )
+            summary["constrained"] = _save_adversarial_results(
+                adv_results, config.output_dir, dataset.dataset_name, "constrained",
+                constraint_spec_dict=pa_constraint_spec_to_dict(dataset.dataset_name),
+            )
 
     return summary
 
@@ -317,6 +343,7 @@ def phase_robustness(
     config: Experiment2Config,
     device: torch.device,
     adv_results: dict | None = None,
+    skip_pa: bool = False,
 ) -> list[dict]:
     """Evaluate Lipschitz, ExplSim, ClassEq for each XAI method + attack combo.
 
@@ -359,7 +386,12 @@ def phase_robustness(
         y_clean = y_clean[:n]
         adv_examples = {k: v[:n] for k, v in adv_examples.items()}
 
-        for method in config.robustness.explanation_methods:
+        # Combine vanilla and PA methods
+        all_methods = list(config.robustness.explanation_methods)
+        if not skip_pa:
+            all_methods.extend(config.robustness.pa_explanation_methods)
+
+        for method in all_methods:
             logger.info(f"  --- Method: {method} ({mode}) ---")
             try:
                 explain_fn = make_explain_fn(
@@ -607,7 +639,7 @@ def _json_serialize(obj):
 
 # ─── Main Orchestrator ─────────────────────────────────────────────────────────
 
-def run_experiment(config: Experiment2Config, datasets: list[str], phases: list[str]):
+def run_experiment(config: Experiment2Config, datasets: list[str], phases: list[str], skip_pa: bool = False):
     """Main experiment runner."""
     device, num_gpus = setup_device()
     config.output_dir.mkdir(parents=True, exist_ok=True)
@@ -687,7 +719,7 @@ def run_experiment(config: Experiment2Config, datasets: list[str], phases: list[
                 logger.info(f"\n--- Phase: Robustness Evaluation ---")
                 rob_results = phase_robustness(
                     dataset, dnn_model, dnn_wrapper, rf_wrapper,
-                    config, device,
+                    config, device, skip_pa=skip_pa,
                 )
                 ds_results["robustness"] = rob_results
             except Exception as e:
@@ -774,6 +806,11 @@ def parse_args():
         action="store_true",
         help="Skip unconstrained adversarial attacks",
     )
+    parser.add_argument(
+        "--no-pa",
+        action="store_true",
+        help="Skip protocol-aware (PA) explanation methods in robustness evaluation",
+    )
     return parser.parse_args()
 
 
@@ -797,6 +834,7 @@ def main():
         config.attack.run_constrained = False
     if args.no_unconstrained:
         config.attack.run_unconstrained = False
+    skip_pa = args.no_pa
 
     datasets = args.datasets or config.datasets
     phases = args.phase
@@ -814,8 +852,9 @@ def main():
     logger.info(f"Exp1 models: {config.exp1_results_dir}")
     logger.info(f"Attack samples: {config.attack.num_attack_samples}")
     logger.info(f"Robustness samples: {config.robustness.num_samples}")
+    logger.info(f"PA methods: {'disabled' if skip_pa else 'enabled'}")
 
-    run_experiment(config, datasets, phases)
+    run_experiment(config, datasets, phases, skip_pa=skip_pa)
 
 
 if __name__ == "__main__":
