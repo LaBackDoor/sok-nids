@@ -5,7 +5,6 @@ from __future__ import annotations
 import numpy as np
 from sklearn.linear_model import Ridge
 from sklearn.metrics import pairwise_distances
-from sklearn.preprocessing import StandardScaler
 
 from pa_xai.lime.fuzzer import DomainConstraintFuzzer
 from pa_xai.core.result import ExplanationResult
@@ -72,28 +71,25 @@ class ProtocolAwareLIME:
         else:
             y_neighborhood = raw_preds
 
-        # 3. Compute proximity weights
-        scaler = StandardScaler()
-        neighborhood_scaled = scaler.fit_transform(neighborhood)
-        query_scaled = neighborhood_scaled[0:1]
-
+        # 3. Compute proximity weights (euclidean distance in original space)
+        query = neighborhood[0:1]
         distances = pairwise_distances(
-            neighborhood_scaled, query_scaled, metric="euclidean"
+            neighborhood, query, metric="euclidean"
         ).flatten()
 
         if kernel_width is None:
             kernel_width = 0.75 * np.sqrt(d)
 
-        weights = np.exp(-(distances ** 2) / (kernel_width ** 2))
+        weights = np.exp(-(distances ** 2) / (2 * kernel_width ** 2))
 
         # 4. Fit weighted Ridge surrogate
         surrogate = Ridge(alpha=self.ridge_alpha)
-        surrogate.fit(neighborhood_scaled, y_neighborhood, sample_weight=weights)
+        surrogate.fit(neighborhood, y_neighborhood, sample_weight=weights)
 
         r_squared = surrogate.score(
-            neighborhood_scaled, y_neighborhood, sample_weight=weights
+            neighborhood, y_neighborhood, sample_weight=weights
         )
-        local_prediction = float(surrogate.predict(query_scaled)[0])
+        local_prediction = float(surrogate.predict(query)[0])
 
         return ExplanationResult(
             feature_names=list(self.schema.feature_names),
