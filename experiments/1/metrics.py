@@ -186,54 +186,71 @@ def efficiency(explanation_result) -> dict:
     }
 
 
-def stability(
+def stability_batched(
     explain_fn,
-    X_single: np.ndarray,
+    X_samples: np.ndarray,
     n_runs: int,
     top_k: int,
-) -> dict:
+) -> list[dict]:
     """Stability: Jaccard similarity of top-k features across repeated runs.
+
+    Batches all samples × runs into a single explain_fn call to avoid
+    per-sample overhead (parallel-backend spin-up, etc.).
 
     Args:
         explain_fn: Callable that takes X (n, features) and returns attributions (n, features).
-        X_single: Single sample repeated for stability test, shape (1, features).
+        X_samples: Samples to test stability on, shape (n_samples, features).
         n_runs: Number of repeated explanation runs.
         top_k: Number of top features to compare.
+
+    Returns:
+        List of per-sample stability dicts (one per row in X_samples).
     """
-    all_top_k_sets = []
-    n_degenerate = 0
+    n_samples = len(X_samples)
+    # Build batch: each sample repeated n_runs times, grouped by run
+    # Layout: [run0_sample0, run0_sample1, ..., run1_sample0, run1_sample1, ...]
+    X_batch = np.tile(X_samples, (n_runs, 1))  # (n_runs * n_samples, features)
 
-    for run in range(n_runs):
-        attrs = explain_fn(X_single)
-        if attrs.ndim == 1:
-            attrs = attrs.reshape(1, -1)
-        # Detect degenerate attributions (all zeros or uniform values)
-        if np.all(attrs[0] == attrs[0][0]):
-            n_degenerate += 1
-        top_indices = set(np.argsort(np.abs(attrs[0]))[::-1][:top_k])
-        all_top_k_sets.append(top_indices)
+    # Single batched call
+    attrs_all = explain_fn(X_batch)
+    if attrs_all.ndim == 1:
+        attrs_all = attrs_all.reshape(-1, X_samples.shape[-1])
+    # Reshape to (n_runs, n_samples, features)
+    attrs_per_run = attrs_all.reshape(n_runs, n_samples, -1)
 
-    # If all runs produced degenerate attributions, stability is meaningless
-    if n_degenerate == n_runs:
-        return {
-            "stability_jaccard_mean": float("nan"),
-            "stability_jaccard_min": float("nan"),
-            "stability_degenerate": True,
-        }
+    results = []
+    for s in range(n_samples):
+        all_top_k_sets = []
+        n_degenerate = 0
+        for r in range(n_runs):
+            a = attrs_per_run[r, s]
+            if np.all(a == a[0]):
+                n_degenerate += 1
+            top_indices = set(np.argsort(np.abs(a))[::-1][:top_k])
+            all_top_k_sets.append(top_indices)
 
-    # Pairwise Jaccard similarity
-    jaccard_scores = []
-    for i in range(len(all_top_k_sets)):
-        for j in range(i + 1, len(all_top_k_sets)):
-            intersection = len(all_top_k_sets[i] & all_top_k_sets[j])
-            union = len(all_top_k_sets[i] | all_top_k_sets[j])
-            jaccard_scores.append(intersection / union if union > 0 else 1.0)
+        if n_degenerate == n_runs:
+            results.append({
+                "stability_jaccard_mean": float("nan"),
+                "stability_jaccard_min": float("nan"),
+                "stability_degenerate": True,
+            })
+            continue
 
-    return {
-        "stability_jaccard_mean": float(np.mean(jaccard_scores)) if jaccard_scores else 1.0,
-        "stability_jaccard_min": float(np.min(jaccard_scores)) if jaccard_scores else 1.0,
-        "stability_degenerate": False,
-    }
+        jaccard_scores = []
+        for i in range(len(all_top_k_sets)):
+            for j in range(i + 1, len(all_top_k_sets)):
+                intersection = len(all_top_k_sets[i] & all_top_k_sets[j])
+                union = len(all_top_k_sets[i] | all_top_k_sets[j])
+                jaccard_scores.append(intersection / union if union > 0 else 1.0)
+
+        results.append({
+            "stability_jaccard_mean": float(np.mean(jaccard_scores)) if jaccard_scores else 1.0,
+            "stability_jaccard_min": float(np.min(jaccard_scores)) if jaccard_scores else 1.0,
+            "stability_degenerate": False,
+        })
+
+    return results
 
 
 def completeness(
@@ -376,18 +393,18 @@ def evaluate_all_metrics(
     eff = efficiency(explanation_result)
     metrics.update(eff)
 
-    # 5. Stability (on a subset of samples)
+    # 5. Stability (on a subset of samples, batched)
     logger.info(f"    Computing Stability...")
     n_stability = min(20, len(X_explain))
-    stability_scores = []
-    for i in range(n_stability):
-        x_single = X_explain[i : i + 1]
-        stab = stability(
-            explain_fn, x_single, config.stability_runs, config.stability_top_k,
-        )
-        stability_scores.append(stab["stability_jaccard_mean"])
-    metrics["stability_jaccard_mean"] = float(np.mean(stability_scores))
-    metrics["stability_jaccard_std"] = float(np.std(stability_scores))
+    stab_results = stability_batched(
+        explain_fn, X_explain[:n_stability], config.stability_runs, config.stability_top_k,
+    )
+    stability_scores = [s["stability_jaccard_mean"] for s in stab_results]
+    metrics["stability_jaccard_mean"] = float(np.nanmean(stability_scores))
+    metrics["stability_jaccard_std"] = float(np.nanstd(stability_scores))
+    n_degenerate = sum(1 for s in stab_results if s.get("stability_degenerate", False))
+    if n_degenerate > 0:
+        logger.warning(f"    {n_degenerate}/{n_stability} samples had degenerate attributions (stability=nan)")
 
     # 6. Completeness
     logger.info(f"    Computing Completeness...")
