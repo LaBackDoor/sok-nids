@@ -4,7 +4,12 @@ from __future__ import annotations
 
 import numpy as np
 
-from pa_xai.core.schemas import DatasetSchema, TCP_PROTOCOL_INT
+from pa_xai.core.schemas import (
+    DatasetSchema,
+    TCP_PROTOCOL_INT,
+    UDP_PROTOCOL_INT,
+    ICMP_PROTOCOL_INT,
+)
 
 
 class ConstraintEnforcer:
@@ -25,6 +30,8 @@ class ConstraintEnforcer:
         protocol_value: float | None,
         protocol_encoding: str,
         tcp_label_value: int | float = TCP_PROTOCOL_INT,
+        udp_label_value: int | float = UDP_PROTOCOL_INT,
+        icmp_label_value: int | float = ICMP_PROTOCOL_INT,
     ) -> np.ndarray:
         """Apply all constraints in-place and return the neighborhood.
 
@@ -32,14 +39,23 @@ class ConstraintEnforcer:
           1. Fix protocol column to original value
           2. Non-negativity clamping
           3. Hierarchical ordering (min <= mean <= max)
-          4. Discrete rounding
-          5. Protocol-gated TCP feature zeroing
+          4. Std <= range (std clamped to max - min)
+          5. Cross-feature arithmetic (ratio, sum_ratio, square, equal)
+          6. Bounded range clamping
+          7. Discrete rounding
+          8. Protocol-gated TCP feature zeroing
+          9. UDP-specific zeroing
+          10. ICMP-specific zeroing
+          10b. Connection-only zeroing (zeroed when protocol IS ICMP)
+          11. Duplicate feature equality
 
         Args:
             neighborhood: Shape (N, D) matrix of perturbed samples.
             protocol_value: The original instance's protocol value, or None.
             protocol_encoding: 'integer' or 'string'.
             tcp_label_value: The numeric value representing TCP.
+            udp_label_value: The numeric value representing UDP.
+            icmp_label_value: The numeric value representing ICMP.
 
         Returns:
             The constrained neighborhood (modified in-place).
@@ -64,15 +80,62 @@ class ConstraintEnforcer:
                 neighborhood[:, max_i], neighborhood[:, mean_i]
             )
 
-        # 4. Discrete rounding
+        # 4. Std <= range
+        for std_i, max_i, min_i in s.std_range_index_triples:
+            range_val = neighborhood[:, max_i] - neighborhood[:, min_i]
+            neighborhood[:, std_i] = np.minimum(neighborhood[:, std_i], range_val)
+
+        # 5. Cross-feature arithmetic
+        for derived_i, operand_indices, relation in s.cross_feature_index_tuples:
+            if relation == "equal":
+                neighborhood[:, derived_i] = neighborhood[:, operand_indices[0]]
+            elif relation == "square":
+                neighborhood[:, derived_i] = neighborhood[:, operand_indices[0]] ** 2
+            elif relation == "ratio":
+                num = neighborhood[:, operand_indices[0]]
+                den = neighborhood[:, operand_indices[1]]
+                neighborhood[:, derived_i] = np.where(den != 0, num / den, 0.0)
+            elif relation == "sum_ratio":
+                a = neighborhood[:, operand_indices[0]]
+                b = neighborhood[:, operand_indices[1]]
+                den = neighborhood[:, operand_indices[2]]
+                neighborhood[:, derived_i] = np.where(den != 0, (a + b) / den, 0.0)
+
+        # 6. Bounded range clamping
+        for feat_i, lower, upper in s.bounded_range_index_bounds:
+            neighborhood[:, feat_i] = np.clip(neighborhood[:, feat_i], lower, upper)
+
+        # 7. Discrete rounding
         if s.discrete_indices:
             idx = s.discrete_indices
             neighborhood[:, idx] = np.round(neighborhood[:, idx])
 
-        # 5. Protocol-gated TCP feature zeroing
+        # 8. Protocol-gated TCP feature zeroing
         if s.tcp_only_indices and protocol_value is not None:
             is_tcp = int(round(protocol_value)) == int(tcp_label_value)
             if not is_tcp:
                 neighborhood[:, s.tcp_only_indices] = 0.0
+
+        # 9. UDP-specific zeroing
+        if s.udp_only_indices and protocol_value is not None:
+            is_udp = int(round(protocol_value)) == int(udp_label_value)
+            if not is_udp:
+                neighborhood[:, s.udp_only_indices] = 0.0
+
+        # 10. ICMP-specific zeroing
+        if s.icmp_only_indices and protocol_value is not None:
+            is_icmp = int(round(protocol_value)) == int(icmp_label_value)
+            if not is_icmp:
+                neighborhood[:, s.icmp_only_indices] = 0.0
+
+        # 10b. Connection-only zeroing (zeroed when protocol IS ICMP)
+        if s.connection_only_indices and protocol_value is not None:
+            is_icmp = int(round(protocol_value)) == int(icmp_label_value)
+            if is_icmp:
+                neighborhood[:, s.connection_only_indices] = 0.0
+
+        # 11. Duplicate feature equality
+        for idx_a, idx_b in s.duplicate_index_pairs:
+            neighborhood[:, idx_b] = neighborhood[:, idx_a]
 
         return neighborhood
