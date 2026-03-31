@@ -8,6 +8,8 @@ from pa_xai.core.constraints import ConstraintEnforcer
 from pa_xai.core.schemas import (
     DatasetSchema,
     TCP_PROTOCOL_INT,
+    UDP_PROTOCOL_INT,
+    ICMP_PROTOCOL_INT,
     detect_protocol_encoding,
 )
 
@@ -25,10 +27,14 @@ class DomainConstraintFuzzer:
         self,
         schema: DatasetSchema,
         tcp_label_value: int | float | None = None,
+        udp_label_value: int | float | None = None,
+        icmp_label_value: int | float | None = None,
     ) -> None:
         self.schema = schema
         self.enforcer = ConstraintEnforcer(schema)
         self.tcp_label_value = tcp_label_value
+        self.udp_label_value = udp_label_value
+        self.icmp_label_value = icmp_label_value
 
     def generate(
         self,
@@ -54,6 +60,8 @@ class DomainConstraintFuzzer:
         encoding = self.schema.protocol_encoding
         protocol_value = None
         tcp_val = TCP_PROTOCOL_INT
+        udp_val = UDP_PROTOCOL_INT
+        icmp_val = ICMP_PROTOCOL_INT
 
         if self.schema.protocol_index is not None:
             protocol_value = x_row[self.schema.protocol_index]
@@ -63,19 +71,30 @@ class DomainConstraintFuzzer:
                 )
             if encoding == "string":
                 tcp_val = self.tcp_label_value if self.tcp_label_value is not None else TCP_PROTOCOL_INT
+                udp_val = self.udp_label_value if self.udp_label_value is not None else UDP_PROTOCOL_INT
+                icmp_val = self.icmp_label_value if self.icmp_label_value is not None else ICMP_PROTOCOL_INT
 
         self.enforcer.enforce(
             neighborhood,
             protocol_value=protocol_value,
             protocol_encoding=encoding,
             tcp_label_value=tcp_val,
+            udp_label_value=udp_val,
+            icmp_label_value=icmp_val,
         )
 
-        # Pin first row to exact original, then re-apply TCP-only zeroing so
-        # the original row also satisfies protocol constraints.
+        # Pin first row to exact original, then re-apply protocol-only zeroing
+        # so the original row also satisfies protocol constraints.
         neighborhood[0, :] = x_row
-        if self.schema.tcp_only_indices and protocol_value is not None:
-            is_tcp = int(round(float(protocol_value))) == int(tcp_val)
-            if not is_tcp:
-                neighborhood[0, self.schema.tcp_only_indices] = 0.0
+        if protocol_value is not None:
+            proto_int = int(round(float(protocol_value)))
+            if self.schema.tcp_only_indices:
+                if proto_int != int(tcp_val):
+                    neighborhood[0, self.schema.tcp_only_indices] = 0.0
+            if self.schema.udp_only_indices:
+                if proto_int != int(udp_val):
+                    neighborhood[0, self.schema.udp_only_indices] = 0.0
+            if self.schema.icmp_only_indices:
+                if proto_int != int(icmp_val):
+                    neighborhood[0, self.schema.icmp_only_indices] = 0.0
         return neighborhood

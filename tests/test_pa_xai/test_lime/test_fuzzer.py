@@ -102,3 +102,26 @@ def test_fuzzer_feature_wise_sigma():
     neighborhood = fuzzer.generate(x, num_samples=5000, sigma=sigma)
     assert np.all(neighborhood[:, 0] == 6.0)
     assert np.std(neighborhood[1:, 1]) > 0
+
+
+def test_fuzzer_passes_udp_icmp_labels():
+    from pa_xai.lime.fuzzer import DomainConstraintFuzzer
+    from pa_xai.core.schemas import DatasetSchema
+
+    schema = DatasetSchema(
+        name="test",
+        feature_names=["proto", "udp_feat", "icmp_feat", "duration"],
+        protocol_feature="proto",
+        non_negative_features=["duration"],
+        tcp_only_features=[],
+        discrete_features=[],
+        hierarchical_constraints=[],
+        protocol_encoding="integer",
+        udp_only_features=["udp_feat"],
+        icmp_only_features=["icmp_feat"],
+    )
+    fuzzer = DomainConstraintFuzzer(schema)
+    x_row = np.array([6.0, 5.0, 3.0, 100.0])  # TCP flow
+    neighborhood = fuzzer.generate(x_row, num_samples=100, sigma=1.0)
+    assert np.all(neighborhood[:, 1] == 0.0)  # udp_feat zeroed for TCP
+    assert np.all(neighborhood[:, 2] == 0.0)  # icmp_feat zeroed for TCP
