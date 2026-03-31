@@ -1,1 +1,67 @@
-{}
+{
+  "DNN_SHAP": {
+    "time_per_sample_ms": 29.74736568927765,
+    "total_time_s": 297.4736568927765,
+    "summary_plot_time_s": 3.131836414337158
+  },
+  "DNN_LIME": {
+    "time_per_sample_ms": 17.098485255241393,
+    "total_time_s": 170.98485255241394,
+    "summary_plot_time_s": 3.0711491107940674
+  },
+  "DNN_IG": {
+    "time_per_sample_ms": 57.753525376319885,
+    "total_time_s": 577.5352537631989,
+    "summary_plot_time_s": 3.262538194656372
+  },
+  "DNN_DeepLIFT": {
+    "time_per_sample_ms": 7.08093831539154,
+    "total_time_s": 70.8093831539154,
+    "summary_plot_time_s": 3.0223984718322754
+  },
+  "RF_LIME": {
+    "time_per_sample_ms": 113.08826549053192,
+    "total_time_s": 1130.8826549053192,
+    "summary_plot_time_s": 3.0744712352752686
+  },
+  "XGB_LIME": {
+    "time_per_sample_ms": 76.60407161712646,
+    "total_time_s": 766.0407161712646,
+    "summary_plot_time_s": 3.0935873985290527
+  },
+  "CNN-LSTM_LIME": {
+    "time_per_sample_ms": 17.09725549221039,
+    "total_time_s": 170.97255492210388,
+    "summary_plot_time_s": 3.08345103263855
+  },
+  "CNN-LSTM_IG": {
+    "time_per_sample_ms": 102.90230259895326,
+    "total_time_s": 1029.0230259895325,
+    "summary_plot_time_s": 3.037055730819702
+  },
+  "CNN-LSTM_DeepLIFT": {
+    "time_per_sample_ms": 8.816593790054322,
+    "total_time_s": 88.16593790054321,
+    "summary_plot_time_s": 3.023266553878784
+  },
+  "CNN-GRU_SHAP": {
+    "time_per_sample_ms": 706.236787033081,
+    "total_time_s": 7062.367870330811,
+    "summary_plot_time_s": 3.060452461242676
+  },
+  "CNN-GRU_LIME": {
+    "time_per_sample_ms": 162.4975474357605,
+    "total_time_s": 1624.975474357605,
+    "summary_plot_time_s": 3.0593860149383545
+  },
+  "CNN-GRU_IG": {
+    "time_per_sample_ms": 1535.2569253206254,
+    "total_time_s": 15352.569253206253,
+    "summary_plot_time_s": 3.024956226348877
+  },
+  "CNN-GRU_DeepLIFT": {
+    "time_per_sample_ms": 33.46231453418732,
+    "total_time_s": 334.62314534187317,
+    "summary_plot_time_s": 3.03985595703125
+  }
+}
