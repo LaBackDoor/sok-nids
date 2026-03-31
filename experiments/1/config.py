@@ -6,7 +6,7 @@ from pathlib import Path
 
 @dataclass
 class DataConfig:
-    data_root: Path = Path("/mnt/c/Users/abanisenioluwa_oroj1/Downloads/data/data")
+    data_root: Path = Path("/home/resbears/Downloads/data")
     nsl_kdd_dir: str = "nsl-kdd"
     cic_ids_2017_dir: str = "cic-ids-2017"
     unsw_nb15_dir: str = "cic_unsw-nb15_augmented_dataset"
