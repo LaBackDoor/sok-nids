@@ -14,13 +14,22 @@ from pa_xai.core.result import ExplanationResult
 from pa_xai.core.schemas import DatasetSchema, TCP_PROTOCOL_INT
 
 
+_DEEPLIFT_SUPPORTED = (
+    nn.ReLU, nn.ELU, nn.LeakyReLU, nn.Sigmoid, nn.Tanh, nn.Softplus,
+    nn.MaxPool1d, nn.MaxPool2d, nn.MaxPool3d, nn.Softmax,
+)
+
+_DEEPLIFT_UNSUPPORTED_COMMON = (nn.GELU, nn.SiLU, nn.Mish)
+
+
 class _SoftmaxModel(nn.Module):
     def __init__(self, model: nn.Module):
         super().__init__()
         self.model = model
+        self.softmax = nn.Softmax(dim=1)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return torch.softmax(self.model(x), dim=1)
+        return self.softmax(self.model(x))
 
 
 def _has_rnn_modules(model: nn.Module) -> bool:
@@ -62,6 +71,16 @@ class ProtocolAwareDeepLIFT:
     ) -> None:
         self.schema = schema
         self.model = model
+        unsupported = [
+            type(m).__name__ for m in model.modules()
+            if isinstance(m, _DEEPLIFT_UNSUPPORTED_COMMON)
+        ]
+        if unsupported:
+            warnings.warn(
+                f"Model contains activations unsupported by DeepLIFT's rescale rule: "
+                f"{unsupported}. These layers will use standard gradients instead.",
+                stacklevel=2,
+            )
         self.X_train = X_train
         self.y_train = y_train
         self.benign_label = benign_label
@@ -102,7 +121,7 @@ class ProtocolAwareDeepLIFT:
 
         softmax_model = _SoftmaxModel(self.model)
         softmax_model.eval()
-        dl = DeepLift(softmax_model, eps=self.eps)
+        dl = DeepLift(softmax_model, eps=self.eps, multiply_by_inputs=self.multiply_by_inputs)
 
         convergence_delta = None
         with warnings.catch_warnings(), _disable_cudnn_for_rnn(self.model):
