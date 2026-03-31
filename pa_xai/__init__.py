@@ -12,6 +12,11 @@ from pa_xai.core import (
     UNSW_NB15_NATIVE,
     get_schema,
 )
+from pa_xai.core.schemas import (
+    BoundedRangeConstraint,
+    CrossFeatureConstraint,
+    StdRangeConstraint,
+)
 from pa_xai.core.baseline import get_protocol_valid_baseline
 from pa_xai.core.metrics import sparsity
 from pa_xai.core.result import ExplanationResult
@@ -25,6 +30,9 @@ __all__ = [
     "DatasetSchema",
     "HierarchicalConstraint",
     "ConstraintEnforcer",
+    "BoundedRangeConstraint",
+    "CrossFeatureConstraint",
+    "StdRangeConstraint",
     "ExplanationResult",
     "get_protocol_valid_baseline",
     "CIC_IDS_2017",
