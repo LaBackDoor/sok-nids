@@ -4,9 +4,11 @@ Drop-in replacements for explainers.py functions that enforce
 network protocol domain constraints during explanation generation.
 """
 
+import copy
 import logging
 import os
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
 import torch
@@ -32,6 +34,15 @@ DATASET_SCHEMA_MAP = {
 def _get_schema(dataset_name: str):
     from pa_xai import get_schema
     return get_schema(DATASET_SCHEMA_MAP[dataset_name])
+
+
+def _clone_model_to_device(model: torch.nn.Module, target_device: torch.device):
+    """Deep-copy a model to a different GPU. Returns the clone in eval mode."""
+    base = model.module if isinstance(model, torch.nn.DataParallel) else model
+    cloned = copy.deepcopy(base)
+    cloned.to(target_device)
+    cloned.eval()
+    return cloned
 
 
 # ---------------------------------------------------------------------------
@@ -297,9 +308,6 @@ def pa_generate_all_explanations(
     ds_name = dataset.dataset_name
 
     # === DNN explanations ===
-    # NOTE: DNN model is shared across predict_proba / IG / DeepLIFT, so
-    # CPU/GPU overlap is NOT safe (Captum hooks conflict with concurrent
-    # forward passes). Run sequentially.
     if dnn_model is not None and dnn_wrapper is not None:
         logger.info("--- DNN PA-Explanations ---")
         try:
@@ -317,21 +325,54 @@ def pa_generate_all_explanations(
         except Exception as e:
             logger.error(f"PA-LIME DNN failed: {e}")
 
-        try:
-            results.append(pa_explain_ig(
-                dnn_model, X_explain, dataset.X_train, dataset.y_train,
-                ds_name, device, config,
-            ))
-        except Exception as e:
-            logger.error(f"PA-IG failed: {e}")
+        # IG and DeepLIFT: parallel on 2 GPUs if available.
+        # Each gets its own model copy on a separate device so Captum hooks
+        # don't conflict.
+        num_gpus = torch.cuda.device_count()
+        if num_gpus >= 2:
+            gpu1 = torch.device("cuda:1")
+            model_gpu1 = _clone_model_to_device(dnn_model, gpu1)
+            logger.info("  Running PA-IG (GPU 0) || PA-DeepLIFT (GPU 1) in parallel")
 
-        try:
-            results.append(pa_explain_deeplift(
-                dnn_model, X_explain, dataset.X_train, dataset.y_train,
-                ds_name, device, config,
-            ))
-        except Exception as e:
-            logger.error(f"PA-DeepLIFT failed: {e}")
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                ig_future = pool.submit(
+                    pa_explain_ig, dnn_model, X_explain,
+                    dataset.X_train, dataset.y_train,
+                    ds_name, device, config,
+                )
+                dl_future = pool.submit(
+                    pa_explain_deeplift, model_gpu1, X_explain,
+                    dataset.X_train, dataset.y_train,
+                    ds_name, gpu1, config,
+                )
+
+            try:
+                results.append(ig_future.result())
+            except Exception as e:
+                logger.error(f"PA-IG failed: {e}")
+            try:
+                results.append(dl_future.result())
+            except Exception as e:
+                logger.error(f"PA-DeepLIFT failed: {e}")
+
+            del model_gpu1
+            torch.cuda.empty_cache()
+        else:
+            try:
+                results.append(pa_explain_ig(
+                    dnn_model, X_explain, dataset.X_train, dataset.y_train,
+                    ds_name, device, config,
+                ))
+            except Exception as e:
+                logger.error(f"PA-IG failed: {e}")
+
+            try:
+                results.append(pa_explain_deeplift(
+                    dnn_model, X_explain, dataset.X_train, dataset.y_train,
+                    ds_name, device, config,
+                ))
+            except Exception as e:
+                logger.error(f"PA-DeepLIFT failed: {e}")
 
     # === RF explanations ===
     if rf_model is not None and rf_wrapper is not None:
@@ -391,8 +432,6 @@ def pa_generate_cnn_explanations(
     """Generate protocol-aware explanations for a CNN model."""
     ds_name = dataset.dataset_name
 
-    # NOTE: CNN model is shared across predict_proba / IG / DeepLIFT, so
-    # CPU/GPU overlap is NOT safe. Run sequentially.
     try:
         r = pa_explain_shap_dnn(
             flat_model, X_explain, dataset.X_train, dataset.y_train,
@@ -412,25 +451,60 @@ def pa_generate_cnn_explanations(
     except Exception as e:
         logger.warning(f"  PA-LIME failed for {model_name}: {e}")
 
-    try:
-        r = pa_explain_ig(
-            flat_model, X_explain, dataset.X_train, dataset.y_train,
-            ds_name, device, config, model_name=model_name,
-        )
-        r.model_name = model_name
-        results.append(r)
-    except Exception as e:
-        logger.warning(f"  PA-IG failed for {model_name}: {e}")
+    # IG and DeepLIFT: parallel on 2 GPUs if available
+    num_gpus = torch.cuda.device_count()
+    if num_gpus >= 2:
+        gpu1 = torch.device("cuda:1")
+        model_gpu1 = _clone_model_to_device(flat_model, gpu1)
+        logger.info(f"  Running PA-IG (GPU 0) || PA-DeepLIFT (GPU 1) for {model_name}")
 
-    try:
-        r = pa_explain_deeplift(
-            flat_model, X_explain, dataset.X_train, dataset.y_train,
-            ds_name, device, config, model_name=model_name,
-        )
-        r.model_name = model_name
-        results.append(r)
-    except Exception as e:
-        logger.warning(f"  PA-DeepLIFT failed for {model_name}: {e}")
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            ig_future = pool.submit(
+                pa_explain_ig, flat_model, X_explain,
+                dataset.X_train, dataset.y_train,
+                ds_name, device, config, model_name,
+            )
+            dl_future = pool.submit(
+                pa_explain_deeplift, model_gpu1, X_explain,
+                dataset.X_train, dataset.y_train,
+                ds_name, gpu1, config, model_name,
+            )
+
+        try:
+            r = ig_future.result()
+            r.model_name = model_name
+            results.append(r)
+        except Exception as e:
+            logger.warning(f"  PA-IG failed for {model_name}: {e}")
+        try:
+            r = dl_future.result()
+            r.model_name = model_name
+            results.append(r)
+        except Exception as e:
+            logger.warning(f"  PA-DeepLIFT failed for {model_name}: {e}")
+
+        del model_gpu1
+        torch.cuda.empty_cache()
+    else:
+        try:
+            r = pa_explain_ig(
+                flat_model, X_explain, dataset.X_train, dataset.y_train,
+                ds_name, device, config, model_name=model_name,
+            )
+            r.model_name = model_name
+            results.append(r)
+        except Exception as e:
+            logger.warning(f"  PA-IG failed for {model_name}: {e}")
+
+        try:
+            r = pa_explain_deeplift(
+                flat_model, X_explain, dataset.X_train, dataset.y_train,
+                ds_name, device, config, model_name=model_name,
+            )
+            r.model_name = model_name
+            results.append(r)
+        except Exception as e:
+            logger.warning(f"  PA-DeepLIFT failed for {model_name}: {e}")
 
 
 # ---------------------------------------------------------------------------
