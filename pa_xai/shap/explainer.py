@@ -38,6 +38,12 @@ def _filter_background_by_protocol(
     if len(candidates) == 0:
         raise ValueError("No benign samples found in training data.")
 
+    if len(candidates) < 10:
+        import logging
+        logging.getLogger(__name__).warning(
+            f"Only {len(candidates)} benign samples match the target protocol for SHAP background."
+        )
+
     if len(candidates) > n_background:
         rng = np.random.RandomState(42)
         idx = rng.choice(len(candidates), size=n_background, replace=False)

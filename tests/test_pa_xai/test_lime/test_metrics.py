@@ -77,5 +77,5 @@ def test_sparsity_score():
     x = np.array([6.0, 100.0, 500.0])
     result = explainer.explain_instance(x, _stable_predict_fn, num_samples=2000, sigma=1.0)
     s = sparsity(result, threshold=0.01)
-    assert isinstance(s, int)
-    assert 0 <= s <= len(result.attributions)
+    assert isinstance(s, float)
+    assert 0.0 <= s <= 1.0

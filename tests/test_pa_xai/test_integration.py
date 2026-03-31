@@ -96,8 +96,8 @@ def test_all_methods_produce_consistent_results():
     # All methods produce sparsity
     for result in [lime_result, ig_result, dl_result, shap_result]:
         s = sparsity(result, threshold=0.001)
-        assert isinstance(s, int)
-        assert s >= 0
+        assert isinstance(s, float)
+        assert 0.0 <= s <= 1.0
 
 
 def test_cross_method_top_features_overlap():

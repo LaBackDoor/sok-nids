@@ -95,13 +95,13 @@ class ConstraintEnforcer:
                 num = neighborhood[:, operand_indices[0]]
                 den = neighborhood[:, operand_indices[1]]
                 with np.errstate(divide="ignore", invalid="ignore"):
-                    neighborhood[:, derived_i] = np.where(den != 0, num / den, 0.0)
+                    neighborhood[:, derived_i] = np.where(np.abs(den) > 1e-10, num / den, 0.0)
             elif relation == "sum_ratio":
                 a = neighborhood[:, operand_indices[0]]
                 b = neighborhood[:, operand_indices[1]]
                 den = neighborhood[:, operand_indices[2]]
                 with np.errstate(divide="ignore", invalid="ignore"):
-                    neighborhood[:, derived_i] = np.where(den != 0, (a + b) / den, 0.0)
+                    neighborhood[:, derived_i] = np.where(np.abs(den) > 1e-10, (a + b) / den, 0.0)
 
         # 6. Bounded range clamping
         for feat_i, lower, upper in s.bounded_range_index_bounds:

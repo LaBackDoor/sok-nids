@@ -26,6 +26,12 @@ def get_protocol_valid_baseline(
 
     Raises:
         ValueError: If no benign samples match the target protocol.
+
+    Note:
+        L2 distance is computed in the raw feature space. For meaningful
+        nearest-neighbor selection, input data should be pre-scaled (e.g.,
+        MinMaxScaler or StandardScaler) so all features contribute equally
+        to the distance computation.
     """
     benign_mask = y_train == benign_label
 
@@ -42,6 +48,14 @@ def get_protocol_valid_baseline(
             "No benign samples with matching protocol found in training data."
         )
 
+    if len(candidates) < 10:
+        import warnings
+        warnings.warn(
+            f"Only {len(candidates)} benign samples match the target protocol. "
+            f"Baseline selection may be unreliable.",
+            stacklevel=2,
+        )
+
     distances = cdist(x_row.reshape(1, -1), candidates, metric="euclidean").flatten()
     sorted_idx = np.argsort(distances)
 
@@ -50,6 +64,18 @@ def get_protocol_valid_baseline(
     elif strategy == "median_k":
         k = min(top_k, len(candidates))
         top_k_samples = candidates[sorted_idx[:k]]
-        return np.median(top_k_samples, axis=0)
+        baseline = np.median(top_k_samples, axis=0)
+        # Enforce constraints on the synthetic median vector
+        from pa_xai.core.constraints import ConstraintEnforcer
+        enforcer = ConstraintEnforcer(schema)
+        protocol_value = None
+        if schema.protocol_index is not None:
+            protocol_value = baseline[schema.protocol_index]
+        enforcer.enforce(
+            baseline.reshape(1, -1),
+            protocol_value=protocol_value,
+            protocol_encoding=schema.protocol_encoding,
+        )
+        return baseline
     else:
         raise ValueError(f"Unknown strategy: {strategy!r}. Use 'nearest' or 'median_k'.")
