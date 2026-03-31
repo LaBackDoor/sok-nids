@@ -38,10 +38,11 @@ def _filter_background_by_protocol(
     if len(candidates) == 0:
         raise ValueError("No benign samples found in training data.")
 
-    if len(candidates) < 10:
+    if len(candidates) < 5:
         import logging
         logging.getLogger(__name__).warning(
-            f"Only {len(candidates)} benign samples match the target protocol for SHAP background."
+            f"Only {len(candidates)} benign samples match the target protocol for SHAP background. "
+            f"SHAP values may have high variance."
         )
 
     if len(candidates) > n_background:
@@ -129,6 +130,17 @@ class ProtocolAwareSHAP:
         self.n_background = n_background
         self.tcp_label_value = tcp_label_value
         self.enforcer = ConstraintEnforcer(schema)
+        self._background_cache: dict[float | None, np.ndarray] = {}
+
+    def _get_background(self, protocol_value: float | None) -> np.ndarray:
+        """Get protocol-filtered background, cached per protocol value."""
+        if protocol_value not in self._background_cache:
+            self._background_cache[protocol_value] = _filter_background_by_protocol(
+                self.X_train, self.y_train,
+                protocol_value, self.schema,
+                self.benign_label, self.n_background,
+            )
+        return self._background_cache[protocol_value]
 
     def _resolve_protocol_params(self, x_row):
         encoding = self.schema.protocol_encoding
@@ -224,11 +236,7 @@ class ProtocolAwareSHAP:
         if self.schema.protocol_index is not None:
             protocol_value = x_row[self.schema.protocol_index]
 
-        background = _filter_background_by_protocol(
-            self.X_train, self.y_train,
-            protocol_value, self.schema,
-            self.benign_label, self.n_background,
-        )
+        background = self._get_background(protocol_value)
 
         if target is None:
             target = self._predict_target(x_row)
