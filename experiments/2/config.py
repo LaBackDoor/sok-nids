@@ -60,7 +60,6 @@ class RobustnessConfig:
     lime_num_features: int = 10
     ig_n_steps: int = 50
     ig_internal_batch_size: int = 4096
-    deeplift_internal_batch_size: int = 4096
 
 
 @dataclass

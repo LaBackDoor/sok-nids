@@ -26,13 +26,6 @@ def _get_schema(dataset_name: str):
     return get_schema(DATASET_SCHEMA_MAP[dataset_name])
 
 
-def _unwrap_model(model: torch.nn.Module) -> torch.nn.Module:
-    """Unwrap DataParallel and return model in eval mode."""
-    base = model.module if isinstance(model, torch.nn.DataParallel) else model
-    base.eval()
-    return base
-
-
 def _clone_model(model: torch.nn.Module, device: torch.device) -> torch.nn.Module:
     """Deep-copy a model to avoid Captum hook conflicts."""
     base = model.module if isinstance(model, torch.nn.DataParallel) else model
@@ -88,7 +81,7 @@ def make_pa_explain_fn(
         )
     elif method == "PA-DeepLIFT":
         return _make_pa_deeplift_fn(
-            dnn_model, dataset, device, rob_cfg
+            dnn_model, dataset, device
         )
     else:
         raise ValueError(f"Unknown PA method: {method}")
@@ -98,7 +91,8 @@ def _make_pa_shap_fn(dnn_model, dataset, device, rob_cfg):
     from pa_xai import ProtocolAwareSHAP
 
     schema = _get_schema(dataset.dataset_name)
-    base_model = _unwrap_model(dnn_model)
+    # Clone model to avoid Captum/SHAP hook conflicts with other methods
+    base_model = _clone_model(dnn_model, device)
 
     explainer = ProtocolAwareSHAP(
         schema, base_model, dataset.X_train, dataset.y_train,
@@ -159,7 +153,7 @@ def _make_pa_ig_fn(dnn_model, dataset, device, rob_cfg):
     return fn
 
 
-def _make_pa_deeplift_fn(dnn_model, dataset, device, rob_cfg):
+def _make_pa_deeplift_fn(dnn_model, dataset, device):
     from pa_xai import ProtocolAwareDeepLIFT
 
     schema = _get_schema(dataset.dataset_name)
