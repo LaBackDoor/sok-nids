@@ -308,6 +308,7 @@ def phase_evaluate(
 ) -> list[dict]:
     """Evaluate all metrics on the generated explanations."""
     models_to_eval = selected_models or ALL_MODELS
+    _explain_fn_maker = pa_make_explain_fn if config.xai_mode == "p" else _make_explain_fn
     logger.info(f"=== EVALUATING on {dataset.dataset_name} (models: {models_to_eval}) ===")
     log_gpu_memory("pre-evaluate")
     output_dir = config.output_dir / dataset.dataset_name
@@ -366,31 +367,31 @@ def phase_evaluate(
         # Select the right predict function and explain function
         if exp_result.model_name == "DNN":
             predict_fn = dnn_wrapper.predict_proba
-            explain_fn = _make_explain_fn(
+            explain_fn = _explain_fn_maker(
                 exp_result.method_name, "DNN", dnn_model, dnn_wrapper,
                 dataset, device, config.explainer,
             )
         elif exp_result.model_name == "XGB":
             predict_fn = xgb_wrapper.predict_proba
-            explain_fn = _make_explain_fn(
+            explain_fn = _explain_fn_maker(
                 exp_result.method_name, "XGB", None, xgb_wrapper,
                 dataset, device, config.explainer, rf_model=xgb_model,
             )
         elif exp_result.model_name == "CNN-LSTM":
             predict_fn = cnn_lstm_wrapper.predict_proba
-            explain_fn = _make_explain_fn(
+            explain_fn = _explain_fn_maker(
                 exp_result.method_name, "CNN-LSTM", cnn_lstm_flat, cnn_lstm_wrapper,
                 dataset, device, config.explainer,
             )
         elif exp_result.model_name == "CNN-GRU":
             predict_fn = cnn_gru_wrapper.predict_proba
-            explain_fn = _make_explain_fn(
+            explain_fn = _explain_fn_maker(
                 exp_result.method_name, "CNN-GRU", cnn_gru_flat, cnn_gru_wrapper,
                 dataset, device, config.explainer,
             )
         else:
             predict_fn = rf_wrapper.predict_proba
-            explain_fn = _make_explain_fn(
+            explain_fn = _explain_fn_maker(
                 exp_result.method_name, "RF", None, rf_wrapper,
                 dataset, device, config.explainer, rf_model=rf_model,
             )
