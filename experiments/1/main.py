@@ -615,6 +615,7 @@ def run_experiment(
     # Save config
     with open(config.output_dir / "config.json", "w") as f:
         json.dump({
+            "xai_mode": config.xai_mode,
             "datasets": datasets,
             "phases": phases,
             "models": selected_models or ALL_MODELS,
