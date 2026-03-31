@@ -94,6 +94,13 @@ class DatasetSchema:
     discrete_features: list[str]
     hierarchical_constraints: list[HierarchicalConstraint]
     protocol_encoding: str
+    bounded_range_constraints: list[BoundedRangeConstraint] = field(default_factory=list)
+    cross_feature_constraints: list[CrossFeatureConstraint] = field(default_factory=list)
+    std_range_constraints: list[StdRangeConstraint] = field(default_factory=list)
+    udp_only_features: list[str] = field(default_factory=list)
+    icmp_only_features: list[str] = field(default_factory=list)
+    connection_only_features: list[str] = field(default_factory=list)
+    duplicate_features: list[tuple[str, str]] = field(default_factory=list)
 
     # Computed fields
     protocol_index: Optional[int] = field(init=False)
@@ -101,6 +108,13 @@ class DatasetSchema:
     tcp_only_indices: list[int] = field(init=False)
     discrete_indices: list[int] = field(init=False)
     hierarchical_index_triples: list[tuple[int, int, int]] = field(init=False)
+    bounded_range_index_bounds: list[tuple[int, float, float]] = field(init=False)
+    cross_feature_index_tuples: list[tuple] = field(init=False)
+    std_range_index_triples: list[tuple[int, int, int]] = field(init=False)
+    udp_only_indices: list[int] = field(init=False)
+    icmp_only_indices: list[int] = field(init=False)
+    connection_only_indices: list[int] = field(init=False)
+    duplicate_index_pairs: list[tuple[int, int]] = field(init=False)
 
     def __post_init__(self) -> None:
         valid_encodings = {"integer", "string", "auto"}
@@ -121,6 +135,33 @@ class DatasetSchema:
             (idx[hc.max_feature], idx[hc.mean_feature], idx[hc.min_feature])
             for hc in self.hierarchical_constraints
             if hc.max_feature in idx and hc.mean_feature in idx and hc.min_feature in idx
+        ]
+        self.bounded_range_index_bounds = [
+            (idx[brc.feature], brc.lower, brc.upper)
+            for brc in self.bounded_range_constraints
+            if brc.feature in idx
+        ]
+        self.cross_feature_index_tuples = []
+        for cfc in self.cross_feature_constraints:
+            if cfc.derived_feature not in idx:
+                continue
+            operand_indices = [idx[op] for op in cfc.operands if op in idx]
+            if len(operand_indices) == len(cfc.operands):
+                self.cross_feature_index_tuples.append(
+                    (idx[cfc.derived_feature], operand_indices, cfc.relation)
+                )
+        self.std_range_index_triples = [
+            (idx[src.std_feature], idx[src.max_feature], idx[src.min_feature])
+            for src in self.std_range_constraints
+            if src.std_feature in idx and src.max_feature in idx and src.min_feature in idx
+        ]
+        self.udp_only_indices = [idx[f] for f in self.udp_only_features if f in idx]
+        self.icmp_only_indices = [idx[f] for f in self.icmp_only_features if f in idx]
+        self.connection_only_indices = [idx[f] for f in self.connection_only_features if f in idx]
+        self.duplicate_index_pairs = [
+            (idx[a], idx[b])
+            for a, b in self.duplicate_features
+            if a in idx and b in idx
         ]
 
 

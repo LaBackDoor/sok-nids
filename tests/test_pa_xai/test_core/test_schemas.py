@@ -234,3 +234,43 @@ def test_std_range_constraint_stores_triple():
     assert src.std_feature == "Fwd Packet Length Std"
     assert src.max_feature == "Fwd Packet Length Max"
     assert src.min_feature == "Fwd Packet Length Min"
+
+
+def test_dataset_schema_new_fields_computed():
+    from pa_xai.core.schemas import (
+        DatasetSchema, BoundedRangeConstraint, CrossFeatureConstraint,
+        StdRangeConstraint,
+    )
+
+    schema = DatasetSchema(
+        name="test",
+        feature_names=["port", "duration", "rate", "bytes_s", "pkt_max", "pkt_std", "pkt_min", "dup_a", "dup_b"],
+        protocol_feature=None,
+        non_negative_features=["duration"],
+        tcp_only_features=[],
+        discrete_features=["port"],
+        hierarchical_constraints=[],
+        protocol_encoding="integer",
+        bounded_range_constraints=[
+            BoundedRangeConstraint("port", 0.0, 65535.0),
+            BoundedRangeConstraint("rate", 0.0, 1.0),
+        ],
+        cross_feature_constraints=[
+            CrossFeatureConstraint("bytes_s", "ratio", ["duration", "duration"]),
+        ],
+        std_range_constraints=[
+            StdRangeConstraint("pkt_std", "pkt_max", "pkt_min"),
+        ],
+        udp_only_features=[],
+        icmp_only_features=[],
+        duplicate_features=[("dup_a", "dup_b")],
+    )
+    assert len(schema.bounded_range_index_bounds) == 2
+    assert schema.bounded_range_index_bounds[0] == (0, 0.0, 65535.0)
+    assert schema.bounded_range_index_bounds[1] == (2, 0.0, 1.0)
+    assert len(schema.std_range_index_triples) == 1
+    assert schema.std_range_index_triples[0] == (5, 4, 6)
+    assert len(schema.udp_only_indices) == 0
+    assert len(schema.icmp_only_indices) == 0
+    assert len(schema.connection_only_indices) == 0
+    assert schema.duplicate_index_pairs == [(7, 8)]
