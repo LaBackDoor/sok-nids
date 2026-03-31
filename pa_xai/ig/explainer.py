@@ -19,9 +19,10 @@ class _SoftmaxModel(nn.Module):
     def __init__(self, model: nn.Module):
         super().__init__()
         self.model = model
+        self.softmax = nn.Softmax(dim=1)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return torch.softmax(self.model(x), dim=1)
+        return self.softmax(self.model(x))
 
 
 def _has_rnn_modules(model: nn.Module) -> bool:
@@ -65,6 +66,7 @@ class ProtocolAwareIG:
         baseline_strategy: str = "nearest",
         constrain_path: bool = True,
         multiply_by_inputs: bool = True,
+        use_softmax: bool = True,
         tcp_label_value: int = TCP_PROTOCOL_INT,
     ) -> None:
         self.schema = schema
@@ -76,6 +78,7 @@ class ProtocolAwareIG:
         self.baseline_strategy = baseline_strategy
         self.constrain_path = constrain_path
         self.multiply_by_inputs = multiply_by_inputs
+        self.use_softmax = use_softmax
         self.tcp_label_value = tcp_label_value
         self.enforcer = ConstraintEnforcer(schema)
 
@@ -97,40 +100,68 @@ class ProtocolAwareIG:
         return protocol_value, encoding, tcp_val
 
     def _constrained_ig(self, x_tensor, baseline_tensor, x_row, target, n_steps, method):
+        """Compute IG with constraint enforcement at each interpolation step.
+
+        Note: Clamping intermediate points to satisfy domain constraints alters
+        the integration path, which breaks the IG completeness axiom
+        (sum(attributions) != F(input) - F(baseline)). The convergence_delta
+        field reports the magnitude of this deviation. This is a deliberate
+        trade-off: domain-valid intermediate states vs. theoretical completeness.
+        """
         device = self._get_device()
         protocol_value, encoding, tcp_val = self._resolve_protocol_params(x_row)
         step_sizes, alphas = _gauss_legendre_alphas(n_steps)
 
-        softmax_model = _SoftmaxModel(self.model)
-        softmax_model.eval()
+        if self.use_softmax:
+            forward_model = _SoftmaxModel(self.model)
+        else:
+            forward_model = self.model
+        forward_model.eval()
 
+        # Generate all interpolation points at once (numpy)
+        x_np = x_row.astype(np.float32)
+        baseline_np = baseline_tensor.detach().cpu().numpy()
+        interp_batch = np.array([
+            baseline_np + alpha * (x_np - baseline_np) for alpha in alphas
+        ])  # shape: (n_steps, D)
+
+        # Apply constraints once to the entire batch
+        self.enforcer.enforce(interp_batch, protocol_value, encoding, tcp_val)
+
+        # Convert to torch once
+        interp_tensor = torch.tensor(interp_batch, dtype=torch.float32, device=device)
+
+        # Compute gradients per step
         total_grads = torch.zeros_like(x_tensor)
-
-        for step_size, alpha in zip(step_sizes, alphas):
-            interp = baseline_tensor + alpha * (x_tensor - baseline_tensor)
-            interp_np = interp.detach().cpu().numpy().reshape(1, -1)
-            self.enforcer.enforce(interp_np, protocol_value, encoding, tcp_val)
-            interp_clamped = torch.tensor(
-                interp_np.flatten(), dtype=torch.float32, device=device,
-            ).requires_grad_(True)
-
-            output = softmax_model(interp_clamped.unsqueeze(0))
+        for i, step_size in enumerate(step_sizes):
+            interp_point = interp_tensor[i].requires_grad_(True)
+            output = forward_model(interp_point.unsqueeze(0))
             output[0, target].backward()
-            total_grads += interp_clamped.grad * step_size
+            total_grads += interp_point.grad * step_size
 
         if self.multiply_by_inputs:
             attributions = total_grads * (x_tensor - baseline_tensor)
         else:
             attributions = total_grads
 
-        return attributions.detach().cpu().numpy()
+        # Compute convergence delta (measures deviation from completeness axiom)
+        with torch.no_grad():
+            F_input = forward_model(x_tensor.unsqueeze(0))[0, target].item()
+            F_baseline = forward_model(baseline_tensor.unsqueeze(0))[0, target].item()
+        attr_np = attributions.detach().cpu().numpy()
+        delta = float(attr_np.sum()) - (F_input - F_baseline)
+
+        return attr_np, delta
 
     def _captum_ig(self, x_tensor, baseline_tensor, target, n_steps, method,
                    internal_batch_size, return_convergence_delta):
         from captum.attr import IntegratedGradients
-        softmax_model = _SoftmaxModel(self.model)
-        softmax_model.eval()
-        ig = IntegratedGradients(softmax_model, multiply_by_inputs=self.multiply_by_inputs)
+        if self.use_softmax:
+            forward_model = _SoftmaxModel(self.model)
+        else:
+            forward_model = self.model
+        forward_model.eval()
+        ig = IntegratedGradients(forward_model, multiply_by_inputs=self.multiply_by_inputs)
 
         result = ig.attribute(
             x_tensor.unsqueeze(0),
@@ -178,7 +209,7 @@ class ProtocolAwareIG:
         convergence_delta = None
         with _disable_cudnn_for_rnn(self.model):
             if self.constrain_path:
-                attributions = self._constrained_ig(
+                attributions, convergence_delta = self._constrained_ig(
                     x_tensor, baseline_tensor, x_row, target, n_steps, method,
                 )
             else:
