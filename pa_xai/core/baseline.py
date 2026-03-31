@@ -44,9 +44,18 @@ def get_protocol_valid_baseline(
 
     candidates = X_train[mask]
     if len(candidates) == 0:
-        raise ValueError(
-            "No benign samples with matching protocol found in training data."
+        # Fall back to all benign samples regardless of protocol
+        import warnings
+        warnings.warn(
+            "No benign samples with matching protocol found. "
+            "Falling back to nearest benign sample across all protocols.",
+            stacklevel=2,
         )
+        candidates = X_train[benign_mask]
+        if len(candidates) == 0:
+            raise ValueError(
+                "No benign samples found in training data at all."
+            )
 
     if len(candidates) < 10:
         import warnings
