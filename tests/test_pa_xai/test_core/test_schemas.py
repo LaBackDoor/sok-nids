@@ -176,3 +176,61 @@ def test_custom_schema_creation():
     assert schema.name == "MyCustomDataset"
     assert len(schema.hierarchical_constraints) == 1
     assert schema.tcp_only_indices == [5]
+
+
+def test_bounded_range_constraint_stores_bounds():
+    from pa_xai.core.schemas import BoundedRangeConstraint
+
+    brc = BoundedRangeConstraint(feature="port", lower=0.0, upper=65535.0)
+    assert brc.feature == "port"
+    assert brc.lower == 0.0
+    assert brc.upper == 65535.0
+
+
+def test_cross_feature_constraint_stores_relation():
+    from pa_xai.core.schemas import CrossFeatureConstraint
+
+    cfc = CrossFeatureConstraint(
+        derived_feature="Flow Bytes/s",
+        relation="sum_ratio",
+        operands=["Total Length of Fwd Packets", "Total Length of Bwd Packets", "Flow Duration"],
+    )
+    assert cfc.derived_feature == "Flow Bytes/s"
+    assert cfc.relation == "sum_ratio"
+    assert len(cfc.operands) == 3
+
+
+def test_cross_feature_constraint_equal_relation():
+    from pa_xai.core.schemas import CrossFeatureConstraint
+
+    cfc = CrossFeatureConstraint(
+        derived_feature="Subflow Fwd Packets",
+        relation="equal",
+        operands=["Total Fwd Packets"],
+    )
+    assert cfc.relation == "equal"
+    assert cfc.operands == ["Total Fwd Packets"]
+
+
+def test_cross_feature_constraint_square_relation():
+    from pa_xai.core.schemas import CrossFeatureConstraint
+
+    cfc = CrossFeatureConstraint(
+        derived_feature="Packet Length Variance",
+        relation="square",
+        operands=["Packet Length Std"],
+    )
+    assert cfc.relation == "square"
+
+
+def test_std_range_constraint_stores_triple():
+    from pa_xai.core.schemas import StdRangeConstraint
+
+    src = StdRangeConstraint(
+        std_feature="Fwd Packet Length Std",
+        max_feature="Fwd Packet Length Max",
+        min_feature="Fwd Packet Length Min",
+    )
+    assert src.std_feature == "Fwd Packet Length Std"
+    assert src.max_feature == "Fwd Packet Length Max"
+    assert src.min_feature == "Fwd Packet Length Min"

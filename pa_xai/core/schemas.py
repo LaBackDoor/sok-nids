@@ -32,6 +32,37 @@ class HierarchicalConstraint:
     min_feature: str
 
 
+@dataclass(frozen=True)
+class BoundedRangeConstraint:
+    """Clamps a feature to [lower, upper]."""
+    feature: str
+    lower: float
+    upper: float
+
+
+@dataclass(frozen=True)
+class CrossFeatureConstraint:
+    """Enforces arithmetic relationships between features.
+
+    Relations:
+      - "ratio": derived = operands[0] / operands[1]
+      - "sum_ratio": derived = (operands[0] + operands[1]) / operands[2]
+      - "square": derived = operands[0] ** 2
+      - "equal": derived = operands[0]
+    """
+    derived_feature: str
+    relation: str
+    operands: list[str]
+
+
+@dataclass(frozen=True)
+class StdRangeConstraint:
+    """Enforces std <= max - min for a statistical group."""
+    std_feature: str
+    max_feature: str
+    min_feature: str
+
+
 @dataclass
 class DatasetSchema:
     """Metadata schema for a network intrusion detection dataset.
