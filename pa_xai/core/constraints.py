@@ -83,7 +83,7 @@ class ConstraintEnforcer:
         # 4. Std <= range
         for std_i, max_i, min_i in s.std_range_index_triples:
             range_val = neighborhood[:, max_i] - neighborhood[:, min_i]
-            neighborhood[:, std_i] = np.minimum(neighborhood[:, std_i], range_val)
+            neighborhood[:, std_i] = np.maximum(0, np.minimum(neighborhood[:, std_i], range_val))
 
         # 5. Cross-feature arithmetic
         for derived_i, operand_indices, relation in s.cross_feature_index_tuples:
@@ -94,12 +94,14 @@ class ConstraintEnforcer:
             elif relation == "ratio":
                 num = neighborhood[:, operand_indices[0]]
                 den = neighborhood[:, operand_indices[1]]
-                neighborhood[:, derived_i] = np.where(den != 0, num / den, 0.0)
+                with np.errstate(divide="ignore", invalid="ignore"):
+                    neighborhood[:, derived_i] = np.where(den != 0, num / den, 0.0)
             elif relation == "sum_ratio":
                 a = neighborhood[:, operand_indices[0]]
                 b = neighborhood[:, operand_indices[1]]
                 den = neighborhood[:, operand_indices[2]]
-                neighborhood[:, derived_i] = np.where(den != 0, (a + b) / den, 0.0)
+                with np.errstate(divide="ignore", invalid="ignore"):
+                    neighborhood[:, derived_i] = np.where(den != 0, (a + b) / den, 0.0)
 
         # 6. Bounded range clamping
         for feat_i, lower, upper in s.bounded_range_index_bounds:
