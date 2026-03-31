@@ -306,33 +306,77 @@ def pa_generate_all_explanations(
 
     results = []
     ds_name = dataset.dataset_name
+    num_gpus = torch.cuda.device_count()
 
     # === DNN explanations ===
     if dnn_model is not None and dnn_wrapper is not None:
         logger.info("--- DNN PA-Explanations ---")
-        try:
-            results.append(pa_explain_shap_dnn(
-                dnn_model, X_explain, dataset.X_train, dataset.y_train,
-                ds_name, device, config,
-            ))
-        except Exception as e:
-            logger.error(f"PA-SHAP DNN failed: {e}")
 
-        try:
-            results.append(pa_explain_lime(
-                dnn_wrapper.predict_proba, X_explain, ds_name, "DNN", config,
-            ))
-        except Exception as e:
-            logger.error(f"PA-LIME DNN failed: {e}")
+        if num_gpus >= 3:
+            # 3+ GPUs: all 4 methods in parallel.
+            # Each GPU method gets its own model clone so Captum hooks
+            # don't conflict.  LIME uses the original model (no hooks).
+            gpus = [torch.device(f"cuda:{i}") for i in range(3)]
+            shap_clone = _clone_model_to_device(dnn_model, gpus[0])
+            ig_clone = _clone_model_to_device(dnn_model, gpus[1])
+            dl_clone = _clone_model_to_device(dnn_model, gpus[2])
+            logger.info(
+                "  All methods in parallel: SHAP(GPU 0) || LIME(CPU) "
+                "|| IG(GPU 1) || DeepLIFT(GPU 2)"
+            )
 
-        # IG and DeepLIFT: parallel on 2 GPUs if available.
-        # Each gets its own model copy on a separate device so Captum hooks
-        # don't conflict.
-        num_gpus = torch.cuda.device_count()
-        if num_gpus >= 2:
+            with ThreadPoolExecutor(max_workers=4) as pool:
+                futures = {
+                    "PA-SHAP DNN": pool.submit(
+                        pa_explain_shap_dnn, shap_clone, X_explain,
+                        dataset.X_train, dataset.y_train,
+                        ds_name, gpus[0], config,
+                    ),
+                    "PA-LIME DNN": pool.submit(
+                        pa_explain_lime, dnn_wrapper.predict_proba,
+                        X_explain, ds_name, "DNN", config,
+                    ),
+                    "PA-IG DNN": pool.submit(
+                        pa_explain_ig, ig_clone, X_explain,
+                        dataset.X_train, dataset.y_train,
+                        ds_name, gpus[1], config,
+                    ),
+                    "PA-DeepLIFT DNN": pool.submit(
+                        pa_explain_deeplift, dl_clone, X_explain,
+                        dataset.X_train, dataset.y_train,
+                        ds_name, gpus[2], config,
+                    ),
+                }
+
+            for name, future in futures.items():
+                try:
+                    results.append(future.result())
+                except Exception as e:
+                    logger.error(f"{name} failed: {e}")
+
+            del shap_clone, ig_clone, dl_clone
+            torch.cuda.empty_cache()
+
+        elif num_gpus >= 2:
+            # 2 GPUs: SHAP+LIME sequential, then IG(GPU 0) || DeepLIFT(GPU 1)
+            try:
+                results.append(pa_explain_shap_dnn(
+                    dnn_model, X_explain, dataset.X_train, dataset.y_train,
+                    ds_name, device, config,
+                ))
+            except Exception as e:
+                logger.error(f"PA-SHAP DNN failed: {e}")
+
+            try:
+                results.append(pa_explain_lime(
+                    dnn_wrapper.predict_proba, X_explain, ds_name, "DNN", config,
+                ))
+            except Exception as e:
+                logger.error(f"PA-LIME DNN failed: {e}")
+
             gpu1 = torch.device("cuda:1")
-            model_gpu1 = _clone_model_to_device(dnn_model, gpu1)
-            logger.info("  Running PA-IG (GPU 0) || PA-DeepLIFT (GPU 1) in parallel")
+            dl_clone = _clone_model_to_device(dnn_model, gpu1)
+            logger.info("  Running PA-IG (GPU 0) || PA-DeepLIFT (GPU 1)")
 
             with ThreadPoolExecutor(max_workers=2) as pool:
                 ig_future = pool.submit(
@@ -341,7 +385,7 @@ def pa_generate_all_explanations(
                     ds_name, device, config,
                 )
                 dl_future = pool.submit(
-                    pa_explain_deeplift, model_gpu1, X_explain,
+                    pa_explain_deeplift, dl_clone, X_explain,
                     dataset.X_train, dataset.y_train,
                     ds_name, gpu1, config,
                 )
@@ -355,61 +399,61 @@ def pa_generate_all_explanations(
             except Exception as e:
                 logger.error(f"PA-DeepLIFT failed: {e}")
 
-            del model_gpu1
+            del dl_clone
             torch.cuda.empty_cache()
+
         else:
-            try:
-                results.append(pa_explain_ig(
+            # 1 GPU: sequential
+            for name, fn, args in [
+                ("PA-SHAP DNN", pa_explain_shap_dnn, (
                     dnn_model, X_explain, dataset.X_train, dataset.y_train,
-                    ds_name, device, config,
-                ))
-            except Exception as e:
-                logger.error(f"PA-IG failed: {e}")
-
-            try:
-                results.append(pa_explain_deeplift(
+                    ds_name, device, config)),
+                ("PA-LIME DNN", pa_explain_lime, (
+                    dnn_wrapper.predict_proba, X_explain, ds_name, "DNN", config)),
+                ("PA-IG DNN", pa_explain_ig, (
                     dnn_model, X_explain, dataset.X_train, dataset.y_train,
-                    ds_name, device, config,
-                ))
-            except Exception as e:
-                logger.error(f"PA-DeepLIFT failed: {e}")
+                    ds_name, device, config)),
+                ("PA-DeepLIFT DNN", pa_explain_deeplift, (
+                    dnn_model, X_explain, dataset.X_train, dataset.y_train,
+                    ds_name, device, config)),
+            ]:
+                try:
+                    results.append(fn(*args))
+                except Exception as e:
+                    logger.error(f"{name} failed: {e}")
 
-    # === RF explanations ===
-    if rf_model is not None and rf_wrapper is not None:
-        logger.info("--- RF PA-Explanations ---")
-        try:
-            results.append(pa_explain_shap_tree(
-                rf_model, X_explain, dataset.X_train, dataset.y_train,
-                ds_name, config, model_name="RF",
-            ))
-        except Exception as e:
-            logger.error(f"PA-SHAP RF failed: {e}")
+    # === RF + XGB explanations (CPU-only: SHAP Tree + LIME) ===
+    # These are purely CPU-bound so they can run concurrently with each other.
+    tree_futures = {}
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        if rf_model is not None and rf_wrapper is not None:
+            logger.info("--- RF PA-Explanations ---")
+            tree_futures["PA-SHAP RF"] = pool.submit(
+                pa_explain_shap_tree, rf_model, X_explain,
+                dataset.X_train, dataset.y_train, ds_name, config, "RF",
+            )
+            tree_futures["PA-LIME RF"] = pool.submit(
+                pa_explain_lime, rf_wrapper.predict_proba,
+                X_explain, ds_name, "RF", config,
+            )
 
-        try:
-            results.append(pa_explain_lime(
-                rf_wrapper.predict_proba, X_explain, ds_name, "RF", config,
-            ))
-        except Exception as e:
-            logger.error(f"PA-LIME RF failed: {e}")
-
-    # === XGBoost explanations ===
-    if xgb_model is not None and xgb_wrapper is not None:
-        logger.info("--- XGBoost PA-Explanations ---")
-        try:
+        if xgb_model is not None and xgb_wrapper is not None:
+            logger.info("--- XGBoost PA-Explanations ---")
             _fix_xgb_base_score(xgb_model)
-            results.append(pa_explain_shap_tree(
-                xgb_model, X_explain, dataset.X_train, dataset.y_train,
-                ds_name, config, model_name="XGB",
-            ))
-        except Exception as e:
-            logger.error(f"PA-SHAP XGB failed: {e}")
+            tree_futures["PA-SHAP XGB"] = pool.submit(
+                pa_explain_shap_tree, xgb_model, X_explain,
+                dataset.X_train, dataset.y_train, ds_name, config, "XGB",
+            )
+            tree_futures["PA-LIME XGB"] = pool.submit(
+                pa_explain_lime, xgb_wrapper.predict_proba,
+                X_explain, ds_name, "XGB", config,
+            )
 
+    for name, future in tree_futures.items():
         try:
-            results.append(pa_explain_lime(
-                xgb_wrapper.predict_proba, X_explain, ds_name, "XGB", config,
-            ))
+            results.append(future.result())
         except Exception as e:
-            logger.error(f"PA-LIME XGB failed: {e}")
+            logger.error(f"{name} failed: {e}")
 
     logger.info(f"Generated {len(results)} PA explanation sets")
     return results, indices
@@ -431,31 +475,76 @@ def pa_generate_cnn_explanations(
 ) -> None:
     """Generate protocol-aware explanations for a CNN model."""
     ds_name = dataset.dataset_name
-
-    try:
-        r = pa_explain_shap_dnn(
-            flat_model, X_explain, dataset.X_train, dataset.y_train,
-            ds_name, device, config,
-        )
-        r.model_name = model_name
-        results.append(r)
-    except Exception as e:
-        logger.warning(f"  PA-SHAP failed for {model_name}: {e}")
-
-    try:
-        r = pa_explain_lime(
-            wrapper.predict_proba, X_explain, ds_name, model_name, config,
-        )
-        r.model_name = model_name
-        results.append(r)
-    except Exception as e:
-        logger.warning(f"  PA-LIME failed for {model_name}: {e}")
-
-    # IG and DeepLIFT: parallel on 2 GPUs if available
     num_gpus = torch.cuda.device_count()
-    if num_gpus >= 2:
+
+    if num_gpus >= 3:
+        # 3+ GPUs: all 4 methods in parallel, each GPU method on its own GPU.
+        gpus = [torch.device(f"cuda:{i}") for i in range(3)]
+        shap_clone = _clone_model_to_device(flat_model, gpus[0])
+        ig_clone = _clone_model_to_device(flat_model, gpus[1])
+        dl_clone = _clone_model_to_device(flat_model, gpus[2])
+        logger.info(
+            f"  {model_name}: SHAP(GPU 0) || LIME(CPU) "
+            f"|| IG(GPU 1) || DeepLIFT(GPU 2)"
+        )
+
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            futures = {
+                "PA-SHAP": pool.submit(
+                    pa_explain_shap_dnn, shap_clone, X_explain,
+                    dataset.X_train, dataset.y_train,
+                    ds_name, gpus[0], config,
+                ),
+                "PA-LIME": pool.submit(
+                    pa_explain_lime, wrapper.predict_proba,
+                    X_explain, ds_name, model_name, config,
+                ),
+                "PA-IG": pool.submit(
+                    pa_explain_ig, ig_clone, X_explain,
+                    dataset.X_train, dataset.y_train,
+                    ds_name, gpus[1], config, model_name,
+                ),
+                "PA-DeepLIFT": pool.submit(
+                    pa_explain_deeplift, dl_clone, X_explain,
+                    dataset.X_train, dataset.y_train,
+                    ds_name, gpus[2], config, model_name,
+                ),
+            }
+
+        for name, future in futures.items():
+            try:
+                r = future.result()
+                r.model_name = model_name
+                results.append(r)
+            except Exception as e:
+                logger.warning(f"  {name} failed for {model_name}: {e}")
+
+        del shap_clone, ig_clone, dl_clone
+        torch.cuda.empty_cache()
+
+    elif num_gpus >= 2:
+        # 2 GPUs: SHAP+LIME sequential, then IG(GPU 0) || DeepLIFT(GPU 1)
+        try:
+            r = pa_explain_shap_dnn(
+                flat_model, X_explain, dataset.X_train, dataset.y_train,
+                ds_name, device, config,
+            )
+            r.model_name = model_name
+            results.append(r)
+        except Exception as e:
+            logger.warning(f"  PA-SHAP failed for {model_name}: {e}")
+
+        try:
+            r = pa_explain_lime(
+                wrapper.predict_proba, X_explain, ds_name, model_name, config,
+            )
+            r.model_name = model_name
+            results.append(r)
+        except Exception as e:
+            logger.warning(f"  PA-LIME failed for {model_name}: {e}")
+
         gpu1 = torch.device("cuda:1")
-        model_gpu1 = _clone_model_to_device(flat_model, gpu1)
+        dl_clone = _clone_model_to_device(flat_model, gpu1)
         logger.info(f"  Running PA-IG (GPU 0) || PA-DeepLIFT (GPU 1) for {model_name}")
 
         with ThreadPoolExecutor(max_workers=2) as pool:
@@ -465,7 +554,7 @@ def pa_generate_cnn_explanations(
                 ds_name, device, config, model_name,
             )
             dl_future = pool.submit(
-                pa_explain_deeplift, model_gpu1, X_explain,
+                pa_explain_deeplift, dl_clone, X_explain,
                 dataset.X_train, dataset.y_train,
                 ds_name, gpu1, config, model_name,
             )
@@ -483,28 +572,30 @@ def pa_generate_cnn_explanations(
         except Exception as e:
             logger.warning(f"  PA-DeepLIFT failed for {model_name}: {e}")
 
-        del model_gpu1
+        del dl_clone
         torch.cuda.empty_cache()
-    else:
-        try:
-            r = pa_explain_ig(
-                flat_model, X_explain, dataset.X_train, dataset.y_train,
-                ds_name, device, config, model_name=model_name,
-            )
-            r.model_name = model_name
-            results.append(r)
-        except Exception as e:
-            logger.warning(f"  PA-IG failed for {model_name}: {e}")
 
-        try:
-            r = pa_explain_deeplift(
+    else:
+        # 1 GPU: sequential
+        for mname, fn, args in [
+            ("PA-SHAP", pa_explain_shap_dnn, (
                 flat_model, X_explain, dataset.X_train, dataset.y_train,
-                ds_name, device, config, model_name=model_name,
-            )
-            r.model_name = model_name
-            results.append(r)
-        except Exception as e:
-            logger.warning(f"  PA-DeepLIFT failed for {model_name}: {e}")
+                ds_name, device, config)),
+            ("PA-LIME", pa_explain_lime, (
+                wrapper.predict_proba, X_explain, ds_name, model_name, config)),
+            ("PA-IG", pa_explain_ig, (
+                flat_model, X_explain, dataset.X_train, dataset.y_train,
+                ds_name, device, config, model_name)),
+            ("PA-DeepLIFT", pa_explain_deeplift, (
+                flat_model, X_explain, dataset.X_train, dataset.y_train,
+                ds_name, device, config, model_name)),
+        ]:
+            try:
+                r = fn(*args)
+                r.model_name = model_name
+                results.append(r)
+            except Exception as e:
+                logger.warning(f"  {mname} failed for {model_name}: {e}")
 
 
 # ---------------------------------------------------------------------------
