@@ -46,6 +46,11 @@ from explainers import (
     generate_all_explanations,
     generate_and_time_summary_plots,
 )
+from pa_explainers import (
+    pa_generate_all_explanations,
+    pa_generate_cnn_explanations,
+    pa_make_explain_fn,
+)
 from metrics import evaluate_all_metrics
 from models import (
     CNNGRU,
@@ -232,24 +237,35 @@ def phase_explain(
     # Use full training data for explanations (1TB RAM available)
 
     # Generate explanations for classic models
-    results, indices = generate_all_explanations(
-        dnn_model if "dnn" in models_to_explain else None,
-        rf_model if "rf" in models_to_explain else None,
-        dnn_wrapper, rf_wrapper,
-        dataset, device, config.explainer,
-        xgb_model=xgb_model if "xgb" in models_to_explain else None,
-        xgb_wrapper=xgb_wrapper,
-    )
+    if config.xai_mode == "p":
+        results, indices = pa_generate_all_explanations(
+            dnn_model if "dnn" in models_to_explain else None,
+            rf_model if "rf" in models_to_explain else None,
+            dnn_wrapper, rf_wrapper,
+            dataset, device, config.explainer,
+            xgb_model=xgb_model if "xgb" in models_to_explain else None,
+            xgb_wrapper=xgb_wrapper,
+        )
+    else:
+        results, indices = generate_all_explanations(
+            dnn_model if "dnn" in models_to_explain else None,
+            rf_model if "rf" in models_to_explain else None,
+            dnn_wrapper, rf_wrapper,
+            dataset, device, config.explainer,
+            xgb_model=xgb_model if "xgb" in models_to_explain else None,
+            xgb_wrapper=xgb_wrapper,
+        )
 
     # Generate explanations for CNN models (reuse same indices)
     X_explain = dataset.X_test[indices]
+    _cnn_explain = pa_generate_cnn_explanations if config.xai_mode == "p" else _generate_cnn_explanations
     if cnn_lstm_flat is not None:
-        _generate_cnn_explanations(
+        _cnn_explain(
             results, cnn_lstm_flat, cnn_lstm_wrapper,
             "CNN-LSTM", X_explain, dataset, device, config.explainer,
         )
     if cnn_gru_flat is not None:
-        _generate_cnn_explanations(
+        _cnn_explain(
             results, cnn_gru_flat, cnn_gru_wrapper,
             "CNN-GRU", X_explain, dataset, device, config.explainer,
         )
