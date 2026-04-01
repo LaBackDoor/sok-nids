@@ -7,6 +7,8 @@ Run from the repo root:
 import sys
 sys.path.insert(0, "experiments/1")
 
+from pathlib import Path
+
 import torch
 import numpy as np
 
@@ -27,6 +29,7 @@ NUM_SAMPLES = 200
 
 def main():
     config = ExperimentConfig()
+    config.output_dir = Path("experiments/1/results")
     device = torch.device("cpu")
 
     for ds_name in config.ALL_DATASETS:
