@@ -225,10 +225,7 @@ def pa_explain_ig(
     base_model = model.module if isinstance(model, torch.nn.DataParallel) else model
     base_model.eval()
 
-    explainer = ProtocolAwareIG(
-        schema, base_model, X_train,
-        constrain_path=True,
-    )
+    explainer = ProtocolAwareIG(schema, base_model, X_train)
 
     start = time.time()
     all_attrs = []

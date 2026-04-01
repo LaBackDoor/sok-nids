@@ -135,10 +135,7 @@ def _make_pa_ig_fn(dnn_model, dataset, device, rob_cfg):
     # Clone model to avoid Captum hook conflicts with other methods
     model_clone = _clone_model(dnn_model, device)
 
-    explainer = ProtocolAwareIG(
-        schema, model_clone, dataset.X_train,
-        constrain_path=True,
-    )
+    explainer = ProtocolAwareIG(schema, model_clone, dataset.X_train)
 
     def fn(X: np.ndarray) -> np.ndarray:
         all_attrs = []

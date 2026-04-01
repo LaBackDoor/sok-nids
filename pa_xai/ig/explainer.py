@@ -1,17 +1,27 @@
-"""Protocol-Aware Integrated Gradients explainer for NIDS."""
+"""Sequential-Path Integrated Gradients explainer for NIDS.
+
+Uses a two-phase integration strategy for mixed continuous/discrete
+features:
+
+- Phase 1: Standard IG on continuous features (Gauss-Legendre
+  quadrature) while discrete features are held at baseline.
+- Phase 2: Exact finite difference for discrete features
+  (F(input) - F(mixed)), distributed among changed features.
+
+All intermediate points are domain-valid by construction, and the
+completeness axiom is preserved.
+"""
 
 from __future__ import annotations
 
-import warnings
 from contextlib import contextmanager
 
 import numpy as np
 import torch
 import torch.nn as nn
 
-from pa_xai.core.constraints import ConstraintEnforcer
 from pa_xai.core.result import ExplanationResult
-from pa_xai.core.schemas import DatasetSchema, TCP_PROTOCOL_INT, detect_protocol_encoding
+from pa_xai.core.schemas import DatasetSchema
 
 
 class _SoftmaxModel(nn.Module):
@@ -52,11 +62,25 @@ def _gauss_legendre_alphas(n_steps: int):
 
 
 class ProtocolAwareIG:
-    """Protocol-Aware Integrated Gradients.
+    """Sequential-Path Integrated Gradients for NIDS.
 
-    Baseline selection follows the original IG paper: for each output
-    class, the training sample whose logit is closest to zero is
-    precomputed at init and used as the reference.
+    Baseline: for each output class, the training sample whose logit
+    is closest to zero is precomputed at init (per the original IG
+    paper's guidance on near-zero-output baselines).
+
+    Attribution uses a two-phase sequential path:
+
+    - **Phase 1 (continuous)**: linearly interpolate continuous
+      features from baseline to input while holding discrete features
+      at baseline.  Standard Gauss-Legendre IG gives exact attributions.
+    - **Phase 2 (discrete)**: compute the exact output difference
+      from flipping discrete features (protocol, flags, etc.) from
+      baseline to input values.  No gradient needed — just
+      ``F(input) - F(mixed)``, distributed among changed features.
+
+    This avoids evaluating the model on impossible intermediate states
+    (e.g. protocol_type=2.6, SYN_flag=0.4) and guarantees the
+    completeness axiom: ``sum(attributions) == F(input) - F(baseline)``.
     """
 
     def __init__(
@@ -64,19 +88,14 @@ class ProtocolAwareIG:
         schema: DatasetSchema,
         model: nn.Module,
         X_train: np.ndarray,
-        constrain_path: bool = True,
         multiply_by_inputs: bool = True,
         use_softmax: bool = True,
-        tcp_label_value: int = TCP_PROTOCOL_INT,
         batch_size: int = 512,
     ) -> None:
         self.schema = schema
         self.model = model
-        self.constrain_path = constrain_path
         self.multiply_by_inputs = multiply_by_inputs
         self.use_softmax = use_softmax
-        self.tcp_label_value = tcp_label_value
-        self.enforcer = ConstraintEnforcer(schema)
 
         self._baselines = self._precompute_baselines(X_train, batch_size)
 
@@ -114,163 +133,103 @@ class ProtocolAwareIG:
 
         return {c: sample for c, (_, sample) in best.items()}
 
-    def check_path_violations(
-        self,
-        x_row: np.ndarray,
-        target: int | None = None,
-        n_steps: int = 50,
-    ) -> dict:
-        """Check whether the straight-line IG path violates domain constraints.
-
-        Generates interpolation points between baseline and input, then
-        compares them before and after constraint enforcement.  Returns
-        a summary of how many points are altered and by how much.
-
-        Use this to decide whether ``constrain_path=True`` is needed:
-        if violations are zero or negligible, standard (unclamped) IG
-        preserves the completeness axiom with no practical cost.
-        """
-        device = self._get_device()
-        x_tensor = torch.tensor(x_row, dtype=torch.float32, device=device)
-
-        if target is None:
-            self.model.eval()
-            with torch.no_grad():
-                logits = self.model(x_tensor.unsqueeze(0))
-                target = int(torch.argmax(logits, dim=1).item())
-
-        baseline = self._baselines[target]
-        _, alphas = _gauss_legendre_alphas(n_steps)
-
-        # Build unclamped interpolation points
-        interp = np.array([
-            baseline + alpha * (x_row - baseline) for alpha in alphas
-        ], dtype=np.float32)
-        original = interp.copy()
-
-        # Apply constraints
-        protocol_value, encoding, tcp_val = self._resolve_protocol_params(x_row)
-        self.enforcer.enforce(interp, protocol_value, encoding, tcp_val)
-
-        diff = np.abs(interp - original)
-        violated_mask = diff > 1e-8
-
-        return {
-            "target": target,
-            "n_steps": n_steps,
-            "total_points": int(interp.shape[0]),
-            "points_with_violations": int(violated_mask.any(axis=1).sum()),
-            "total_cell_violations": int(violated_mask.sum()),
-            "max_abs_change": float(diff.max()),
-            "mean_abs_change": float(diff[violated_mask].mean()) if violated_mask.any() else 0.0,
-            "violated_features": sorted({
-                self.schema.feature_names[j]
-                for j in range(interp.shape[1])
-                if violated_mask[:, j].any()
-            }),
-        }
-
-    def _resolve_protocol_params(self, x_row: np.ndarray):
-        encoding = self.schema.protocol_encoding
-        protocol_value = None
-        tcp_val = self.tcp_label_value
-        if self.schema.protocol_index is not None:
-            protocol_value = x_row[self.schema.protocol_index]
-            if encoding == "auto":
-                encoding = detect_protocol_encoding(
-                    x_row, self.schema.protocol_feature, self.schema.feature_names
-                )
-            if encoding == "string":
-                tcp_val = self.tcp_label_value
-        return protocol_value, encoding, tcp_val
-
-    def _constrained_ig(self, x_tensor, baseline_tensor, x_row, target, n_steps, method):
-        """Compute IG with constraint enforcement at each interpolation step.
-
-        Note: Clamping intermediate points to satisfy domain constraints alters
-        the integration path, which breaks the IG completeness axiom
-        (sum(attributions) != F(input) - F(baseline)). The convergence_delta
-        field reports the magnitude of this deviation. This is a deliberate
-        trade-off: domain-valid intermediate states vs. theoretical completeness.
-        """
-        device = self._get_device()
-        protocol_value, encoding, tcp_val = self._resolve_protocol_params(x_row)
-        step_sizes, alphas = _gauss_legendre_alphas(n_steps)
-
+    def _get_forward_model(self) -> nn.Module:
         if self.use_softmax:
-            forward_model = _SoftmaxModel(self.model)
+            m = _SoftmaxModel(self.model)
         else:
-            forward_model = self.model
-        forward_model.eval()
+            m = self.model
+        m.eval()
+        return m
 
-        # Generate all interpolation points at once (numpy)
-        x_np = x_row.astype(np.float32)
-        baseline_np = baseline_tensor.detach().cpu().numpy()
-        interp_batch = np.array([
-            baseline_np + alpha * (x_np - baseline_np) for alpha in alphas
-        ])  # shape: (n_steps, D)
+    def _compute_ig(self, x_tensor, baseline_tensor, x_row, target, n_steps):
+        """Compute IG using Sequential Path to guarantee completeness.
 
-        # Apply constraints once to the entire batch
-        self.enforcer.enforce(interp_batch, protocol_value, encoding, tcp_val)
+        Phase 1 — Continuous integration: interpolate continuous features
+        from baseline to input while holding discrete features at baseline.
+        Standard Gauss-Legendre quadrature gives exact IG attributions for
+        continuous features.
 
-        # Convert to torch once
-        interp_tensor = torch.tensor(interp_batch, dtype=torch.float32, device=device)
+        Phase 2 — Discrete finite difference: with continuous features now
+        at input values, compute the exact output change from flipping
+        discrete features from baseline to input.  This is distributed
+        equally among the discrete features that changed (no gradient
+        needed — it's a direct F(after) - F(before)).
 
-        # Compute gradients per step
-        total_grads = torch.zeros_like(x_tensor)
-        for i, step_size in enumerate(step_sizes):
-            interp_point = interp_tensor[i].requires_grad_(True)
-            output = forward_model(interp_point.unsqueeze(0))
-            output[0, target].backward()
-            total_grads += interp_point.grad * step_size
+        Because continuous attribution uses proper IG and discrete
+        attribution uses exact finite difference, the completeness
+        axiom holds: sum(attributions) == F(input) - F(baseline).
+        """
+        device = self._get_device()
+        step_sizes, alphas = _gauss_legendre_alphas(n_steps)
+        forward_model = self._get_forward_model()
 
-        if self.multiply_by_inputs:
-            attributions = total_grads * (x_tensor - baseline_tensor)
-        else:
-            attributions = total_grads
+        attributions = torch.zeros_like(x_tensor)
+        disc_indices = self.schema.discrete_indices
+        cont_indices = [i for i in range(len(x_row)) if i not in disc_indices]
 
-        # Compute convergence delta (measures deviation from completeness axiom)
+        # ==================================================
+        # Phase 1: Continuous IG (discrete held at baseline)
+        # ==================================================
+        if cont_indices:
+            path = baseline_tensor.unsqueeze(0).repeat(n_steps, 1)
+            alphas_t = torch.tensor(alphas, dtype=torch.float32, device=device).unsqueeze(1)
+            path[:, cont_indices] = (
+                baseline_tensor[cont_indices]
+                + alphas_t * (x_tensor[cont_indices] - baseline_tensor[cont_indices])
+            )
+
+            total_grads = torch.zeros_like(x_tensor)
+            for i, step_size in enumerate(step_sizes):
+                interp_point = path[i].requires_grad_(True)
+                output = forward_model(interp_point.unsqueeze(0))
+                output[0, target].backward()
+                total_grads += interp_point.grad * step_size
+
+            if self.multiply_by_inputs:
+                attributions[cont_indices] = (
+                    total_grads[cont_indices]
+                    * (x_tensor[cont_indices] - baseline_tensor[cont_indices])
+                )
+            else:
+                attributions[cont_indices] = total_grads[cont_indices]
+
+        # ==================================================
+        # Phase 2: Discrete finite difference
+        # ==================================================
+        # x_mixed = continuous at input, discrete at baseline
+        x_mixed = x_tensor.clone()
+        if disc_indices:
+            x_mixed[disc_indices] = baseline_tensor[disc_indices]
+
         with torch.no_grad():
-            F_input = forward_model(x_tensor.unsqueeze(0))[0, target].item()
             F_baseline = forward_model(baseline_tensor.unsqueeze(0))[0, target].item()
+            F_mixed = forward_model(x_mixed.unsqueeze(0))[0, target].item()
+            F_input = forward_model(x_tensor.unsqueeze(0))[0, target].item()
+
+        if disc_indices:
+            discrete_diff = F_input - F_mixed
+            changed = [
+                idx for idx in disc_indices
+                if x_row[idx] != baseline_tensor[idx].item()
+            ]
+            if changed:
+                per_feature = discrete_diff / len(changed)
+                for idx in changed:
+                    attributions[idx] = per_feature
+
+        # ==================================================
+        # Convergence check
+        # ==================================================
         attr_np = attributions.detach().cpu().numpy()
         delta = float(attr_np.sum()) - (F_input - F_baseline)
 
         return attr_np, delta
-
-    def _captum_ig(self, x_tensor, baseline_tensor, target, n_steps, method,
-                   internal_batch_size, return_convergence_delta):
-        from captum.attr import IntegratedGradients
-        if self.use_softmax:
-            forward_model = _SoftmaxModel(self.model)
-        else:
-            forward_model = self.model
-        forward_model.eval()
-        ig = IntegratedGradients(forward_model, multiply_by_inputs=self.multiply_by_inputs)
-
-        result = ig.attribute(
-            x_tensor.unsqueeze(0),
-            baselines=baseline_tensor.unsqueeze(0),
-            target=target,
-            n_steps=n_steps,
-            method=method,
-            internal_batch_size=internal_batch_size,
-            return_convergence_delta=return_convergence_delta,
-        )
-
-        if return_convergence_delta:
-            attrs, delta = result
-            return attrs.detach().cpu().numpy().flatten(), float(delta.item())
-        else:
-            return result.detach().cpu().numpy().flatten(), None
 
     def explain_instance(
         self,
         x_row: np.ndarray,
         target: int | None = None,
         n_steps: int = 50,
-        method: str = "gausslegendre",
-        internal_batch_size: int | None = None,
         return_convergence_delta: bool = False,
     ) -> ExplanationResult:
         device = self._get_device()
@@ -285,17 +244,10 @@ class ProtocolAwareIG:
         baseline = self._baselines[target]
         baseline_tensor = torch.tensor(baseline, dtype=torch.float32, device=device)
 
-        convergence_delta = None
         with _disable_cudnn_for_rnn(self.model):
-            if self.constrain_path:
-                attributions, convergence_delta = self._constrained_ig(
-                    x_tensor, baseline_tensor, x_row, target, n_steps, method,
-                )
-            else:
-                attributions, convergence_delta = self._captum_ig(
-                    x_tensor, baseline_tensor, target, n_steps, method,
-                    internal_batch_size, return_convergence_delta,
-                )
+            attributions, convergence_delta = self._compute_ig(
+                x_tensor, baseline_tensor, x_row, target, n_steps,
+            )
 
         return ExplanationResult(
             feature_names=list(self.schema.feature_names),
@@ -303,7 +255,7 @@ class ProtocolAwareIG:
             method="pa_ig",
             predicted_class=target,
             num_samples=None,
-            convergence_delta=convergence_delta,
+            convergence_delta=convergence_delta if return_convergence_delta else None,
             baseline_used=baseline,
         )
 
@@ -315,7 +267,6 @@ class ProtocolAwareIG:
         mode: str = "packet",
         target: int | None = None,
         n_steps: int = 50,
-        method: str = "gausslegendre",
     ) -> ExplanationResult:
         """Generate an IG explanation from a PCAP file."""
         from pa_xai.pcap.pipeline import PcapPipeline
@@ -332,4 +283,4 @@ class ProtocolAwareIG:
                 raise ValueError("No flows found in PCAP")
             x_row = feature_fn(flows[0])
 
-        return self.explain_instance(x_row, target=target, n_steps=n_steps, method=method)
+        return self.explain_instance(x_row, target=target, n_steps=n_steps)

@@ -1,4 +1,4 @@
-"""Protocol-Aware DeepLIFT explainer for NIDS."""
+"""DeepLIFT explainer for NIDS with min-logit baseline selection."""
 
 from __future__ import annotations
 
@@ -49,12 +49,15 @@ def _disable_cudnn_for_rnn(model):
 
 
 class ProtocolAwareDeepLIFT:
-    """Protocol-Aware DeepLIFT.
+    """DeepLIFT for NIDS with min-logit baseline selection.
 
-    Baseline selection follows the original DeepLIFT paper: for each
-    output class, the training sample whose logit is closest to zero
-    is precomputed at init and used as the reference.  This is
-    deterministic and requires no per-explanation forward passes.
+    Baseline: for each output class, the training sample whose logit
+    is closest to zero is precomputed at init (per the original
+    DeepLIFT paper's guidance on near-zero-output baselines).  This
+    is deterministic and requires no per-explanation forward passes.
+
+    DeepLIFT evaluates only two points (baseline and input), so no
+    path interpolation or constraint enforcement is needed.
     """
 
     def __init__(

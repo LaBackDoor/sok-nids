@@ -11,7 +11,7 @@ def _make_schema():
         protocol_feature="proto",
         non_negative_features=["duration", "bytes", "flags"],
         tcp_only_features=["flags"],
-        discrete_features=["flags"],
+        discrete_features=["proto", "flags"],
         hierarchical_constraints=[],
         protocol_encoding="integer",
     )
@@ -68,33 +68,25 @@ def test_ig_baseline_is_min_logit():
     assert any(np.array_equal(baseline, row) for row in X_train)
 
 
-def test_ig_path_clamping_enforces_constraints():
+def test_ig_sequential_path_completeness():
+    """Sequential path IG should have near-zero convergence delta."""
     from pa_xai.ig import ProtocolAwareIG
     schema = _make_schema()
     model, X_train, y_train = _make_model_and_data()
-    explainer = ProtocolAwareIG(schema, model, X_train, constrain_path=True)
-    x = np.array([17.0, 800.0, 8000.0, 0.0], dtype=np.float32)
-    result = explainer.explain_instance(x, target=0, n_steps=50)
-    assert isinstance(result.attributions, np.ndarray)
-    assert len(result.attributions) == 4
-
-
-def test_ig_without_path_clamping():
-    from pa_xai.ig import ProtocolAwareIG
-    schema = _make_schema()
-    model, X_train, y_train = _make_model_and_data()
-    explainer = ProtocolAwareIG(schema, model, X_train, constrain_path=False)
-    x = np.array([6.0, 150.0, 600.0, 5.0], dtype=np.float32)
-    result = explainer.explain_instance(x, target=0, n_steps=50)
-    assert result.method == "pa_ig"
-    assert len(result.attributions) == 4
+    explainer = ProtocolAwareIG(schema, model, X_train)
+    x = np.array([17.0, 150.0, 600.0, 5.0], dtype=np.float32)
+    result = explainer.explain_instance(x, target=0, n_steps=100, return_convergence_delta=True)
+    # With sequential path, completeness should be near-exact
+    assert abs(result.convergence_delta) < 1e-3, (
+        f"convergence_delta too large: {result.convergence_delta}"
+    )
 
 
 def test_ig_convergence_delta():
     from pa_xai.ig import ProtocolAwareIG
     schema = _make_schema()
     model, X_train, y_train = _make_model_and_data()
-    explainer = ProtocolAwareIG(schema, model, X_train, constrain_path=False)
+    explainer = ProtocolAwareIG(schema, model, X_train)
     x = np.array([6.0, 150.0, 600.0, 5.0], dtype=np.float32)
     result = explainer.explain_instance(x, target=0, n_steps=200, return_convergence_delta=True)
     assert result.convergence_delta is not None
