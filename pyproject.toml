@@ -36,6 +36,7 @@ dependencies = [
     "nvidia-cufile-cu12>=1.14.1.1; sys_platform == 'linux'",
     "xgboost>=3.2.0",
     "stackforge>=0.7.3",
+    "cupy-cuda13x>=13.6.0",
 ]
 
 [project.optional-dependencies]

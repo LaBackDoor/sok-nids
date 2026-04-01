@@ -132,23 +132,162 @@ class ProtocolAwareSHAP:
         self.tcp_label_value = tcp_label_value
         self.enforcer = ConstraintEnforcer(schema)
         self._background_cache: dict[float | None, np.ndarray] = {}
-        # Fix XGBoost 2.x base_score vector string for SHAP TreeExplainer compat
+        self._tree_explainer_cache: dict[float | None, object] = {}
+        # Patch SHAP's XGBTreeModelLoader to handle vector base_score
         if backend == "tree" and hasattr(model, 'get_booster'):
-            self._fix_xgb_base_score()
+            self._patch_shap_xgb_loader()
 
-    def _fix_xgb_base_score(self):
-        """Fix XGBoost 2.x base_score vector string for SHAP compatibility."""
-        booster = self.model.get_booster()
-        try:
-            raw_bytes = booster.save_raw('json')
-            model_json = json.loads(raw_bytes)
-            lmp = model_json.get('learner', {}).get('learner_model_param', {})
-            bs = lmp.get('base_score', '')
-            if isinstance(bs, str) and bs.startswith('['):
-                lmp['base_score'] = '5e-01'
-                booster.load_model(bytearray(json.dumps(model_json).encode()))
-        except Exception:
-            pass
+    @staticmethod
+    def _patch_shap_xgb_loader():
+        """Monkey-patch SHAP's XGBTreeModelLoader to handle vector base_score.
+
+        XGBoost 2.x+ stores base_score as a per-class vector string.
+        SHAP's TreeExplainer reads UBJ and calls float(base_score), which
+        fails.  We patch the loader to normalise the vector to a scalar.
+        """
+        import io as _io
+        import logging
+        import scipy.special
+        from shap.explainers._tree import (
+            XGBTreeModelLoader,
+            _check_xgboost_version,
+            decode_ubjson_buffer,
+        )
+
+        if getattr(XGBTreeModelLoader, '_base_score_patched', False):
+            return
+
+        log = logging.getLogger(__name__)
+
+        def _patched_init(self, xgb_model):
+            import xgboost as xgb
+
+            _check_xgboost_version(xgb.__version__)
+            model = xgb_model
+
+            raw = xgb_model.save_raw(raw_format="ubj")
+            with _io.BytesIO(raw) as fd:
+                jmodel = decode_ubjson_buffer(fd)
+
+            learner = jmodel["learner"]
+            learner_model_param = learner["learner_model_param"]
+            objective = learner["objective"]
+
+            # --- FIX: normalise vector base_score to scalar ---
+            bs = learner_model_param.get("base_score", "0.5")
+            if isinstance(bs, str) and bs.startswith("["):
+                scalar = bs.strip("[]").split(",")[0].strip()
+                learner_model_param["base_score"] = scalar
+                log.debug("Patched SHAP XGB base_score '%s' → '%s'", bs, scalar)
+            # --- END FIX ---
+
+            booster = learner["gradient_booster"]
+            n_classes = max(int(learner_model_param["num_class"]), 1)
+            n_targets = max(int(learner_model_param["num_target"]), 1)
+            n_targets = max(n_targets, n_classes)
+
+            if "gbtree" in booster and "model" not in booster:
+                booster = booster["gbtree"]
+            if booster["model"].get("iteration_indptr", None) is not None:
+                iteration_indptr = np.asarray(booster["model"]["iteration_indptr"], dtype=np.int32)
+                diff = np.diff(iteration_indptr)
+            else:
+                n_parallel_trees = int(booster["model"]["gbtree_model_param"]["num_parallel_tree"])
+                diff = np.repeat(n_targets * n_parallel_trees, model.num_boosted_rounds())
+            if np.any(diff != diff[0]):
+                raise ValueError("vector-leaf is not yet supported.:", diff)
+
+            self.n_trees_per_iter = int(diff[0])
+            self.n_targets = n_targets
+            self.base_score = float(learner_model_param["base_score"])
+            assert self.n_trees_per_iter > 0
+
+            self.name_obj = objective["name"]
+            self.name_gbm = booster["name"]
+            base_score = float(learner_model_param["base_score"])
+            if self.name_obj in ("binary:logistic", "reg:logistic"):
+                self.base_score = scipy.special.logit(base_score)
+            elif self.name_obj in (
+                "reg:gamma", "reg:tweedie", "count:poisson",
+                "survival:cox", "survival:aft",
+            ):
+                self.base_score = np.log(self.base_score)
+            else:
+                self.base_score = base_score
+
+            self.num_feature = int(learner_model_param["num_feature"])
+            self.num_class = int(learner_model_param["num_class"])
+
+            trees = booster["model"]["trees"]
+            self.num_trees = len(trees)
+
+            self.node_parents = []
+            self.node_cleft = []
+            self.node_cright = []
+            self.node_sindex = []
+            self.children_default = []
+            self.sum_hess = []
+            self.values = []
+            self.thresholds = []
+            self.threshold_types = []
+            self.features = []
+            self.split_types = []
+            self.categories = []
+
+            feature_types = model.feature_types
+            if feature_types is not None:
+                cat_feature_indices = np.where(np.asarray(feature_types) == "c")[0]
+                self.cat_feature_indices = cat_feature_indices if len(cat_feature_indices) > 0 else None
+            else:
+                self.cat_feature_indices = None
+
+            def to_integers(data):
+                assert isinstance(data, list)
+                return np.asanyarray(data, dtype=np.uint8)
+
+            for i in range(self.num_trees):
+                tree = trees[i]
+                self.node_parents.append(np.asarray(tree["parents"]))
+                self.node_cleft.append(np.asarray(tree["left_children"], dtype=np.int32))
+                self.node_cright.append(np.asarray(tree["right_children"], dtype=np.int32))
+                self.node_sindex.append(np.asarray(tree["split_indices"], dtype=np.uint32))
+
+                base_weight = np.asarray(tree["base_weights"], dtype=np.float32)
+                if base_weight.size != self.node_cleft[-1].size:
+                    raise ValueError("vector-leaf is not yet supported.")
+
+                default_left = to_integers(tree["default_left"])
+                default_child = np.where(default_left == 1, self.node_cleft[-1], self.node_cright[-1]).astype(np.int64)
+                self.children_default.append(default_child)
+                self.sum_hess.append(np.asarray(tree["sum_hessian"], dtype=np.float64))
+
+                is_leaf = self.node_cleft[-1] == -1
+                split_cond = np.asarray(tree["split_conditions"], dtype=np.float32)
+                leaf_weight = np.where(is_leaf, split_cond, 0.0)
+                thresholds = np.where(is_leaf, 0.0, split_cond)
+                thresholds = np.where(is_leaf, 0.0, np.nextafter(thresholds, -np.float32(np.inf)))
+                threshold_types = np.zeros_like(thresholds, dtype=np.int32)
+
+                self.values.append(leaf_weight.reshape(leaf_weight.size, 1))
+                self.thresholds.append(thresholds)
+                self.threshold_types.append(threshold_types)
+
+                split_idx = np.asarray(tree["split_indices"], dtype=np.int64)
+                self.features.append(split_idx)
+
+                split_types = to_integers(tree["split_type"])
+                self.split_types.append(split_types)
+                cat_segments = tree["categories_segments"]
+                cat_sizes = tree["categories_sizes"]
+                cat_nodes = tree["categories_nodes"]
+                assert len(cat_segments) == len(cat_sizes) == len(cat_nodes)
+                cats = tree["categories"]
+
+                tree_categories = self.parse_categories(cat_nodes, cat_segments, cat_sizes, cats, self.node_cleft[-1])
+                self.categories.append(tree_categories)
+
+        XGBTreeModelLoader._base_score_patched = True
+        XGBTreeModelLoader.__init__ = _patched_init
 
     def _get_background(self, protocol_value: float | None) -> np.ndarray:
         """Get protocol-filtered background, cached per protocol value."""
@@ -174,7 +313,11 @@ class ProtocolAwareSHAP:
 
     def _predict_target(self, x_row):
         if self.backend == "tree":
-            return int(self.model.predict(x_row.reshape(1, -1))[0])
+            X = x_row.reshape(1, -1)
+            if hasattr(self.model, 'get_booster'):
+                import cupy as cp
+                X = cp.asarray(X)
+            return int(self.model.predict(X)[0])
         elif self.backend == "kernel":
             preds = self.model(x_row.reshape(1, -1))
             return int(np.argmax(preds[0]))
@@ -238,13 +381,25 @@ class ProtocolAwareSHAP:
         expected_value = float(ev[target]) if isinstance(ev, (list, np.ndarray)) else float(ev)
         return attributions, expected_value
 
-    def _explain_tree(self, x_row, target, background):
+    def _get_tree_explainer(self, background, protocol_value):
+        """Get or create a cached TreeExplainer for the given protocol background."""
         import shap
+        cache_key = protocol_value
+        if cache_key not in self._tree_explainer_cache:
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore")
+                self._tree_explainer_cache[cache_key] = shap.TreeExplainer(
+                    self.model, data=background, feature_perturbation="interventional",
+                )
+        return self._tree_explainer_cache[cache_key]
+
+    def _explain_tree(self, x_row, target, background):
+        protocol_value = None
+        if self.schema.protocol_index is not None:
+            protocol_value = x_row[self.schema.protocol_index]
+        explainer = self._get_tree_explainer(background, protocol_value)
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore")
-            explainer = shap.TreeExplainer(
-                self.model, data=background, feature_perturbation="interventional",
-            )
             shap_values = explainer.shap_values(x_row.reshape(1, -1), check_additivity=False)
         n_features = len(x_row)
         attributions = _extract_class_attributions(shap_values, target, n_features)

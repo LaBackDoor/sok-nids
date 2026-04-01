@@ -181,8 +181,23 @@ class XGBWrapper:
         # label_map[compact_label] = original_label
         self.label_map = label_map
 
+    @staticmethod
+    def _to_gpu(X):
+        """Move input to GPU via cupy for XGBoost GPU inference."""
+        import cupy as cp
+        if isinstance(X, np.ndarray):
+            return cp.asarray(X)
+        return X
+
+    @staticmethod
+    def _to_numpy(arr):
+        """Convert cupy array back to numpy."""
+        if hasattr(arr, 'get'):
+            return arr.get()
+        return np.asarray(arr)
+
     def predict_proba(self, X: np.ndarray) -> np.ndarray:
-        proba = self.model.predict_proba(X)
+        proba = self._to_numpy(self.model.predict_proba(self._to_gpu(X)))
         if self.num_classes is not None and proba.shape[1] < self.num_classes:
             full_proba = np.zeros((proba.shape[0], self.num_classes), dtype=proba.dtype)
             if self.label_map is not None:
@@ -195,7 +210,7 @@ class XGBWrapper:
         return proba
 
     def predict(self, X: np.ndarray) -> np.ndarray:
-        preds = self.model.predict(X)
+        preds = self._to_numpy(self.model.predict(self._to_gpu(X)))
         if self.label_map is not None:
             return self.label_map[preds]
         return preds
@@ -478,9 +493,8 @@ def train_xgb(
     train_time = time.time() - train_start
     logger.info(f"  XGBoost training completed in {train_time:.1f}s")
 
-    # Switch to CPU for inference — tree model prediction is CPU-bound and
-    # this avoids the device mismatch warning when predict_proba receives numpy.
-    model.set_params(device="cpu")
+    # Keep model on GPU — XGBWrapper moves inputs to GPU via cupy.
+    # set_params(device="cpu") is NOT called so inference stays on GPU.
 
     wrapper = XGBWrapper(model, num_classes=dataset.num_classes, label_map=label_map)
 
