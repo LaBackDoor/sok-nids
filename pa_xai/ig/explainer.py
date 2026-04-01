@@ -9,7 +9,6 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from pa_xai.core.baseline import get_protocol_valid_baseline
 from pa_xai.core.constraints import ConstraintEnforcer
 from pa_xai.core.result import ExplanationResult
 from pa_xai.core.schemas import DatasetSchema, TCP_PROTOCOL_INT, detect_protocol_encoding
@@ -53,37 +52,123 @@ def _gauss_legendre_alphas(n_steps: int):
 
 
 class ProtocolAwareIG:
-    """Protocol-Aware Integrated Gradients."""
+    """Protocol-Aware Integrated Gradients.
+
+    Baseline selection follows the original IG paper: for each output
+    class, the training sample whose logit is closest to zero is
+    precomputed at init and used as the reference.
+    """
 
     def __init__(
         self,
         schema: DatasetSchema,
         model: nn.Module,
         X_train: np.ndarray,
-        y_train: np.ndarray,
-        benign_label: int = 0,
-        baseline_top_k: int = 1,
-        baseline_strategy: str = "nearest",
         constrain_path: bool = True,
         multiply_by_inputs: bool = True,
         use_softmax: bool = True,
         tcp_label_value: int = TCP_PROTOCOL_INT,
+        batch_size: int = 512,
     ) -> None:
         self.schema = schema
         self.model = model
-        self.X_train = X_train
-        self.y_train = y_train
-        self.benign_label = benign_label
-        self.baseline_top_k = baseline_top_k
-        self.baseline_strategy = baseline_strategy
         self.constrain_path = constrain_path
         self.multiply_by_inputs = multiply_by_inputs
         self.use_softmax = use_softmax
         self.tcp_label_value = tcp_label_value
         self.enforcer = ConstraintEnforcer(schema)
 
+        self._baselines = self._precompute_baselines(X_train, batch_size)
+
     def _get_device(self) -> torch.device:
         return next(self.model.parameters()).device
+
+    @torch.no_grad()
+    def _precompute_baselines(
+        self, X_train: np.ndarray, batch_size: int,
+    ) -> dict[int, np.ndarray]:
+        """Forward-pass all training samples and keep one per class.
+
+        For each output class, stores the training sample whose logit
+        for that class is closest to zero.
+        """
+        device = self._get_device()
+        self.model.eval()
+
+        n = len(X_train)
+        best: dict[int, tuple[float, np.ndarray]] = {}
+
+        for start in range(0, n, batch_size):
+            batch_np = X_train[start : start + batch_size]
+            batch_t = torch.tensor(batch_np, dtype=torch.float32, device=device)
+            logits = self.model(batch_t)
+            abs_logits = logits.abs().cpu().numpy()
+
+            num_classes = abs_logits.shape[1]
+            for c in range(num_classes):
+                col = abs_logits[:, c]
+                local_best_idx = int(col.argmin())
+                local_best_val = float(col[local_best_idx])
+                if c not in best or local_best_val < best[c][0]:
+                    best[c] = (local_best_val, batch_np[local_best_idx].copy())
+
+        return {c: sample for c, (_, sample) in best.items()}
+
+    def check_path_violations(
+        self,
+        x_row: np.ndarray,
+        target: int | None = None,
+        n_steps: int = 50,
+    ) -> dict:
+        """Check whether the straight-line IG path violates domain constraints.
+
+        Generates interpolation points between baseline and input, then
+        compares them before and after constraint enforcement.  Returns
+        a summary of how many points are altered and by how much.
+
+        Use this to decide whether ``constrain_path=True`` is needed:
+        if violations are zero or negligible, standard (unclamped) IG
+        preserves the completeness axiom with no practical cost.
+        """
+        device = self._get_device()
+        x_tensor = torch.tensor(x_row, dtype=torch.float32, device=device)
+
+        if target is None:
+            self.model.eval()
+            with torch.no_grad():
+                logits = self.model(x_tensor.unsqueeze(0))
+                target = int(torch.argmax(logits, dim=1).item())
+
+        baseline = self._baselines[target]
+        _, alphas = _gauss_legendre_alphas(n_steps)
+
+        # Build unclamped interpolation points
+        interp = np.array([
+            baseline + alpha * (x_row - baseline) for alpha in alphas
+        ], dtype=np.float32)
+        original = interp.copy()
+
+        # Apply constraints
+        protocol_value, encoding, tcp_val = self._resolve_protocol_params(x_row)
+        self.enforcer.enforce(interp, protocol_value, encoding, tcp_val)
+
+        diff = np.abs(interp - original)
+        violated_mask = diff > 1e-8
+
+        return {
+            "target": target,
+            "n_steps": n_steps,
+            "total_points": int(interp.shape[0]),
+            "points_with_violations": int(violated_mask.any(axis=1).sum()),
+            "total_cell_violations": int(violated_mask.sum()),
+            "max_abs_change": float(diff.max()),
+            "mean_abs_change": float(diff[violated_mask].mean()) if violated_mask.any() else 0.0,
+            "violated_features": sorted({
+                self.schema.feature_names[j]
+                for j in range(interp.shape[1])
+                if violated_mask[:, j].any()
+            }),
+        }
 
     def _resolve_protocol_params(self, x_row: np.ndarray):
         encoding = self.schema.protocol_encoding
@@ -189,22 +274,16 @@ class ProtocolAwareIG:
         return_convergence_delta: bool = False,
     ) -> ExplanationResult:
         device = self._get_device()
-
-        baseline = get_protocol_valid_baseline(
-            x_row, self.X_train, self.y_train, self.schema,
-            benign_label=self.benign_label,
-            top_k=self.baseline_top_k,
-            strategy=self.baseline_strategy,
-        )
-
         x_tensor = torch.tensor(x_row, dtype=torch.float32, device=device)
-        baseline_tensor = torch.tensor(baseline, dtype=torch.float32, device=device)
 
         if target is None:
             self.model.eval()
             with torch.no_grad():
                 logits = self.model(x_tensor.unsqueeze(0))
                 target = int(torch.argmax(logits, dim=1).item())
+
+        baseline = self._baselines[target]
+        baseline_tensor = torch.tensor(baseline, dtype=torch.float32, device=device)
 
         convergence_delta = None
         with _disable_cudnn_for_rnn(self.model):

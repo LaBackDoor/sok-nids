@@ -226,7 +226,7 @@ def pa_explain_ig(
     base_model.eval()
 
     explainer = ProtocolAwareIG(
-        schema, base_model, X_train, y_train,
+        schema, base_model, X_train,
         constrain_path=True,
     )
 

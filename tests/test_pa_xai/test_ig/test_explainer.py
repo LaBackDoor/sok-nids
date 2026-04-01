@@ -48,7 +48,7 @@ def test_ig_returns_explanation_result():
     from pa_xai.core.result import ExplanationResult
     schema = _make_schema()
     model, X_train, y_train = _make_model_and_data()
-    explainer = ProtocolAwareIG(schema, model, X_train, y_train)
+    explainer = ProtocolAwareIG(schema, model, X_train)
     x = np.array([6.0, 150.0, 600.0, 5.0], dtype=np.float32)
     result = explainer.explain_instance(x, target=0, n_steps=50)
     assert isinstance(result, ExplanationResult)
@@ -58,21 +58,21 @@ def test_ig_returns_explanation_result():
     assert result.baseline_used is not None
 
 
-def test_ig_baseline_is_protocol_matched():
+def test_ig_baseline_is_min_logit():
+    """Baseline for each class is the training sample with logit closest to zero."""
     from pa_xai.ig import ProtocolAwareIG
     schema = _make_schema()
     model, X_train, y_train = _make_model_and_data()
-    explainer = ProtocolAwareIG(schema, model, X_train, y_train)
-    x = np.array([17.0, 800.0, 8000.0, 0.0], dtype=np.float32)
-    result = explainer.explain_instance(x, target=0, n_steps=50)
-    assert result.baseline_used[0] == 17.0
+    explainer = ProtocolAwareIG(schema, model, X_train)
+    baseline = explainer._baselines[0]
+    assert any(np.array_equal(baseline, row) for row in X_train)
 
 
 def test_ig_path_clamping_enforces_constraints():
     from pa_xai.ig import ProtocolAwareIG
     schema = _make_schema()
     model, X_train, y_train = _make_model_and_data()
-    explainer = ProtocolAwareIG(schema, model, X_train, y_train, constrain_path=True)
+    explainer = ProtocolAwareIG(schema, model, X_train, constrain_path=True)
     x = np.array([17.0, 800.0, 8000.0, 0.0], dtype=np.float32)
     result = explainer.explain_instance(x, target=0, n_steps=50)
     assert isinstance(result.attributions, np.ndarray)
@@ -83,7 +83,7 @@ def test_ig_without_path_clamping():
     from pa_xai.ig import ProtocolAwareIG
     schema = _make_schema()
     model, X_train, y_train = _make_model_and_data()
-    explainer = ProtocolAwareIG(schema, model, X_train, y_train, constrain_path=False)
+    explainer = ProtocolAwareIG(schema, model, X_train, constrain_path=False)
     x = np.array([6.0, 150.0, 600.0, 5.0], dtype=np.float32)
     result = explainer.explain_instance(x, target=0, n_steps=50)
     assert result.method == "pa_ig"
@@ -94,7 +94,7 @@ def test_ig_convergence_delta():
     from pa_xai.ig import ProtocolAwareIG
     schema = _make_schema()
     model, X_train, y_train = _make_model_and_data()
-    explainer = ProtocolAwareIG(schema, model, X_train, y_train, constrain_path=False)
+    explainer = ProtocolAwareIG(schema, model, X_train, constrain_path=False)
     x = np.array([6.0, 150.0, 600.0, 5.0], dtype=np.float32)
     result = explainer.explain_instance(x, target=0, n_steps=200, return_convergence_delta=True)
     assert result.convergence_delta is not None
@@ -104,7 +104,7 @@ def test_ig_auto_detects_target():
     from pa_xai.ig import ProtocolAwareIG
     schema = _make_schema()
     model, X_train, y_train = _make_model_and_data()
-    explainer = ProtocolAwareIG(schema, model, X_train, y_train)
+    explainer = ProtocolAwareIG(schema, model, X_train)
     x = np.array([6.0, 150.0, 600.0, 5.0], dtype=np.float32)
     result = explainer.explain_instance(x, target=None, n_steps=50)
     assert result.predicted_class is not None
