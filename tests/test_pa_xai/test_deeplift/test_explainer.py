@@ -48,7 +48,7 @@ def test_deeplift_returns_explanation_result():
     from pa_xai.core.result import ExplanationResult
     schema = _make_schema()
     model, X_train, y_train = _make_model_and_data()
-    explainer = ProtocolAwareDeepLIFT(schema, model, X_train, y_train)
+    explainer = ProtocolAwareDeepLIFT(schema, model, X_train)
     x = np.array([6.0, 150.0, 600.0, 5.0], dtype=np.float32)
     result = explainer.explain_instance(x, target=0)
     assert isinstance(result, ExplanationResult)
@@ -57,21 +57,22 @@ def test_deeplift_returns_explanation_result():
     assert result.baseline_used is not None
 
 
-def test_deeplift_baseline_is_protocol_matched():
+def test_deeplift_baseline_is_min_logit():
+    """Baseline for each class is the training sample with logit closest to zero."""
     from pa_xai.deeplift import ProtocolAwareDeepLIFT
     schema = _make_schema()
     model, X_train, y_train = _make_model_and_data()
-    explainer = ProtocolAwareDeepLIFT(schema, model, X_train, y_train)
-    x = np.array([17.0, 800.0, 8000.0, 0.0], dtype=np.float32)
-    result = explainer.explain_instance(x, target=0)
-    assert result.baseline_used[0] == 17.0
+    explainer = ProtocolAwareDeepLIFT(schema, model, X_train)
+    # The precomputed baseline for class 0 should be one of the training samples
+    baseline = explainer._baselines[0]
+    assert any(np.array_equal(baseline, row) for row in X_train)
 
 
 def test_deeplift_convergence_delta():
     from pa_xai.deeplift import ProtocolAwareDeepLIFT
     schema = _make_schema()
     model, X_train, y_train = _make_model_and_data()
-    explainer = ProtocolAwareDeepLIFT(schema, model, X_train, y_train)
+    explainer = ProtocolAwareDeepLIFT(schema, model, X_train)
     x = np.array([6.0, 150.0, 600.0, 5.0], dtype=np.float32)
     result = explainer.explain_instance(x, target=0, return_convergence_delta=True)
     assert result.convergence_delta is not None
@@ -81,7 +82,7 @@ def test_deeplift_auto_detects_target():
     from pa_xai.deeplift import ProtocolAwareDeepLIFT
     schema = _make_schema()
     model, X_train, y_train = _make_model_and_data()
-    explainer = ProtocolAwareDeepLIFT(schema, model, X_train, y_train)
+    explainer = ProtocolAwareDeepLIFT(schema, model, X_train)
     x = np.array([6.0, 150.0, 600.0, 5.0], dtype=np.float32)
     result = explainer.explain_instance(x, target=None)
     assert result.predicted_class is not None

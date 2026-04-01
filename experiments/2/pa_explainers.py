@@ -161,7 +161,7 @@ def _make_pa_deeplift_fn(dnn_model, dataset, device):
     model_clone = _clone_model(dnn_model, device)
 
     explainer = ProtocolAwareDeepLIFT(
-        schema, model_clone, dataset.X_train, dataset.y_train,
+        schema, model_clone, dataset.X_train,
     )
 
     def fn(X: np.ndarray) -> np.ndarray:

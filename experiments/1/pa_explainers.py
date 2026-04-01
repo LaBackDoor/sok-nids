@@ -276,7 +276,7 @@ def pa_explain_deeplift(
     base_model.eval()
 
     explainer = ProtocolAwareDeepLIFT(
-        schema, base_model, X_train, y_train,
+        schema, base_model, X_train,
     )
 
     start = time.time()

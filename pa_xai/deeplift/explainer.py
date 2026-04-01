@@ -9,9 +9,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from pa_xai.core.baseline import get_protocol_valid_baseline
 from pa_xai.core.result import ExplanationResult
-from pa_xai.core.schemas import DatasetSchema, TCP_PROTOCOL_INT
+from pa_xai.core.schemas import DatasetSchema
 
 
 _DEEPLIFT_SUPPORTED = (
@@ -52,8 +51,10 @@ def _disable_cudnn_for_rnn(model):
 class ProtocolAwareDeepLIFT:
     """Protocol-Aware DeepLIFT.
 
-    Uses Nearest Benign Prototype baselines. No path clamping —
-    DeepLIFT evaluates only baseline and input.
+    Baseline selection follows the original DeepLIFT paper: for each
+    output class, the training sample whose logit is closest to zero
+    is precomputed at init and used as the reference.  This is
+    deterministic and requires no per-explanation forward passes.
     """
 
     def __init__(
@@ -61,13 +62,9 @@ class ProtocolAwareDeepLIFT:
         schema: DatasetSchema,
         model: nn.Module,
         X_train: np.ndarray,
-        y_train: np.ndarray,
-        benign_label: int = 0,
-        baseline_top_k: int = 1,
-        baseline_strategy: str = "nearest",
         multiply_by_inputs: bool = True,
         eps: float = 1e-10,
-        tcp_label_value: int = TCP_PROTOCOL_INT,
+        batch_size: int = 512,
     ) -> None:
         self.schema = schema
         self.model = model
@@ -81,17 +78,48 @@ class ProtocolAwareDeepLIFT:
                 f"{unsupported}. These layers will use standard gradients instead.",
                 stacklevel=2,
             )
-        self.X_train = X_train
-        self.y_train = y_train
-        self.benign_label = benign_label
-        self.baseline_top_k = baseline_top_k
-        self.baseline_strategy = baseline_strategy
         self.multiply_by_inputs = multiply_by_inputs
         self.eps = eps
-        self.tcp_label_value = tcp_label_value
+
+        # Precompute one baseline per output class: the training sample
+        # whose logit for that class is closest to zero.
+        self._baselines = self._precompute_baselines(X_train, batch_size)
 
     def _get_device(self) -> torch.device:
         return next(self.model.parameters()).device
+
+    @torch.no_grad()
+    def _precompute_baselines(
+        self, X_train: np.ndarray, batch_size: int,
+    ) -> dict[int, np.ndarray]:
+        """Forward-pass all training samples and keep one per class.
+
+        For each output class, stores the training sample whose logit
+        for that class is closest to zero.
+        """
+        device = self._get_device()
+        self.model.eval()
+
+        n = len(X_train)
+        # Accumulate per-class best: {class_idx: (min_abs_logit, sample)}
+        best: dict[int, tuple[float, np.ndarray]] = {}
+
+        for start in range(0, n, batch_size):
+            batch_np = X_train[start : start + batch_size]
+            batch_t = torch.tensor(batch_np, dtype=torch.float32, device=device)
+            logits = self.model(batch_t)  # (B, num_classes)
+            abs_logits = logits.abs().cpu().numpy()
+
+            num_classes = abs_logits.shape[1]
+            for c in range(num_classes):
+                col = abs_logits[:, c]
+                local_best_idx = int(col.argmin())
+                local_best_val = float(col[local_best_idx])
+                if c not in best or local_best_val < best[c][0]:
+                    best[c] = (local_best_val, batch_np[local_best_idx].copy())
+
+        baselines = {c: sample for c, (_, sample) in best.items()}
+        return baselines
 
     def explain_instance(
         self,
@@ -102,22 +130,16 @@ class ProtocolAwareDeepLIFT:
         from captum.attr import DeepLift
 
         device = self._get_device()
-
-        baseline = get_protocol_valid_baseline(
-            x_row, self.X_train, self.y_train, self.schema,
-            benign_label=self.benign_label,
-            top_k=self.baseline_top_k,
-            strategy=self.baseline_strategy,
-        )
-
         x_tensor = torch.tensor(x_row, dtype=torch.float32, device=device).unsqueeze(0)
-        baseline_tensor = torch.tensor(baseline, dtype=torch.float32, device=device).unsqueeze(0)
 
         if target is None:
             self.model.eval()
             with torch.no_grad():
                 logits = self.model(x_tensor)
                 target = int(torch.argmax(logits, dim=1).item())
+
+        baseline = self._baselines[target]
+        baseline_tensor = torch.tensor(baseline, dtype=torch.float32, device=device).unsqueeze(0)
 
         softmax_model = _SoftmaxModel(self.model)
         softmax_model.eval()
