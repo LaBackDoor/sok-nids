@@ -29,7 +29,7 @@ def main():
     config = ExperimentConfig()
     device = torch.device("cpu")
 
-    for ds_name in config.data.datasets:
+    for ds_name in config.ALL_DATASETS:
         print(f"\n{'='*60}")
         print(f"Dataset: {ds_name}")
         print(f"{'='*60}")
