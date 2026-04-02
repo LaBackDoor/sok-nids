@@ -1,67 +1,82 @@
 {
   "DNN_SHAP": {
-    "time_per_sample_ms": 29.74736568927765,
-    "total_time_s": 297.4736568927765,
-    "summary_plot_time_s": 3.131836414337158
+    "time_per_sample_ms": 29.72300250530243,
+    "total_time_s": 297.2300250530243,
+    "summary_plot_time_s": 3.0944509506225586
   },
   "DNN_LIME": {
-    "time_per_sample_ms": 17.098485255241393,
-    "total_time_s": 170.98485255241394,
-    "summary_plot_time_s": 3.0711491107940674
+    "time_per_sample_ms": 17.156042194366456,
+    "total_time_s": 171.56042194366455,
+    "summary_plot_time_s": 3.0555617809295654
   },
   "DNN_IG": {
-    "time_per_sample_ms": 57.753525376319885,
-    "total_time_s": 577.5352537631989,
-    "summary_plot_time_s": 3.262538194656372
+    "time_per_sample_ms": 57.839344358444215,
+    "total_time_s": 578.3934435844421,
+    "summary_plot_time_s": 3.007131576538086
   },
   "DNN_DeepLIFT": {
-    "time_per_sample_ms": 7.08093831539154,
-    "total_time_s": 70.8093831539154,
-    "summary_plot_time_s": 3.0223984718322754
+    "time_per_sample_ms": 4.019618487358093,
+    "total_time_s": 40.19618487358093,
+    "summary_plot_time_s": 3.0117533206939697
+  },
+  "RF_SHAP": {
+    "time_per_sample_ms": 227.40018537044526,
+    "total_time_s": 2274.0018537044525,
+    "summary_plot_time_s": 3.1918294429779053
   },
   "RF_LIME": {
-    "time_per_sample_ms": 113.08826549053192,
-    "total_time_s": 1130.8826549053192,
-    "summary_plot_time_s": 3.0744712352752686
+    "time_per_sample_ms": 440.71272327899936,
+    "total_time_s": 4407.127232789993,
+    "summary_plot_time_s": 3.065392017364502
+  },
+  "XGB_SHAP": {
+    "time_per_sample_ms": 399.2812760591507,
+    "total_time_s": 3992.812760591507,
+    "summary_plot_time_s": 3.0435664653778076
   },
   "XGB_LIME": {
-    "time_per_sample_ms": 76.60407161712646,
-    "total_time_s": 766.0407161712646,
-    "summary_plot_time_s": 3.0935873985290527
+    "time_per_sample_ms": 402.71555960178375,
+    "total_time_s": 4027.1555960178375,
+    "summary_plot_time_s": 3.3347463607788086
+  },
+  "CNN-LSTM_SHAP": {
+    "time_per_sample_ms": 278.12467494010923,
+    "total_time_s": 2781.2467494010925,
+    "summary_plot_time_s": 3.0373687744140625
   },
   "CNN-LSTM_LIME": {
-    "time_per_sample_ms": 17.09725549221039,
-    "total_time_s": 170.97255492210388,
-    "summary_plot_time_s": 3.08345103263855
+    "time_per_sample_ms": 17.166207933425902,
+    "total_time_s": 171.66207933425903,
+    "summary_plot_time_s": 3.035396099090576
   },
   "CNN-LSTM_IG": {
-    "time_per_sample_ms": 102.90230259895326,
-    "total_time_s": 1029.0230259895325,
-    "summary_plot_time_s": 3.037055730819702
+    "time_per_sample_ms": 107.20391368865967,
+    "total_time_s": 1072.0391368865967,
+    "summary_plot_time_s": 3.005326509475708
   },
   "CNN-LSTM_DeepLIFT": {
-    "time_per_sample_ms": 8.816593790054322,
-    "total_time_s": 88.16593790054321,
-    "summary_plot_time_s": 3.023266553878784
+    "time_per_sample_ms": 5.7648676395416265,
+    "total_time_s": 57.64867639541626,
+    "summary_plot_time_s": 3.016233444213867
   },
   "CNN-GRU_SHAP": {
-    "time_per_sample_ms": 706.236787033081,
-    "total_time_s": 7062.367870330811,
-    "summary_plot_time_s": 3.060452461242676
+    "time_per_sample_ms": 735.514589881897,
+    "total_time_s": 7355.14589881897,
+    "summary_plot_time_s": 3.0222864151000977
   },
   "CNN-GRU_LIME": {
-    "time_per_sample_ms": 162.4975474357605,
-    "total_time_s": 1624.975474357605,
-    "summary_plot_time_s": 3.0593860149383545
+    "time_per_sample_ms": 17.292556905746462,
+    "total_time_s": 172.9255690574646,
+    "summary_plot_time_s": 3.057398796081543
   },
   "CNN-GRU_IG": {
-    "time_per_sample_ms": 1535.2569253206254,
-    "total_time_s": 15352.569253206253,
-    "summary_plot_time_s": 3.024956226348877
+    "time_per_sample_ms": 1601.0323110342026,
+    "total_time_s": 16010.323110342026,
+    "summary_plot_time_s": 3.0213747024536133
   },
   "CNN-GRU_DeepLIFT": {
-    "time_per_sample_ms": 33.46231453418732,
-    "total_time_s": 334.62314534187317,
-    "summary_plot_time_s": 3.03985595703125
+    "time_per_sample_ms": 31.14048137664795,
+    "total_time_s": 311.4048137664795,
+    "summary_plot_time_s": 3.1151092052459717
   }
 }
