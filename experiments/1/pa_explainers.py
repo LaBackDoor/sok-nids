@@ -162,6 +162,7 @@ def pa_explain_shap_tree(
 def pa_explain_lime(
     predict_fn,
     X_explain: np.ndarray,
+    X_train: np.ndarray,
     dataset_name: str,
     model_name: str,
     config,
@@ -172,7 +173,7 @@ def pa_explain_lime(
     schema = _get_schema(dataset_name)
     logger.info(f"  PA-LIME on {len(X_explain)} samples for {model_name}")
 
-    explainer = ProtocolAwareLIME(schema)
+    explainer = ProtocolAwareLIME(schema, X_train=X_train)
 
     total_cpus = os.cpu_count() or 1
     n_jobs = max(1, int(total_cpus * 0.75))
@@ -350,7 +351,7 @@ def pa_generate_all_explanations(
                     ),
                     "PA-LIME DNN": pool.submit(
                         pa_explain_lime, dnn_wrapper.predict_proba,
-                        X_explain, ds_name, "DNN", config,
+                        X_explain, dataset.X_train, ds_name, "DNN", config,
                     ),
                     "PA-IG DNN": pool.submit(
                         pa_explain_ig, ig_clone, X_explain,
@@ -385,7 +386,7 @@ def pa_generate_all_explanations(
 
             try:
                 results.append(pa_explain_lime(
-                    dnn_wrapper.predict_proba, X_explain, ds_name, "DNN", config,
+                    dnn_wrapper.predict_proba, X_explain, dataset.X_train, ds_name, "DNN", config,
                 ))
             except Exception as e:
                 logger.error(f"PA-LIME DNN failed: {e}")
@@ -425,7 +426,7 @@ def pa_generate_all_explanations(
                     dnn_model, X_explain, dataset.X_train, dataset.y_train,
                     ds_name, device, config)),
                 ("PA-LIME DNN", pa_explain_lime, (
-                    dnn_wrapper.predict_proba, X_explain, ds_name, "DNN", config)),
+                    dnn_wrapper.predict_proba, X_explain, dataset.X_train, ds_name, "DNN", config)),
                 ("PA-IG DNN", pa_explain_ig, (
                     dnn_model, X_explain, dataset.X_train, dataset.y_train,
                     ds_name, device, config)),
@@ -450,7 +451,7 @@ def pa_generate_all_explanations(
             )
             tree_futures["PA-LIME RF"] = pool.submit(
                 pa_explain_lime, rf_wrapper.predict_proba,
-                X_explain, ds_name, "RF", config,
+                X_explain, dataset.X_train, ds_name, "RF", config,
             )
 
         if xgb_model is not None and xgb_wrapper is not None:
@@ -462,7 +463,7 @@ def pa_generate_all_explanations(
             )
             tree_futures["PA-LIME XGB"] = pool.submit(
                 pa_explain_lime, xgb_wrapper.predict_proba,
-                X_explain, ds_name, "XGB", config,
+                X_explain, dataset.X_train, ds_name, "XGB", config,
             )
 
     for name, future in tree_futures.items():
@@ -513,7 +514,7 @@ def pa_generate_cnn_explanations(
                 ),
                 "PA-LIME": pool.submit(
                     pa_explain_lime, wrapper.predict_proba,
-                    X_explain, ds_name, model_name, config,
+                    X_explain, dataset.X_train, ds_name, model_name, config,
                 ),
                 "PA-IG": pool.submit(
                     pa_explain_ig, ig_clone, X_explain,
@@ -552,7 +553,7 @@ def pa_generate_cnn_explanations(
 
         try:
             r = pa_explain_lime(
-                wrapper.predict_proba, X_explain, ds_name, model_name, config,
+                wrapper.predict_proba, X_explain, dataset.X_train, ds_name, model_name, config,
             )
             r.model_name = model_name
             results.append(r)
@@ -598,7 +599,7 @@ def pa_generate_cnn_explanations(
                 flat_model, X_explain, dataset.X_train, dataset.y_train,
                 ds_name, device, config)),
             ("PA-LIME", pa_explain_lime, (
-                wrapper.predict_proba, X_explain, ds_name, model_name, config)),
+                wrapper.predict_proba, X_explain, dataset.X_train, ds_name, model_name, config)),
             ("PA-IG", pa_explain_ig, (
                 flat_model, X_explain, dataset.X_train, dataset.y_train,
                 ds_name, device, config, model_name)),
@@ -648,7 +649,7 @@ def pa_make_explain_fn(
     elif method_name == "LIME":
         def fn(X):
             r = pa_explain_lime(
-                wrapper.predict_proba, X, ds_name, model_type, config,
+                wrapper.predict_proba, X, dataset.X_train, ds_name, model_type, config,
             )
             return r.attributions
     elif method_name == "IG":

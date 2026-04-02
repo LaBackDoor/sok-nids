@@ -18,39 +18,27 @@ from pa_xai.core.schemas import (
 )
 
 
-def _filter_background_by_protocol(
+def _subsample_background(
     X_train: np.ndarray,
     y_train: np.ndarray,
-    protocol_value: float,
-    schema: DatasetSchema,
-    benign_label: int,
     n_background: int,
+    benign_label: int = 0,
 ) -> np.ndarray:
-    benign_mask = y_train == benign_label
-    if schema.protocol_index is not None:
-        proto_mask = X_train[:, schema.protocol_index] == protocol_value
-        mask = benign_mask & proto_mask
-    else:
-        mask = benign_mask
+    """Subsample benign training data for SHAP background.
 
-    candidates = X_train[mask]
-    if len(candidates) == 0:
-        candidates = X_train[benign_mask]
+    Filters to benign samples so SHAP values answer "what makes this
+    flow different from normal traffic?"  No protocol filtering — the
+    background includes all protocols so SHAP can attribute to
+    protocol differences.
+    """
+    candidates = X_train[y_train == benign_label]
     if len(candidates) == 0:
         raise ValueError("No benign samples found in training data.")
-
-    if len(candidates) < 5:
-        import logging
-        logging.getLogger(__name__).warning(
-            f"Only {len(candidates)} benign samples match the target protocol for SHAP background. "
-            f"SHAP values may have high variance."
-        )
-
-    if len(candidates) > n_background:
-        rng = np.random.RandomState(42)
-        idx = rng.choice(len(candidates), size=n_background, replace=False)
-        candidates = candidates[idx]
-    return candidates
+    if len(candidates) <= n_background:
+        return candidates.copy()
+    rng = np.random.RandomState(42)
+    idx = rng.choice(len(candidates), size=n_background, replace=False)
+    return candidates[idx]
 
 
 def _has_rnn_modules(model: nn.Module) -> bool:
@@ -107,7 +95,13 @@ class _ConstrainedKernelExplainer:
 
 
 class ProtocolAwareSHAP:
-    """Protocol-Aware SHAP (multi-backend: kernel, deep, tree)."""
+    """SHAP explainer for NIDS (multi-backend: kernel, deep, tree).
+
+    Background is a subsample of benign training data across all
+    protocols.  No protocol filtering — so SHAP can attribute to
+    protocol differences.  Benign-only so SHAP values answer
+    "what makes this flow different from normal traffic?"
+    """
 
     def __init__(
         self,
@@ -124,15 +118,11 @@ class ProtocolAwareSHAP:
             raise ValueError(f"backend must be 'kernel', 'deep', or 'tree', got {backend!r}")
         self.schema = schema
         self.model = model
-        self.X_train = X_train
-        self.y_train = y_train
-        self.benign_label = benign_label
         self.backend = backend
-        self.n_background = n_background
         self.tcp_label_value = tcp_label_value
         self.enforcer = ConstraintEnforcer(schema)
-        self._background_cache: dict[float | None, np.ndarray] = {}
-        self._tree_explainer_cache: dict[float | None, object] = {}
+        self._background = _subsample_background(X_train, y_train, n_background, benign_label)
+        self._tree_explainer: object | None = None
         # Patch SHAP's XGBTreeModelLoader to handle vector base_score
         if backend == "tree" and hasattr(model, 'get_booster'):
             self._patch_shap_xgb_loader()
@@ -289,16 +279,6 @@ class ProtocolAwareSHAP:
         XGBTreeModelLoader._base_score_patched = True
         XGBTreeModelLoader.__init__ = _patched_init
 
-    def _get_background(self, protocol_value: float | None) -> np.ndarray:
-        """Get protocol-filtered background, cached per protocol value."""
-        if protocol_value not in self._background_cache:
-            self._background_cache[protocol_value] = _filter_background_by_protocol(
-                self.X_train, self.y_train,
-                protocol_value, self.schema,
-                self.benign_label, self.n_background,
-            )
-        return self._background_cache[protocol_value]
-
     def _resolve_protocol_params(self, x_row):
         encoding = self.schema.protocol_encoding
         protocol_value = None
@@ -328,10 +308,10 @@ class ProtocolAwareSHAP:
                 logits = self.model(t.to(device))
                 return int(torch.argmax(logits, dim=1).item())
 
-    def _explain_kernel(self, x_row, target, nsamples, background):
+    def _explain_kernel(self, x_row, target, nsamples):
         protocol_value, encoding, tcp_val = self._resolve_protocol_params(x_row)
         explainer = _ConstrainedKernelExplainer(
-            self.model, background, self.schema, self.enforcer,
+            self.model, self._background, self.schema, self.enforcer,
             protocol_value, encoding, tcp_val,
         )
         with warnings.catch_warnings():
@@ -343,10 +323,10 @@ class ProtocolAwareSHAP:
         expected_value = float(ev[target]) if isinstance(ev, (list, np.ndarray)) else float(ev)
         return attributions, expected_value
 
-    def _explain_deep(self, x_row, target, background):
+    def _explain_deep(self, x_row, target):
         import shap
         device = next(self.model.parameters()).device
-        bg_tensor = torch.tensor(background, dtype=torch.float32).to(device)
+        bg_tensor = torch.tensor(self._background, dtype=torch.float32).to(device)
         base_model = self.model.module if isinstance(self.model, torch.nn.DataParallel) else self.model
         base_model.eval()
         use_gradient = _has_rnn_modules(base_model)
@@ -381,23 +361,20 @@ class ProtocolAwareSHAP:
         expected_value = float(ev[target]) if isinstance(ev, (list, np.ndarray)) else float(ev)
         return attributions, expected_value
 
-    def _get_tree_explainer(self, background, protocol_value):
-        """Get or create a cached TreeExplainer for the given protocol background."""
+    def _get_tree_explainer(self):
+        """Get or create a cached TreeExplainer."""
         import shap
-        cache_key = protocol_value
-        if cache_key not in self._tree_explainer_cache:
+        if self._tree_explainer is None:
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore")
-                self._tree_explainer_cache[cache_key] = shap.TreeExplainer(
-                    self.model, data=background, feature_perturbation="interventional",
+                self._tree_explainer = shap.TreeExplainer(
+                    self.model, data=self._background,
+                    feature_perturbation="interventional",
                 )
-        return self._tree_explainer_cache[cache_key]
+        return self._tree_explainer
 
-    def _explain_tree(self, x_row, target, background):
-        protocol_value = None
-        if self.schema.protocol_index is not None:
-            protocol_value = x_row[self.schema.protocol_index]
-        explainer = self._get_tree_explainer(background, protocol_value)
+    def _explain_tree(self, x_row, target):
+        explainer = self._get_tree_explainer()
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore")
             shap_values = explainer.shap_values(x_row.reshape(1, -1), check_additivity=False)
@@ -413,21 +390,15 @@ class ProtocolAwareSHAP:
         target: int | None = None,
         nsamples: int | str = "auto",
     ) -> ExplanationResult:
-        protocol_value = None
-        if self.schema.protocol_index is not None:
-            protocol_value = x_row[self.schema.protocol_index]
-
-        background = self._get_background(protocol_value)
-
         if target is None:
             target = self._predict_target(x_row)
 
         if self.backend == "kernel":
-            attributions, expected_value = self._explain_kernel(x_row, target, nsamples, background)
+            attributions, expected_value = self._explain_kernel(x_row, target, nsamples)
         elif self.backend == "deep":
-            attributions, expected_value = self._explain_deep(x_row, target, background)
+            attributions, expected_value = self._explain_deep(x_row, target)
         elif self.backend == "tree":
-            attributions, expected_value = self._explain_tree(x_row, target, background)
+            attributions, expected_value = self._explain_tree(x_row, target)
 
         return ExplanationResult(
             feature_names=list(self.schema.feature_names),

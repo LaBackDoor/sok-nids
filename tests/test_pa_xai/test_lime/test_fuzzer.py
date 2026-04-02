@@ -125,3 +125,72 @@ def test_fuzzer_passes_udp_icmp_labels():
     neighborhood = fuzzer.generate(x_row, num_samples=100, sigma=1.0)
     assert np.all(neighborhood[:, 1] == 0.0)  # udp_feat zeroed for TCP
     assert np.all(neighborhood[:, 2] == 0.0)  # icmp_feat zeroed for TCP
+
+
+def test_fuzzer_conditioned_sampling_uses_training_distribution():
+    """With X_train, discrete features are sampled per-protocol from training data."""
+    from pa_xai.lime.fuzzer import DomainConstraintFuzzer
+    schema = _make_simple_schema()
+
+    # TCP samples have syn_flag in {1, 2, 3}; UDP has syn_flag=0
+    X_train = np.array([
+        [6.0, 100.0, 50.0, 30.0, 10.0, 1.0],
+        [6.0, 110.0, 60.0, 40.0, 20.0, 2.0],
+        [6.0, 120.0, 70.0, 50.0, 30.0, 3.0],
+        [17.0, 80.0, 40.0, 20.0, 5.0, 0.0],
+        [17.0, 90.0, 45.0, 25.0, 8.0, 0.0],
+    ], dtype=np.float32)
+
+    fuzzer = DomainConstraintFuzzer(schema, X_train=X_train)
+    x_tcp = np.array([6.0, 150.0, 80.0, 60.0, 40.0, 2.0], dtype=np.float32)
+    neighborhood = fuzzer.generate(x_tcp, num_samples=1000, sigma=1.0)
+
+    # Protocol is perturbed — some rows are TCP, some UDP
+    tcp_rows = neighborhood[1:][neighborhood[1:, 0] == 6.0]
+    udp_rows = neighborhood[1:][neighborhood[1:, 0] == 17.0]
+    assert len(tcp_rows) > 0, "Should have some TCP rows"
+    assert len(udp_rows) > 0, "Should have some UDP rows"
+
+    # TCP rows: syn_flag sampled from {1, 2, 3}
+    tcp_syn = np.unique(tcp_rows[:, 5])
+    assert set(tcp_syn).issubset({1.0, 2.0, 3.0}), f"TCP syn_flag: {tcp_syn}"
+
+    # UDP rows: syn_flag zeroed by enforcer (TCP-only feature)
+    assert np.all(udp_rows[:, 5] == 0.0), "UDP syn_flag should be zeroed"
+
+
+def test_fuzzer_perturbs_protocol_with_X_train():
+    """With X_train, protocol is sampled from training distribution."""
+    from pa_xai.lime.fuzzer import DomainConstraintFuzzer
+    schema = _make_simple_schema()
+
+    X_train = np.array([
+        [6.0, 100.0, 50.0, 30.0, 10.0, 1.0],
+        [6.0, 110.0, 60.0, 40.0, 20.0, 2.0],
+        [17.0, 80.0, 40.0, 20.0, 5.0, 0.0],
+        [17.0, 90.0, 45.0, 25.0, 8.0, 0.0],
+    ], dtype=np.float32)
+
+    fuzzer = DomainConstraintFuzzer(schema, X_train=X_train)
+    x = np.array([6.0, 150.0, 80.0, 60.0, 40.0, 2.0], dtype=np.float32)
+    neighborhood = fuzzer.generate(x, num_samples=1000, sigma=1.0)
+
+    # Protocol should have both TCP and UDP values (not all fixed)
+    protos = np.unique(neighborhood[1:, 0])
+    assert 6.0 in protos, "Should have TCP rows"
+    assert 17.0 in protos, "Should have UDP rows"
+    # No fractional protocol values
+    assert set(protos).issubset({6.0, 17.0}), f"Invalid protocols: {protos}"
+
+
+def test_fuzzer_without_X_train_holds_discrete_fixed():
+    """Without X_train, discrete features stay at the input value."""
+    from pa_xai.lime.fuzzer import DomainConstraintFuzzer
+    schema = _make_simple_schema()
+
+    fuzzer = DomainConstraintFuzzer(schema)  # no X_train
+    x = np.array([6.0, 100.0, 50.0, 30.0, 10.0, 3.0], dtype=np.float32)
+    neighborhood = fuzzer.generate(x, num_samples=500, sigma=1.0)
+
+    # syn_flag (discrete) should be held at 3.0 for all rows
+    assert np.all(neighborhood[:, 5] == 3.0)

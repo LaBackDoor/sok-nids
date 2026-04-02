@@ -15,8 +15,14 @@ from pa_xai.core.schemas import DatasetSchema
 class ProtocolAwareLIME:
     """Protocol-Aware Local Interpretable Model-Agnostic Explanations.
 
+    Uses conditioned marginal sampling: discrete features are sampled
+    from their protocol-filtered training distribution, continuous
+    features get Gaussian noise.  If X_train is not provided, discrete
+    features are held fixed.
+
     Args:
         schema: DatasetSchema with feature metadata and protocol constraints.
+        X_train: Training data for discrete feature sampling.
         tcp_label_value: For string-encoded protocol columns, the label-encoded
             integer representing TCP.
         ridge_alpha: Regularization strength for the Ridge surrogate.
@@ -25,11 +31,14 @@ class ProtocolAwareLIME:
     def __init__(
         self,
         schema: DatasetSchema,
+        X_train: np.ndarray | None = None,
         tcp_label_value: int | float | None = None,
         ridge_alpha: float = 1.0,
     ) -> None:
         self.schema = schema
-        self.fuzzer = DomainConstraintFuzzer(schema, tcp_label_value=tcp_label_value)
+        self.fuzzer = DomainConstraintFuzzer(
+            schema, X_train=X_train, tcp_label_value=tcp_label_value,
+        )
         self.ridge_alpha = ridge_alpha
 
     def explain_instance(

@@ -113,7 +113,7 @@ def _make_pa_lime_fn(dnn_wrapper, dataset, rob_cfg):
     from pa_xai import ProtocolAwareLIME
 
     schema = _get_schema(dataset.dataset_name)
-    explainer = ProtocolAwareLIME(schema)
+    explainer = ProtocolAwareLIME(schema, X_train=dataset.X_train)
 
     def fn(X: np.ndarray) -> np.ndarray:
         all_attrs = []

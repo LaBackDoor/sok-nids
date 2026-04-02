@@ -53,7 +53,7 @@ def test_deep_shap_returns_result():
     assert len(result.attributions) == 4
 
 
-def test_deep_shap_protocol_filtered_background():
+def test_deep_shap_different_protocol_input():
     from pa_xai.shap import ProtocolAwareSHAP
     schema = _make_schema()
     model, X_train, y_train = _make_model_and_data()

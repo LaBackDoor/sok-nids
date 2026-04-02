@@ -71,14 +71,17 @@ class ConstraintEnforcer:
             idx = s.non_negative_indices
             neighborhood[:, idx] = np.maximum(0, neighborhood[:, idx])
 
-        # 3. Hierarchical: mean = max(mean, min); max = max(max, mean)
+        # 3. Hierarchical: sort so min <= mean <= max (unbiased)
         for max_i, mean_i, min_i in s.hierarchical_index_triples:
-            neighborhood[:, mean_i] = np.maximum(
-                neighborhood[:, mean_i], neighborhood[:, min_i]
-            )
-            neighborhood[:, max_i] = np.maximum(
-                neighborhood[:, max_i], neighborhood[:, mean_i]
-            )
+            triple = np.stack([
+                neighborhood[:, min_i],
+                neighborhood[:, mean_i],
+                neighborhood[:, max_i],
+            ], axis=1)
+            triple.sort(axis=1)
+            neighborhood[:, min_i] = triple[:, 0]
+            neighborhood[:, mean_i] = triple[:, 1]
+            neighborhood[:, max_i] = triple[:, 2]
 
         # 4. Std <= range
         for std_i, max_i, min_i in s.std_range_index_triples:
