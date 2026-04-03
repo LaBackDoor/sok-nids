@@ -236,6 +236,10 @@ def phase_explain(
 
     # Use full training data for explanations (1TB RAM available)
 
+    # Checkpoint directory for resumable LIME computation
+    checkpoint_dir = output_dir / "checkpoints"
+    checkpoint_dir.mkdir(parents=True, exist_ok=True)
+
     # Generate explanations for classic models
     if config.xai_mode == "p":
         results, indices = pa_generate_all_explanations(
@@ -245,6 +249,7 @@ def phase_explain(
             dataset, device, config.explainer,
             xgb_model=xgb_model if "xgb" in models_to_explain else None,
             xgb_wrapper=xgb_wrapper,
+            checkpoint_dir=checkpoint_dir,
         )
     else:
         results, indices = generate_all_explanations(
@@ -258,17 +263,30 @@ def phase_explain(
 
     # Generate explanations for CNN models (reuse same indices)
     X_explain = dataset.X_test[indices]
-    _cnn_explain = pa_generate_cnn_explanations if config.xai_mode == "p" else _generate_cnn_explanations
-    if cnn_lstm_flat is not None:
-        _cnn_explain(
-            results, cnn_lstm_flat, cnn_lstm_wrapper,
-            "CNN-LSTM", X_explain, dataset, device, config.explainer,
-        )
-    if cnn_gru_flat is not None:
-        _cnn_explain(
-            results, cnn_gru_flat, cnn_gru_wrapper,
-            "CNN-GRU", X_explain, dataset, device, config.explainer,
-        )
+    if config.xai_mode == "p":
+        if cnn_lstm_flat is not None:
+            pa_generate_cnn_explanations(
+                results, cnn_lstm_flat, cnn_lstm_wrapper,
+                "CNN-LSTM", X_explain, dataset, device, config.explainer,
+                checkpoint_dir=checkpoint_dir,
+            )
+        if cnn_gru_flat is not None:
+            pa_generate_cnn_explanations(
+                results, cnn_gru_flat, cnn_gru_wrapper,
+                "CNN-GRU", X_explain, dataset, device, config.explainer,
+                checkpoint_dir=checkpoint_dir,
+            )
+    else:
+        if cnn_lstm_flat is not None:
+            _generate_cnn_explanations(
+                results, cnn_lstm_flat, cnn_lstm_wrapper,
+                "CNN-LSTM", X_explain, dataset, device, config.explainer,
+            )
+        if cnn_gru_flat is not None:
+            _generate_cnn_explanations(
+                results, cnn_gru_flat, cnn_gru_wrapper,
+                "CNN-GRU", X_explain, dataset, device, config.explainer,
+            )
 
     # Generate and time global summary plots
     X_explain = dataset.X_test[indices]
