@@ -1,128 +1,38 @@
 """XAI-driven feature selection pipeline for Experiment 4.
 
-Trains baseline DNN + RF on full feature space, then uses SHAP and LIME
-to rank features and iteratively prune to an optimal subset.
+Imports Exp 1's parallelized explainer orchestrators (normal + PA-XAI)
+to generate attributions, then converts to feature importance rankings
+for iterative pruning.
+
+Normal mode: SHAP, LIME, IG, DeepLIFT (vanilla, no domain constraints)
+PA mode: Protocol-Aware versions with network protocol constraints
 """
 
 import logging
 import time
-from dataclasses import dataclass
 
 import numpy as np
-import shap
 import torch
 import torch.nn as nn
-from lime.lime_tabular import LimeTabularExplainer
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import f1_score
 
-from config import XAISelectionConfig
+from config import ExperimentConfig, ExplainerConfig, XAISelectionConfig
 from feature_selection import FeatureSelectionResult
 
 logger = logging.getLogger(__name__)
 
 
-def _get_shap_feature_importance_dnn(
-    model: nn.Module,
-    X_train: np.ndarray,
-    X_explain: np.ndarray,
-    device: torch.device,
-    config: XAISelectionConfig,
-) -> np.ndarray:
-    """Compute mean absolute SHAP values for DNN using DeepExplainer."""
-    logger.info("    Computing SHAP values for DNN (DeepExplainer)...")
+def _attributions_to_importance(attributions: np.ndarray) -> np.ndarray:
+    """Convert per-sample attributions to global feature importance.
 
-    base_model = model.module if isinstance(model, nn.DataParallel) else model
-    base_model.eval()
-    base_model = base_model.to(device)
+    Args:
+        attributions: shape (n_samples, n_features)
 
-    # Background samples
-    rng = np.random.RandomState(42)
-    bg_idx = rng.choice(len(X_train), min(config.shap_background_samples, len(X_train)), replace=False)
-    background = torch.tensor(X_train[bg_idx], dtype=torch.float32).to(device)
-
-    explainer = shap.DeepExplainer(base_model, background)
-
-    # Explain in batches to manage memory
-    batch_size = 500
-    all_shap_values = []
-    for i in range(0, len(X_explain), batch_size):
-        batch = torch.tensor(X_explain[i:i + batch_size], dtype=torch.float32).to(device)
-        sv = explainer.shap_values(batch)
-        # sv is list of arrays (one per class) or single array
-        if isinstance(sv, list):
-            # Average absolute SHAP across classes
-            sv_abs = np.mean([np.abs(s) for s in sv], axis=0)
-        else:
-            sv_abs = np.abs(sv)
-        all_shap_values.append(sv_abs)
-
-    shap_values = np.concatenate(all_shap_values, axis=0)
-    # Mean absolute SHAP value per feature across all samples
-    feature_importance = np.mean(shap_values, axis=0)
-    return feature_importance
-
-
-def _get_shap_feature_importance_rf(
-    model: RandomForestClassifier,
-    X_explain: np.ndarray,
-    config: XAISelectionConfig,
-) -> np.ndarray:
-    """Compute mean absolute SHAP values for RF using TreeExplainer."""
-    logger.info("    Computing SHAP values for RF (TreeExplainer)...")
-
-    explainer = shap.TreeExplainer(model)
-    sv = explainer.shap_values(X_explain)
-
-    if isinstance(sv, list):
-        # Multi-class: average absolute SHAP across classes
-        feature_importance = np.mean([np.mean(np.abs(s), axis=0) for s in sv], axis=0)
-    else:
-        feature_importance = np.mean(np.abs(sv), axis=0)
-
-    return feature_importance
-
-
-def _get_lime_feature_importance(
-    predict_fn,
-    X_train: np.ndarray,
-    X_explain: np.ndarray,
-    feature_names: list[str],
-    num_classes: int,
-    config: XAISelectionConfig,
-) -> np.ndarray:
-    """Compute global feature importance via LIME."""
-    logger.info("    Computing LIME feature importance...")
-
-    explainer = LimeTabularExplainer(
-        X_train,
-        feature_names=feature_names,
-        class_names=[str(i) for i in range(num_classes)],
-        discretize_continuous=True,
-        random_state=42,
-    )
-
-    n_features = X_train.shape[1]
-    importance_accumulator = np.zeros(n_features)
-
-    # Subsample for LIME (it's slow per-instance)
-    n_explain = min(500, len(X_explain))
-    rng = np.random.RandomState(42)
-    explain_idx = rng.choice(len(X_explain), n_explain, replace=False)
-
-    for i, idx in enumerate(explain_idx):
-        if (i + 1) % 100 == 0:
-            logger.info(f"      LIME explanation {i + 1}/{n_explain}")
-        exp = explainer.explain_instance(
-            X_explain[idx],
-            predict_fn,
-            num_features=n_features,
-            num_samples=config.lime_num_samples,
-        )
-        for feat_idx, weight in exp.local_exp[exp.top_labels[0]]:
-            importance_accumulator[feat_idx] += abs(weight)
-
-    feature_importance = importance_accumulator / n_explain
-    return feature_importance
+    Returns:
+        Feature importance array of shape (n_features,).
+    """
+    return np.mean(np.abs(attributions), axis=0)
 
 
 def _iterative_prune(
@@ -144,9 +54,6 @@ def _iterative_prune(
         selected_indices: optimal feature subset indices
         pruning_history: list of dicts with step details
     """
-    from sklearn.ensemble import RandomForestClassifier
-    from sklearn.metrics import f1_score
-
     logger.info("    Starting iterative pruning...")
 
     n_features = len(feature_importance)
@@ -159,7 +66,7 @@ def _iterative_prune(
     baseline_f1 = f1_score(y_val, y_pred_baseline, average="weighted", zero_division=0)
     logger.info(f"    Baseline F1 (all {n_features} features): {baseline_f1:.4f}")
 
-    # Target from roadmap
+    # Target from config
     target_n = config.target_features.get(dataset_name, config.min_features)
     min_n = max(config.min_features, target_n)
 
@@ -179,7 +86,6 @@ def _iterative_prune(
         n_keep = max(min_n, len(current_indices) - n_remove)
 
         # Keep top-ranked features
-        # Re-rank current indices by their original importance
         current_importance = feature_importance[current_indices]
         reranked = np.argsort(current_importance)[::-1]
         current_indices = current_indices[reranked[:n_keep]]
@@ -219,174 +125,130 @@ def _iterative_prune(
     return selected, pruning_history
 
 
-def xai_shap_dnn_selection(
-    model: nn.Module,
-    X_train: np.ndarray,
-    y_train: np.ndarray,
-    X_val: np.ndarray,
-    y_val: np.ndarray,
-    feature_names: list[str],
+def _run_single_mode(
+    mode: str,
+    dnn_model: nn.Module,
+    rf_model: RandomForestClassifier,
+    dnn_wrapper,
+    rf_wrapper,
+    dataset,
     device: torch.device,
-    config: XAISelectionConfig,
-    dataset_name: str,
-) -> FeatureSelectionResult:
-    """Feature selection using SHAP on DNN with iterative pruning."""
-    logger.info("  XAI-SHAP (DNN) feature selection")
-    t0 = time.time()
+    config: ExperimentConfig,
+    checkpoint_dir=None,
+) -> list[FeatureSelectionResult]:
+    """Run XAI pipeline for a single mode (normal or pa).
 
-    # Subsample for SHAP explanations
-    rng = np.random.RandomState(42)
-    n_explain = min(config.shap_explain_samples, len(X_train))
-    explain_idx = rng.choice(len(X_train), n_explain, replace=False)
-    X_explain = X_train[explain_idx]
+    Calls Exp 1's orchestrators to generate attributions, then converts
+    to feature importance and runs iterative pruning per method.
+    """
+    from explainers import ExplanationResult
 
-    importance = _get_shap_feature_importance_dnn(model, X_train, X_explain, device, config)
+    mode_prefix = "PA-" if mode == "pa" else ""
+    logger.info(f"  === XAI Feature Selection ({mode.upper()} mode) ===")
 
-    selected_indices, pruning_history = _iterative_prune(
-        importance, X_train, y_train, X_val, y_val,
-        feature_names, config, dataset_name,
-    )
+    # Generate attributions using Exp 1's orchestrators
+    if mode == "pa":
+        from pa_explainers import pa_generate_all_explanations
+        explanation_results, explain_indices = pa_generate_all_explanations(
+            dnn_model, rf_model, dnn_wrapper, rf_wrapper,
+            dataset, device, config.explainer,
+            checkpoint_dir=checkpoint_dir,
+        )
+    else:
+        from explainers import generate_all_explanations
+        explanation_results, explain_indices = generate_all_explanations(
+            dnn_model, rf_model, dnn_wrapper, rf_wrapper,
+            dataset, device, config.explainer,
+        )
 
-    elapsed = time.time() - t0
-    return FeatureSelectionResult(
-        method_name="SHAP-DNN",
-        selected_indices=selected_indices,
-        feature_rankings=importance,
-        selected_feature_names=[feature_names[i] for i in selected_indices],
-        n_original=len(feature_names),
-        n_selected=len(selected_indices),
-        selection_time_s=elapsed,
-    )
+    # Convert each ExplanationResult to a FeatureSelectionResult via pruning
+    selection_results: list[FeatureSelectionResult] = []
 
+    for exp_result in explanation_results:
+        method_label = f"{mode_prefix}{exp_result.method_name}-{exp_result.model_name}"
+        logger.info(f"  Processing {method_label} attributions for feature selection...")
 
-def xai_shap_rf_selection(
-    model: RandomForestClassifier,
-    X_train: np.ndarray,
-    y_train: np.ndarray,
-    X_val: np.ndarray,
-    y_val: np.ndarray,
-    feature_names: list[str],
-    config: XAISelectionConfig,
-    dataset_name: str,
-) -> FeatureSelectionResult:
-    """Feature selection using SHAP on RF with iterative pruning."""
-    logger.info("  XAI-SHAP (RF) feature selection")
-    t0 = time.time()
+        t0 = time.time()
 
-    rng = np.random.RandomState(42)
-    n_explain = min(config.shap_explain_samples, len(X_train))
-    explain_idx = rng.choice(len(X_train), n_explain, replace=False)
-    X_explain = X_train[explain_idx]
+        importance = _attributions_to_importance(exp_result.attributions)
 
-    importance = _get_shap_feature_importance_rf(model, X_explain, config)
+        selected_indices, pruning_history = _iterative_prune(
+            importance,
+            dataset.X_train, dataset.y_train,
+            dataset.X_val, dataset.y_val,
+            dataset.feature_names,
+            config.xai,
+            dataset.dataset_name,
+        )
 
-    selected_indices, pruning_history = _iterative_prune(
-        importance, X_train, y_train, X_val, y_val,
-        feature_names, config, dataset_name,
-    )
+        elapsed = exp_result.total_time_s + (time.time() - t0)
 
-    elapsed = time.time() - t0
-    return FeatureSelectionResult(
-        method_name="SHAP-RF",
-        selected_indices=selected_indices,
-        feature_rankings=importance,
-        selected_feature_names=[feature_names[i] for i in selected_indices],
-        n_original=len(feature_names),
-        n_selected=len(selected_indices),
-        selection_time_s=elapsed,
-    )
+        selection_results.append(FeatureSelectionResult(
+            method_name=method_label,
+            selected_indices=selected_indices,
+            feature_rankings=importance,
+            selected_feature_names=[dataset.feature_names[i] for i in selected_indices],
+            n_original=len(dataset.feature_names),
+            n_selected=len(selected_indices),
+            selection_time_s=elapsed,
+        ))
 
-
-def xai_lime_selection(
-    predict_fn,
-    X_train: np.ndarray,
-    y_train: np.ndarray,
-    X_val: np.ndarray,
-    y_val: np.ndarray,
-    feature_names: list[str],
-    num_classes: int,
-    config: XAISelectionConfig,
-    dataset_name: str,
-    model_name: str = "DNN",
-) -> FeatureSelectionResult:
-    """Feature selection using LIME with iterative pruning."""
-    logger.info(f"  XAI-LIME ({model_name}) feature selection")
-    t0 = time.time()
-
-    rng = np.random.RandomState(42)
-    n_explain = min(config.shap_explain_samples, len(X_train))
-    explain_idx = rng.choice(len(X_train), n_explain, replace=False)
-    X_explain = X_train[explain_idx]
-
-    importance = _get_lime_feature_importance(
-        predict_fn, X_train, X_explain, feature_names, num_classes, config,
-    )
-
-    selected_indices, pruning_history = _iterative_prune(
-        importance, X_train, y_train, X_val, y_val,
-        feature_names, config, dataset_name,
-    )
-
-    elapsed = time.time() - t0
-    return FeatureSelectionResult(
-        method_name=f"LIME-{model_name}",
-        selected_indices=selected_indices,
-        feature_rankings=importance,
-        selected_feature_names=[feature_names[i] for i in selected_indices],
-        n_original=len(feature_names),
-        n_selected=len(selected_indices),
-        selection_time_s=elapsed,
-    )
+    return selection_results
 
 
 def run_xai_pipeline(
     dnn_model: nn.Module,
     rf_model: RandomForestClassifier,
-    dnn_predict_fn,
-    rf_predict_fn,
-    X_train: np.ndarray,
-    y_train: np.ndarray,
-    X_val: np.ndarray,
-    y_val: np.ndarray,
-    feature_names: list[str],
-    num_classes: int,
+    dnn_wrapper,
+    rf_wrapper,
+    dataset,
     device: torch.device,
-    config: XAISelectionConfig,
-    dataset_name: str,
+    config: ExperimentConfig,
 ) -> list[FeatureSelectionResult]:
-    """Run all XAI-driven feature selection methods."""
-    logger.info(f"=== XAI-Driven Feature Selection Pipeline ===")
+    """Run XAI-driven feature selection for all configured modes.
 
-    results = []
+    For each mode in config.xai_modes (e.g. ["normal", "pa"]), generates
+    attributions via Exp 1's orchestrators and converts to feature rankings.
 
-    # SHAP on DNN
-    results.append(xai_shap_dnn_selection(
-        dnn_model, X_train, y_train, X_val, y_val,
-        feature_names, device, config, dataset_name,
-    ))
+    Args:
+        dnn_model: Trained DNN (PyTorch).
+        rf_model: Trained RandomForest.
+        dnn_wrapper: NNWrapper with predict_proba.
+        rf_wrapper: SKLearnWrapper with predict_proba.
+        dataset: DatasetBundle from Exp 1's data_loader.
+        device: torch device.
+        config: Full ExperimentConfig.
 
-    if torch.cuda.is_available():
-        torch.cuda.empty_cache()
+    Returns:
+        List of FeatureSelectionResult (one per XAI method x mode).
+    """
+    logger.info("=== XAI-Driven Feature Selection Pipeline ===")
+    logger.info(f"  Modes: {config.xai_modes}")
 
-    # SHAP on RF
-    results.append(xai_shap_rf_selection(
-        rf_model, X_train, y_train, X_val, y_val,
-        feature_names, config, dataset_name,
-    ))
+    all_results: list[FeatureSelectionResult] = []
+    checkpoint_dir = config.output_dir / dataset.dataset_name / "checkpoints"
+    checkpoint_dir.mkdir(parents=True, exist_ok=True)
 
-    # LIME on DNN
-    results.append(xai_lime_selection(
-        dnn_predict_fn, X_train, y_train, X_val, y_val,
-        feature_names, num_classes, config, dataset_name, model_name="DNN",
-    ))
+    for mode in config.xai_modes:
+        mode_key = "normal" if mode in ("n", "normal") else "pa"
+        try:
+            results = _run_single_mode(
+                mode_key,
+                dnn_model, rf_model, dnn_wrapper, rf_wrapper,
+                dataset, device, config,
+                checkpoint_dir=str(checkpoint_dir) if mode_key == "pa" else None,
+            )
+            all_results.extend(results)
+        except Exception as e:
+            logger.error(f"XAI pipeline ({mode_key} mode) failed: {e}", exc_info=True)
 
-    # LIME on RF
-    results.append(xai_lime_selection(
-        rf_predict_fn, X_train, y_train, X_val, y_val,
-        feature_names, num_classes, config, dataset_name, model_name="RF",
-    ))
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
-    for r in results:
-        logger.info(f"  {r.method_name}: {r.n_original} -> {r.n_selected} features in {r.selection_time_s:.2f}s")
+    for r in all_results:
+        logger.info(
+            f"  {r.method_name}: {r.n_original} -> {r.n_selected} features "
+            f"in {r.selection_time_s:.2f}s"
+        )
 
-    return results
+    return all_results
