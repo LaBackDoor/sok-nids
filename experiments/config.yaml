@@ -1,0 +1,68 @@
+# Shared configuration for all experiments.
+# One seed to rule them all — every experiment reads from here.
+
+seed: 42
+datasets:
+  - nsl-kdd
+  - cic-ids-2017
+  - unsw-nb15
+  - cse-cic-ids2018
+
+data:
+  data_root: /home/resbears/Downloads/data
+  test_size: 0.2
+  val_split: 0.1
+  apply_smote: true
+
+models:
+  dnn:
+    hidden_layers: [1024, 768, 512]
+    dropout_rate: 0.01
+    learning_rate: 0.01
+    batch_size: 8192
+    epochs: 100
+    early_stopping_patience: 10
+  rf:
+    n_estimators: 100
+    max_depth: 10
+    min_samples_split: 2
+    criterion: gini
+    n_jobs: -1
+
+explainer:
+  shap_background_samples: 100
+  lime_num_features: 10
+  lime_num_samples: 5000
+  ig_n_steps: 50
+  ig_internal_batch_size: 8192
+  num_explain_samples: 10000
+
+experiment_1:
+  output_dir: experiments/1/results
+  models_dir: experiments/1/results
+
+experiment_3:
+  output_dir: experiments/3/results
+  xai_modes:
+    - normal
+    - pa
+
+  consensus:
+    top_k_values: [5, 10]
+    alpha: 0.05
+    num_explain_samples: 10000
+
+  interactions:
+    top_n_interactions: 20
+    shap_interaction_samples: 500
+    shap_background_samples: 100
+
+  alignment:
+    enabled: true
+    top_k_rra: [5, 10, 15]
+
+  parallelism:
+    max_dataset_workers: 4
+    max_consensus_workers: 16
+    max_plot_workers: 8
+    num_gpu_devices: 2
