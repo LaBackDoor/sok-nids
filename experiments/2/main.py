@@ -37,9 +37,11 @@ import torch
 # We must import Experiment 1 modules first (they internally do `from config import DataConfig`
 # which must resolve to exp1/config.py), then import Experiment 2 modules.
 exp2_dir = os.path.dirname(os.path.abspath(__file__))
+_commons_dir = os.path.join(exp2_dir, "..", "commons")
 exp1_dir = os.path.join(exp2_dir, "..", "1")
 
-# Step 1: Import all Experiment 1 modules with exp1 on sys.path
+# Step 1: Import shared modules from commons (and exp1 for config classes)
+sys.path.insert(0, _commons_dir)
 sys.path.insert(0, exp1_dir)
 
 from data_loader import DataConfig, DatasetBundle, load_dataset

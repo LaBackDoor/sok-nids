@@ -34,7 +34,9 @@ import torch
 # exp1 must be inserted first so that exp3 ends up at index 0 (higher priority),
 # ensuring exp3's config.py is found before exp1's.
 _exp3_dir = os.path.dirname(os.path.abspath(__file__))
+_commons_dir = os.path.join(_exp3_dir, "..", "commons")
 _exp1_dir = os.path.join(_exp3_dir, "..", "1")
+sys.path.insert(0, _commons_dir)
 sys.path.insert(0, _exp1_dir)
 sys.path.insert(0, _exp3_dir)
 
@@ -81,10 +83,6 @@ logging.basicConfig(
 logger = logging.getLogger("experiment3")
 
 
-# Add config_loader to path
-_experiments_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
-if _experiments_dir not in sys.path:
-    sys.path.insert(0, _experiments_dir)
 from config_loader import config_section_hash
 
 

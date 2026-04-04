@@ -35,9 +35,12 @@ import torch
 
 # Add experiment directories to path for local imports
 # Exp1 must be added first (lower priority), then exp4 (higher priority)
-exp1_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "1")
+_exp4_dir = os.path.dirname(os.path.abspath(__file__))
+_commons_dir = os.path.join(_exp4_dir, "..", "commons")
+exp1_dir = os.path.join(_exp4_dir, "..", "1")
+sys.path.insert(0, _commons_dir)
 sys.path.insert(0, exp1_dir)
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, _exp4_dir)
 
 from config import ExperimentConfig
 from evaluation import compute_reduction_summary, evaluate_downstream_model

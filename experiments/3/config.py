@@ -84,7 +84,7 @@ def load_experiment3_config(yaml_path: str | Path | None = None) -> Experiment3C
         Populated Experiment3Config.
     """
     import sys
-    loader_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+    loader_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "commons")
     if loader_dir not in sys.path:
         sys.path.insert(0, loader_dir)
     from config_loader import load_yaml_config
