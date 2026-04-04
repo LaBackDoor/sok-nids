@@ -7,9 +7,11 @@ attributions for a batch of samples.
 
 import copy
 import logging
+import os
 
 import numpy as np
 import torch
+from sklearn.utils.parallel import Parallel, delayed
 
 logger = logging.getLogger(__name__)
 
@@ -115,15 +117,21 @@ def _make_pa_lime_fn(dnn_wrapper, dataset, rob_cfg):
     schema = _get_schema(dataset.dataset_name)
     explainer = ProtocolAwareLIME(schema, X_train=dataset.X_train)
 
+    total_cpus = os.cpu_count() or 1
+    n_jobs = max(1, int(total_cpus * 0.75))
+
     def fn(X: np.ndarray) -> np.ndarray:
-        all_attrs = []
-        for i in range(len(X)):
-            result = explainer.explain_instance(
+        def _explain_one(i):
+            r = explainer.explain_instance(
                 X[i], dnn_wrapper.predict_proba,
                 num_samples=rob_cfg.lime_num_samples,
             )
-            all_attrs.append(result.attributions)
-        return np.stack(all_attrs, axis=0)
+            return r.attributions
+
+        results = Parallel(n_jobs=n_jobs, backend="threading", verbose=0)(
+            delayed(_explain_one)(i) for i in range(len(X))
+        )
+        return np.stack(results, axis=0)
 
     return fn
 

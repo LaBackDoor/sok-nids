@@ -377,7 +377,7 @@ def explain_lime(
     """Generate LIME explanations (model-agnostic), parallelized across CPUs."""
     import os
 
-    from joblib import Parallel, delayed
+    from sklearn.utils.parallel import Parallel, delayed
     from lime.lime_tabular import LimeTabularExplainer
 
     logger.info(f"  LIME on {len(X_explain)} samples for {model_name}")

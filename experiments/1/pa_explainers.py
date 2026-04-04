@@ -15,7 +15,7 @@ from pathlib import Path
 import numpy as np
 import torch
 import torch.nn as nn
-from joblib import Parallel, delayed
+from sklearn.utils.parallel import Parallel, delayed
 
 from explainers import ExplanationResult
 

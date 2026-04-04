@@ -349,10 +349,21 @@ def phase_robustness(
 
     Iterates over both constrained and unconstrained adversarial subdirectories
     (if they exist), tagging each result with its constraint_mode.
+
+    Optimisations over the naïve sequential loop:
+      - Independent (method, attack) combos run concurrently via ThreadPoolExecutor.
+        GPU methods and CPU methods (LIME) don't conflict because the thread pool
+        lets them overlap naturally.
+      - Completed results are checkpointed to disk so a crashed run can resume.
     """
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
     logger.info(f"=== ROBUSTNESS EVALUATION on {dataset.dataset_name} ===")
 
     base_adv_dir = config.output_dir / dataset.dataset_name / "adversarial"
+    rob_dir = config.output_dir / dataset.dataset_name / "robustness"
+    rob_dir.mkdir(parents=True, exist_ok=True)
+    ckpt_path = rob_dir / "robustness_checkpoint.json"
 
     # Discover available constraint modes
     modes_to_eval = []
@@ -369,69 +380,130 @@ def phase_robustness(
         logger.warning(f"  No adversarial examples found for {dataset.dataset_name}")
         return []
 
-    all_results = []
+    # ── Load checkpoint if exists ──
+    completed_keys: set[str] = set()
+    all_results: list[dict] = []
+    if ckpt_path.exists():
+        with open(ckpt_path) as f:
+            all_results = json.load(f)
+        for r in all_results:
+            key = f"{r.get('constraint_mode', 'unconstrained')}|{r['method']}|{r['attack']}|{r['epsilon']}"
+            completed_keys.add(key)
+        logger.info(f"  Resumed {len(completed_keys)} completed evaluations from checkpoint")
+
+    # ── Build the work list ──
+    work_items: list[tuple[str, str, str, np.ndarray, np.ndarray, str, float]] = []
+    # (mode, method, adv_name, X_clean, X_adv, attack_name, epsilon)
+    mode_data: dict[str, tuple[np.ndarray, np.ndarray, dict]] = {}
 
     for mode in modes_to_eval:
-        logger.info(f"  Evaluating robustness for {mode.upper()} attacks...")
         mode_dir = base_adv_dir / mode
-        # Fallback for flat dir
         if not mode_dir.exists():
             mode_dir = base_adv_dir
 
         X_clean, y_clean, adv_examples = _load_adversarial_from_dir(mode_dir)
-
-        # Limit samples
         n = min(config.robustness.num_samples, len(X_clean))
         X_clean = X_clean[:n]
-        y_clean = y_clean[:n]
         adv_examples = {k: v[:n] for k, v in adv_examples.items()}
+        mode_data[mode] = (X_clean, y_clean, adv_examples)
 
-        # Combine vanilla and PA methods
         all_methods = list(config.robustness.explanation_methods)
         if not skip_pa:
             all_methods.extend(config.robustness.pa_explanation_methods)
 
         for method in all_methods:
-            logger.info(f"  --- Method: {method} ({mode}) ---")
-            try:
-                explain_fn = make_explain_fn(
-                    method, dnn_model, dnn_wrapper, rf_wrapper,
-                    dataset, device, config,
-                )
-            except Exception as e:
-                logger.error(f"  Failed to create explain_fn for {method}: {e}")
-                continue
-
             for adv_name, X_adv in adv_examples.items():
                 parts = adv_name.split("_eps")
                 attack_name = parts[0]
                 epsilon = float(parts[1]) if len(parts) > 1 else 0.0
-
-                try:
-                    result = evaluate_robustness_for_method(
-                        method_name=method,
-                        explain_fn=explain_fn,
-                        predict_fn=dnn_wrapper.predict_proba,
-                        X_clean=X_clean,
-                        X_adv=X_adv,
-                        attack_name=attack_name,
-                        epsilon=epsilon,
-                        config=config.robustness,
+                key = f"{mode}|{method}|{attack_name}|{epsilon}"
+                if key not in completed_keys:
+                    work_items.append(
+                        (mode, method, adv_name, X_clean, X_adv, attack_name, epsilon)
                     )
-                    result["dataset"] = dataset.dataset_name
-                    result["constraint_mode"] = mode
+
+    total_work = len(work_items) + len(completed_keys)
+    logger.info(
+        f"  {len(work_items)} evaluations remaining out of {total_work} total"
+    )
+
+    if not work_items:
+        logger.info("  All evaluations already checkpointed — skipping")
+        if ckpt_path.exists():
+            ckpt_path.unlink()
+        return all_results
+
+    # ── Pre-build explain_fn for each method (avoids re-creating per attack) ──
+    explain_fns: dict[str, object] = {}
+    all_methods_needed = sorted(set(item[1] for item in work_items))
+    for method in all_methods_needed:
+        try:
+            explain_fns[method] = make_explain_fn(
+                method, dnn_model, dnn_wrapper, rf_wrapper,
+                dataset, device, config,
+            )
+        except Exception as e:
+            logger.error(f"  Failed to create explain_fn for {method}: {e}")
+
+    def _eval_one(mode, method, adv_name, X_clean, X_adv, attack_name, epsilon):
+        explain_fn = explain_fns.get(method)
+        if explain_fn is None:
+            return None
+        result = evaluate_robustness_for_method(
+            method_name=method,
+            explain_fn=explain_fn,
+            predict_fn=dnn_wrapper.predict_proba,
+            X_clean=X_clean,
+            X_adv=X_adv,
+            attack_name=attack_name,
+            epsilon=epsilon,
+            config=config.robustness,
+        )
+        result["dataset"] = dataset.dataset_name
+        result["constraint_mode"] = mode
+        return result
+
+    # ── Run evaluations concurrently ──
+    # Group by method: GPU methods (SHAP/IG/DeepLIFT) can conflict on Captum hooks,
+    # so we run at most 2 concurrent workers (one GPU-method, one CPU-method like LIME).
+    # This is safe because each method's explain_fn uses its own model clone.
+    max_workers = min(4, len(work_items))
+    logger.info(f"  Running with {max_workers} concurrent workers")
+
+    with ThreadPoolExecutor(max_workers=max_workers) as pool:
+        future_to_info = {}
+        for item in work_items:
+            mode, method, adv_name, X_clean, X_adv, attack_name, epsilon = item
+            future = pool.submit(
+                _eval_one, mode, method, adv_name, X_clean, X_adv, attack_name, epsilon,
+            )
+            future_to_info[future] = (mode, method, adv_name)
+
+        for future in as_completed(future_to_info):
+            mode, method, adv_name = future_to_info[future]
+            try:
+                result = future.result()
+                if result is not None:
                     all_results.append(result)
-                except Exception as e:
-                    logger.error(
-                        f"  Robustness eval failed for {method}/{adv_name} ({mode}): {e}",
-                        exc_info=True,
+                    logger.info(
+                        f"  Completed {method}/{adv_name} ({mode}) "
+                        f"[{len(all_results)}/{total_work}]"
                     )
+            except Exception as e:
+                logger.error(
+                    f"  Robustness eval failed for {method}/{adv_name} ({mode}): {e}",
+                    exc_info=True,
+                )
 
-    # Save robustness results
-    rob_dir = config.output_dir / dataset.dataset_name / "robustness"
-    rob_dir.mkdir(parents=True, exist_ok=True)
+            # Checkpoint after every completion
+            with open(ckpt_path, "w") as f:
+                json.dump(all_results, f, indent=2, default=_json_serialize)
+
+    # Save final results and clean up checkpoint
     with open(rob_dir / "robustness_metrics.json", "w") as f:
         json.dump(all_results, f, indent=2, default=_json_serialize)
+    if ckpt_path.exists():
+        ckpt_path.unlink()
     logger.info(f"  Robustness metrics saved to {rob_dir}")
 
     return all_results
