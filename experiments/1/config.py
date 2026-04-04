@@ -178,8 +178,8 @@ def load_config(yaml_path: str | Path | None = None) -> ExperimentConfig:
     """
     cfg = ExperimentConfig()
 
-    # Auto-discover config.yaml next to this module
-    default_yaml = Path(__file__).with_name("config.yaml")
+    # Auto-discover shared config.yaml in experiments/commons/
+    default_yaml = Path(__file__).parent.parent / "commons" / "config.yaml"
     paths_to_try = [default_yaml]
     if yaml_path is not None:
         paths_to_try.append(Path(yaml_path))
@@ -206,6 +206,22 @@ def load_config(yaml_path: str | Path | None = None) -> ExperimentConfig:
         for section, cls in _SECTION_TO_CLASS.items():
             if section in raw and isinstance(raw[section], dict):
                 _apply_dict(getattr(cfg, section), raw[section])
+
+        # Models are nested under "models:" in the shared YAML
+        if "models" in raw and isinstance(raw["models"], dict):
+            model_map = {"dnn": "dnn", "rf": "rf", "xgb": "xgb",
+                         "cnn_lstm": "cnn_lstm", "cnn_gru": "cnn_gru"}
+            for yaml_key, attr_name in model_map.items():
+                if yaml_key in raw["models"] and isinstance(raw["models"][yaml_key], dict):
+                    _apply_dict(getattr(cfg, attr_name), raw["models"][yaml_key])
+
+        # Experiment-1-specific overrides (output_dir, models_dir)
+        if "experiment_1" in raw and isinstance(raw["experiment_1"], dict):
+            exp1 = raw["experiment_1"]
+            if "output_dir" in exp1:
+                cfg.output_dir = Path(exp1["output_dir"])
+            if "models_dir" in exp1:
+                cfg.models_dir = Path(exp1["models_dir"])
 
     # Propagate top-level cpu_fraction into ExplainerConfig so that
     # explainer code can read it without needing the full ExperimentConfig.
