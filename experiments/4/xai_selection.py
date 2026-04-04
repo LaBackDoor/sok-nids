@@ -141,8 +141,6 @@ def _run_single_mode(
     Calls Exp 1's orchestrators to generate attributions, then converts
     to feature importance and runs iterative pruning per method.
     """
-    from explainers import ExplanationResult
-
     mode_prefix = "PA-" if mode == "pa" else ""
     logger.info(f"  === XAI Feature Selection ({mode.upper()} mode) ===")
 

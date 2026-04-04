@@ -36,13 +36,13 @@ def generate_all_plots(all_results: dict, output_dir: Path) -> None:
     df["label"] = df["model"] + "\n" + df["selection_method"]
 
     # Determine pipeline type
-    stat_methods = {"Chi-Squared", "PCA", "Spearman", "InfoGain", "Full"}
+    stat_methods = {"Chi-Squared", "PCA", "Spearman", "InfoGain"}
 
     def _classify_pipeline(method: str) -> str:
-        if method in stat_methods:
-            return "Statistical"
         if method == "Full":
             return "Baseline"
+        if method in stat_methods:
+            return "Statistical"
         if method.startswith("PA-"):
             return "PA-XAI"
         return "XAI"
