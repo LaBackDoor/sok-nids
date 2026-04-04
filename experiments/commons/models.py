@@ -195,36 +195,39 @@ class XGBWrapper:
         # label_map[compact_label] = original_label
         self.label_map = label_map
 
-    @staticmethod
-    def _to_gpu(X):
-        """Move input to GPU via cupy for XGBoost GPU inference."""
+    def _gpu_dmatrix(self, X):
+        """Create an xgb.DMatrix on GPU from numpy/cupy input."""
         import cupy as cp
-        if isinstance(X, np.ndarray):
-            return cp.asarray(X)
-        return X
-
-    @staticmethod
-    def _to_numpy(arr):
-        """Convert cupy array back to numpy."""
-        if hasattr(arr, 'get'):
-            return arr.get()
-        return np.asarray(arr)
+        import xgboost as xgb
+        X_gpu = cp.asarray(X) if isinstance(X, np.ndarray) else X
+        return xgb.DMatrix(X_gpu)
 
     def predict_proba(self, X: np.ndarray) -> np.ndarray:
-        proba = self._to_numpy(self.model.predict_proba(self._to_gpu(X)))
+        dm = self._gpu_dmatrix(X)
+        raw = self.model.get_booster().predict(dm)
+        # binary:logistic → (n,) with P(class 1); multi:softprob → (n, K)
+        if raw.ndim == 1:
+            proba = np.column_stack([1.0 - raw, raw])
+        else:
+            proba = raw
         if self.num_classes is not None and proba.shape[1] < self.num_classes:
             full_proba = np.zeros((proba.shape[0], self.num_classes), dtype=proba.dtype)
             if self.label_map is not None:
                 for compact_idx, orig_idx in enumerate(self.label_map):
                     full_proba[:, orig_idx] = proba[:, compact_idx]
             else:
-                # Labels were already contiguous [0, K), so compact == original
                 full_proba[:, :proba.shape[1]] = proba
             return full_proba
         return proba
 
     def predict(self, X: np.ndarray) -> np.ndarray:
-        preds = self._to_numpy(self.model.predict(self._to_gpu(X)))
+        dm = self._gpu_dmatrix(X)
+        raw = self.model.get_booster().predict(dm)
+        # binary:logistic → (n,) floats; multi:softprob → (n, K)
+        if raw.ndim == 1:
+            preds = (raw > 0.5).astype(np.intp)
+        else:
+            preds = np.argmax(raw, axis=1).astype(np.intp)
         if self.label_map is not None:
             return self.label_map[preds]
         return preds
