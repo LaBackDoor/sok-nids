@@ -118,7 +118,7 @@ def _make_pa_lime_fn(dnn_wrapper, dataset, rob_cfg):
     explainer = ProtocolAwareLIME(schema, X_train=dataset.X_train)
 
     total_cpus = os.cpu_count() or 1
-    n_jobs = max(1, int(total_cpus * 0.75))
+    n_jobs = max(1, int(total_cpus * 0.9))
 
     def fn(X: np.ndarray) -> np.ndarray:
         def _explain_one(i):

@@ -34,7 +34,7 @@ import torch
 # Add experiment directory to path for local imports
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from config import ExperimentConfig
+from config import ExperimentConfig, load_config
 from data_loader import DatasetBundle, load_dataset
 from explainers import (
     ExplanationResult,
@@ -892,50 +892,56 @@ def parse_args():
     )
     parser.add_argument(
         "-x", "--xai-mode",
-        choices=["n", "p"],
+        choices=["n", "p", "b"],
         default="n",
-        help="XAI mode: n=normal (unconstrained), p=protocol-aware (pa_xai)",
+        help="XAI mode: n=normal, p=protocol-aware, b=both (runs n then p)",
     )
     return parser.parse_args()
 
 
 def main():
     args = parse_args()
-    config = ExperimentConfig()
 
-    # Apply XAI mode
-    config.xai_mode = args.xai_mode
-    mode_dir = "normal" if args.xai_mode == "n" else "protocol-aware"
-    config.output_dir = Path("experiments/1/results") / mode_dir
-    config.models_dir = Path("experiments/1/results")
+    # Determine which XAI modes to run
+    modes = ["n", "p"] if args.xai_mode == "b" else [args.xai_mode]
 
-    # Apply CLI overrides
-    if args.output_dir:
-        config.output_dir = Path(args.output_dir)
-    if args.no_smote:
-        config.data.apply_smote = False
-    config.seed = args.seed
-    config.explainer.num_explain_samples = args.num_explain_samples
-
-    datasets = args.datasets or config.ALL_DATASETS
+    datasets = args.datasets
     phases = args.phase
     selected_models = args.models
 
-    # Set seeds
-    torch.manual_seed(config.seed)
+    # Set seeds once
+    torch.manual_seed(args.seed)
     if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(config.seed)
+        torch.cuda.manual_seed_all(args.seed)
 
-    logger.info("Experiment 1: Quantitative Benchmarking of Explanation Quality")
-    logger.info(f"XAI mode: {'protocol-aware' if args.xai_mode == 'p' else 'normal'}")
-    logger.info(f"Datasets: {datasets}")
-    logger.info(f"Phases: {phases}")
-    logger.info(f"Models: {selected_models or ALL_MODELS}")
-    logger.info(f"Output: {config.output_dir}")
-    logger.info(f"Models dir: {config.models_dir}")
-    logger.info(f"Explain samples: {config.explainer.num_explain_samples}")
+    for mode in modes:
+        config = load_config()
+        config.xai_mode = mode
+        mode_dir = "normal" if mode == "n" else "protocol-aware"
+        config.output_dir = Path("experiments/1/results") / mode_dir
+        config.models_dir = Path("experiments/1/results")
 
-    run_experiment(config, datasets, phases, selected_models)
+        if args.output_dir:
+            config.output_dir = Path(args.output_dir) / mode_dir
+        if args.no_smote:
+            config.data.apply_smote = False
+        config.seed = args.seed
+        config.explainer.num_explain_samples = args.num_explain_samples
+
+        ds_list = datasets or config.ALL_DATASETS
+        mode_label = "protocol-aware" if mode == "p" else "normal"
+
+        logger.info("Experiment 1: Quantitative Benchmarking of Explanation Quality")
+        logger.info(f"XAI mode: {mode_label}")
+        logger.info(f"Datasets: {ds_list}")
+        logger.info(f"Phases: {phases}")
+        logger.info(f"Models: {selected_models or ALL_MODELS}")
+        logger.info(f"Output: {config.output_dir}")
+        logger.info(f"Models dir: {config.models_dir}")
+        logger.info(f"Explain samples: {config.explainer.num_explain_samples}")
+        logger.info(f"CPU fraction: {config.cpu_fraction}")
+
+        run_experiment(config, ds_list, phases, selected_models)
 
 
 if __name__ == "__main__":

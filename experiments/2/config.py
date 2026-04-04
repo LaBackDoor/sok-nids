@@ -34,7 +34,7 @@ class ScaffoldingConfig:
     biased_model_hidden: list[int] = field(default_factory=lambda: [64, 32])
     biased_model_epochs: int = 50
     biased_model_lr: float = 0.01
-    lime_num_samples: int = 5000
+    lime_num_samples: int = 2000
     lime_num_features: int = 10
     shap_background_samples: int = 100
     scaffolding_datasets: list[str] = field(
@@ -56,7 +56,7 @@ class RobustnessConfig:
     distance_norm: str = "l2"  # l2 or linf for Lipschitz computation
     explanation_similarity_epsilon: float = 0.1
     shap_background_samples: int = 100
-    lime_num_samples: int = 5000
+    lime_num_samples: int = 2000
     lime_num_features: int = 10
     ig_n_steps: int = 50
     ig_internal_batch_size: int = 4096

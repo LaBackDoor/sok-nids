@@ -387,9 +387,9 @@ def explain_lime(
     # Get predicted classes so LIME explains the predicted label
     preds = np.argmax(predict_fn(X_explain), axis=1)
 
-    # Use 75% of available CPUs, but cap for large datasets to limit memory
     total_cpus = os.cpu_count() or 1
-    n_jobs = max(1, int(total_cpus * 0.75))
+    frac = getattr(config, "cpu_fraction", 0.9)
+    n_jobs = max(1, int(total_cpus * frac))
     n_train = X_train.shape[0]
     if n_train > 5_000_000:
         n_jobs = min(n_jobs, 4)

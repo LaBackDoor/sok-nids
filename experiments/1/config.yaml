@@ -1,0 +1,97 @@
+# Experiment 1: Quantitative Benchmarking of Explanation Quality
+# Edit values here — they override the Python dataclass defaults.
+
+seed: 42
+
+datasets:
+  - nsl-kdd
+  - cic-ids-2017
+  - unsw-nb15
+  - cse-cic-ids2018
+
+# Fraction of CPU cores to use for parallel jobs (0.0–1.0)
+cpu_fraction: 0.9
+
+data:
+  data_root: /home/resbears/Downloads/data
+  nsl_kdd_dir: nsl-kdd
+  cic_ids_2017_dir: cic-ids-2017
+  unsw_nb15_dir: cic_unsw-nb15_augmented_dataset
+  cse_cic_ids2018_dir: cse-cic-ids2018
+  test_size: 0.2
+  val_split: 0.1
+  random_state: 42
+  apply_smote: true
+
+dnn:
+  hidden_layers: [1024, 768, 512]
+  dropout_rate: 0.01
+  learning_rate: 0.01
+  batch_size: 8192
+  epochs: 100
+  early_stopping_patience: 10
+
+rf:
+  n_estimators: 100
+  max_depth: 10
+  min_samples_split: 2
+  criterion: gini
+  n_jobs: -1
+
+xgb:
+  n_estimators: 300
+  max_depth: 8
+  learning_rate: 0.1
+  subsample: 0.8
+  colsample_bytree: 0.8
+  n_jobs: -1
+  tree_method: hist
+  device: cuda
+
+cnn_lstm:
+  grid_size: 11
+  hidden_size: 128
+  num_lstm_layers: 1
+  dropout: 0.5
+  learning_rate: 0.001
+  batch_size: 4096
+  epochs: 100
+  early_stopping_patience: 10
+
+cnn_gru:
+  input_channels: 1
+  cnn_filters: 64
+  cnn_kernel_size: 3
+  pool_kernel_size: 2
+  cnn_dropout: 0.5
+  gru_hidden_size: 75
+  gru_num_layers: 1
+  gru_dropout: 0.5
+  gru_input_size: 1
+  fc_hidden_size: 128
+  input_spatial_size: 11
+  seq_len: 121
+  learning_rate: 0.001
+  batch_size: 4096
+  epochs: 100
+  early_stopping_patience: 10
+
+explainer:
+  shap_background_samples: 100
+  lime_num_features: 10
+  lime_num_samples: 2000
+  ig_n_steps: 50
+  ig_internal_batch_size: 8192
+  num_explain_samples: 10000
+  cpu_fraction: 0.9
+
+metric:
+  faithfulness_k_values: [5, 10, 15]
+  sparsity_thresholds: [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+  efficiency_batch_size: 10000
+  stability_runs: 3
+  stability_top_k: 10
+  completeness_num_corrupted: 500
+
+output_dir: experiments/1/results/normal
+models_dir: experiments/1/results

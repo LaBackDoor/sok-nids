@@ -137,7 +137,8 @@ def pa_explain_shap_tree(
     )
 
     total_cpus = os.cpu_count() or 1
-    n_jobs = max(1, int(total_cpus * 0.75))
+    frac = getattr(config, "cpu_fraction", 0.9)
+    n_jobs = max(1, int(total_cpus * frac))
     logger.info(f"  PA-SHAP Tree parallelizing with {n_jobs}/{total_cpus} CPUs")
 
     def _explain_one(i):
@@ -200,7 +201,8 @@ def pa_explain_lime(
 
     if n_jobs is None:
         total_cpus = os.cpu_count() or 1
-        n_jobs = max(1, int(total_cpus * 0.75))
+        frac = getattr(config, "cpu_fraction", 0.9)
+        n_jobs = max(1, int(total_cpus * frac))
     logger.info(f"  PA-LIME {model_name}: {n_jobs} workers, backend={backend}")
 
     # ── Resume from checkpoint if one exists ──
@@ -428,7 +430,8 @@ def pa_generate_all_explanations(
         xgb_wrapper is not None,
     ])
     total_cpus = os.cpu_count() or 1
-    usable_cpus = max(1, int(total_cpus * 0.75))
+    frac = getattr(config, "cpu_fraction", 0.9)
+    usable_cpus = max(1, int(total_cpus * frac))
     n_jobs_each = max(1, usable_cpus // max(1, lime_job_count))
 
     if lime_job_count > 1:

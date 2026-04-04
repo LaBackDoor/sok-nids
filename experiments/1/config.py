@@ -1,8 +1,19 @@
-"""Configuration for Experiment 1: Quantitative Benchmarking of Explanation Quality."""
+"""Configuration for Experiment 1: Quantitative Benchmarking of Explanation Quality.
+
+Dataclass defaults serve as the canonical schema.  If ``config.yaml`` exists
+next to this file the values in it **override** the defaults — so you can
+tweak parameters without touching Python.
+"""
 
 from dataclasses import dataclass, field
 from pathlib import Path
 
+import yaml
+
+
+# ---------------------------------------------------------------------------
+# Dataclass definitions (unchanged — used as types everywhere)
+# ---------------------------------------------------------------------------
 
 @dataclass
 class DataConfig:
@@ -85,10 +96,11 @@ class CNNGRUConfig:
 class ExplainerConfig:
     shap_background_samples: int = 100
     lime_num_features: int = 10
-    lime_num_samples: int = 5000
+    lime_num_samples: int = 2000
     ig_n_steps: int = 50
     ig_internal_batch_size: int = 8192
     num_explain_samples: int = 10000
+    cpu_fraction: float = 0.9
 
 
 @dataclass
@@ -117,6 +129,7 @@ class ExperimentConfig:
     models_dir: Path = Path("experiments/1/results")
     xai_mode: str = "n"
     seed: int = 42
+    cpu_fraction: float = 0.9
 
     ALL_DATASETS: list[str] = field(
         default_factory=lambda: [
@@ -126,3 +139,76 @@ class ExperimentConfig:
             "cse-cic-ids2018",
         ]
     )
+
+
+# ---------------------------------------------------------------------------
+# YAML loader
+# ---------------------------------------------------------------------------
+
+_SECTION_TO_CLASS = {
+    "data": DataConfig,
+    "dnn": DNNConfig,
+    "rf": RFConfig,
+    "xgb": XGBConfig,
+    "cnn_lstm": CNNLSTMConfig,
+    "cnn_gru": CNNGRUConfig,
+    "explainer": ExplainerConfig,
+    "metric": MetricConfig,
+}
+
+
+def _apply_dict(obj, overrides: dict):
+    """Set attributes on *obj* from *overrides*, converting Path fields."""
+    for key, value in overrides.items():
+        if not hasattr(obj, key):
+            continue
+        current = getattr(obj, key)
+        if isinstance(current, Path):
+            value = Path(value)
+        setattr(obj, key, value)
+
+
+def load_config(yaml_path: str | Path | None = None) -> ExperimentConfig:
+    """Build an ExperimentConfig, optionally overlaying values from YAML.
+
+    Resolution order:
+      1. Dataclass defaults (this file).
+      2. ``config.yaml`` next to this file (if it exists).
+      3. Explicit *yaml_path* (if provided).
+    """
+    cfg = ExperimentConfig()
+
+    # Auto-discover config.yaml next to this module
+    default_yaml = Path(__file__).with_name("config.yaml")
+    paths_to_try = [default_yaml]
+    if yaml_path is not None:
+        paths_to_try.append(Path(yaml_path))
+
+    for path in paths_to_try:
+        if not path.exists():
+            continue
+        with open(path) as f:
+            raw = yaml.safe_load(f) or {}
+
+        # Top-level scalars
+        if "seed" in raw:
+            cfg.seed = raw["seed"]
+        if "datasets" in raw:
+            cfg.ALL_DATASETS = raw["datasets"]
+        if "output_dir" in raw:
+            cfg.output_dir = Path(raw["output_dir"])
+        if "models_dir" in raw:
+            cfg.models_dir = Path(raw["models_dir"])
+        if "cpu_fraction" in raw:
+            cfg.cpu_fraction = float(raw["cpu_fraction"])
+
+        # Nested sections → matching dataclass attribute
+        for section, cls in _SECTION_TO_CLASS.items():
+            if section in raw and isinstance(raw[section], dict):
+                _apply_dict(getattr(cfg, section), raw[section])
+
+    # Propagate top-level cpu_fraction into ExplainerConfig so that
+    # explainer code can read it without needing the full ExperimentConfig.
+    cfg.explainer.cpu_fraction = cfg.cpu_fraction
+
+    return cfg
