@@ -316,7 +316,21 @@ def explain_shap_rf(
     shap_values = explainer.shap_values(X_explain)
     elapsed = time.time() - start
 
-    preds = model.predict(X_explain)
+    # Use explicit GPU DMatrix for XGBoost to avoid inplace_predict device fallback
+    if hasattr(model, "get_booster"):
+        import xgboost as xgb
+        try:
+            import cupy as cp
+            dm = xgb.DMatrix(cp.asarray(X_explain))
+        except ImportError:
+            dm = xgb.DMatrix(X_explain)
+        raw = model.get_booster().predict(dm)
+        if raw.ndim == 1:
+            preds = (raw > 0.5).astype(np.intp)
+        else:
+            preds = np.argmax(raw, axis=1).astype(np.intp)
+    else:
+        preds = model.predict(X_explain)
 
     # Extract attributions for the predicted class per sample
     if isinstance(shap_values, list):
