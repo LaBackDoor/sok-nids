@@ -73,12 +73,10 @@ def compute_shap_interaction_values_dnn(
     device: torch.device,
     config: InteractionConfig,
 ) -> np.ndarray:
-    """Approximate SHAP interaction values for DNN.
+    """Approximate SHAP interaction values for DNN using batched perturbations.
 
-    DeepExplainer doesn't support interaction values directly.
-    We approximate by computing pairwise feature-pair SHAP importance:
-    for each pair (i, j), perturb feature j to baseline and measure change
-    in SHAP attribution for feature i.
+    Instead of looping over top features one-by-one (20 separate SHAP calls),
+    batch all perturbations into a single tensor and run one SHAP call.
 
     Args:
         dnn_model: Trained DNN model.
@@ -96,7 +94,7 @@ def compute_shap_interaction_values_dnn(
     n_features = X_samples.shape[1]
     X = X_samples[:n]
 
-    logger.info(f"  Approximating DNN interaction values on {n} samples...")
+    logger.info(f"  Approximating DNN interaction values (batched) on {n} samples...")
     start = time.time()
 
     base_model = dnn_model.module if isinstance(dnn_model, torch.nn.DataParallel) else dnn_model
@@ -114,54 +112,65 @@ def compute_shap_interaction_values_dnn(
         preds = torch.argmax(base_model(x_tensor), dim=1).cpu().numpy()
 
     # Extract base attributions for predicted class
-    if isinstance(base_shap, list):
-        stacked = np.stack(base_shap, axis=0)
-        base_attrs = np.zeros((n, n_features), dtype=np.float32)
-        for i, pred in enumerate(preds):
-            base_attrs[i] = stacked[pred, i]
-    elif isinstance(base_shap, np.ndarray) and base_shap.ndim == 3:
-        base_attrs = np.zeros((n, n_features), dtype=np.float32)
-        for i, pred in enumerate(preds):
-            base_attrs[i] = base_shap[i, :, pred]
-    else:
-        base_attrs = np.asarray(base_shap)
+    base_attrs = _extract_predicted_class_attrs(base_shap, preds, n, n_features)
 
-    # Approximate interactions: for top features, measure SHAP change when partner is zeroed
-    # Only compute for top features to keep it tractable
+    # Identify top features by mean importance
     mean_importance = np.mean(np.abs(base_attrs), axis=0)
     top_features = np.argsort(mean_importance)[::-1][:config.top_n_interactions]
-
-    interaction_matrix = np.zeros((n, n_features, n_features), dtype=np.float32)
+    n_top = len(top_features)
 
     feature_means = np.mean(X, axis=0)
 
-    for j in top_features:
-        X_perturbed = X.copy()
-        X_perturbed[:, j] = feature_means[j]
+    # Batch all perturbations: create (n_top * n, n_features) tensor
+    # Each block of n rows has feature j replaced with its mean
+    X_batch = np.tile(X, (n_top, 1))  # (n_top * n, n_features)
+    for i, j in enumerate(top_features):
+        X_batch[i * n : (i + 1) * n, j] = feature_means[j]
 
-        x_pert_tensor = torch.tensor(X_perturbed, dtype=torch.float32).to(device)
-        pert_shap = explainer.shap_values(x_pert_tensor, check_additivity=False)
+    logger.info(f"  Batched perturbation tensor: {X_batch.shape} ({n_top} features x {n} samples)")
 
-        if isinstance(pert_shap, list):
-            stacked_pert = np.stack(pert_shap, axis=0)
-            pert_attrs = np.zeros((n, n_features), dtype=np.float32)
-            for i, pred in enumerate(preds):
-                pert_attrs[i] = stacked_pert[pred, i]
-        elif isinstance(pert_shap, np.ndarray) and pert_shap.ndim == 3:
-            pert_attrs = np.zeros((n, n_features), dtype=np.float32)
-            for i, pred in enumerate(preds):
-                pert_attrs[i] = pert_shap[i, :, pred]
-        else:
-            pert_attrs = np.asarray(pert_shap)
+    # Single batched SHAP call
+    x_batch_tensor = torch.tensor(X_batch, dtype=torch.float32).to(device)
+    pert_shap_all = explainer.shap_values(x_batch_tensor, check_additivity=False)
 
-        # Interaction effect: change in attribution for other features when j is perturbed
-        for i_feat in range(n_features):
-            interaction_matrix[:, i_feat, j] = base_attrs[:, i_feat] - pert_attrs[:, i_feat]
+    # Tile predictions to match batch layout
+    preds_tiled = np.tile(preds, n_top)
+    pert_attrs_flat = _extract_predicted_class_attrs(pert_shap_all, preds_tiled, n_top * n, n_features)
+
+    # Reshape to (n_top, n, n_features)
+    pert_attrs = pert_attrs_flat.reshape(n_top, n, n_features)
+
+    # Compute interaction matrix
+    interaction_matrix = np.zeros((n, n_features, n_features), dtype=np.float32)
+    for idx, j in enumerate(top_features):
+        # Interaction effect: change in attribution for all features when j is perturbed
+        interaction_matrix[:, :, j] = base_attrs - pert_attrs[idx]
 
     elapsed = time.time() - start
-    logger.info(f"  DNN interaction approximation completed in {elapsed:.1f}s")
+    logger.info(f"  DNN interaction approximation completed in {elapsed:.1f}s (batched)")
 
     return interaction_matrix
+
+
+def _extract_predicted_class_attrs(
+    shap_values,
+    preds: np.ndarray,
+    n_samples: int,
+    n_features: int,
+) -> np.ndarray:
+    """Extract attributions for the predicted class from SHAP output."""
+    if isinstance(shap_values, list):
+        stacked = np.stack(shap_values, axis=0)  # (classes, n, features)
+        attrs = np.zeros((n_samples, n_features), dtype=np.float32)
+        for i, pred in enumerate(preds):
+            attrs[i] = stacked[pred, i]
+    elif isinstance(shap_values, np.ndarray) and shap_values.ndim == 3:
+        attrs = np.zeros((n_samples, n_features), dtype=np.float32)
+        for i, pred in enumerate(preds):
+            attrs[i] = shap_values[i, :, pred]
+    else:
+        attrs = np.asarray(shap_values, dtype=np.float32)
+    return attrs
 
 
 def aggregate_interaction_matrix(
