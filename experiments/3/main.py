@@ -24,6 +24,7 @@ import logging
 import os
 import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
@@ -78,6 +79,40 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 logger = logging.getLogger("experiment3")
+
+
+# Add config_loader to path
+_experiments_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+if _experiments_dir not in sys.path:
+    sys.path.insert(0, _experiments_dir)
+from config_loader import config_section_hash
+
+
+def _checkpoint_path(output_dir: Path, dataset_name: str, phase_name: str) -> Path:
+    """Return the path for a phase checkpoint marker."""
+    return output_dir / dataset_name / f".phase_{phase_name}.done"
+
+
+def _is_phase_done(output_dir: Path, dataset_name: str, phase_name: str, config_hash: str) -> bool:
+    """Check if a phase has already completed with the same config."""
+    marker = _checkpoint_path(output_dir, dataset_name, phase_name)
+    if not marker.exists():
+        return False
+    try:
+        data = json.loads(marker.read_text())
+        return data.get("config_hash") == config_hash
+    except (json.JSONDecodeError, KeyError):
+        return False
+
+
+def _mark_phase_done(output_dir: Path, dataset_name: str, phase_name: str, config_hash: str) -> None:
+    """Write a phase completion marker."""
+    marker = _checkpoint_path(output_dir, dataset_name, phase_name)
+    marker.parent.mkdir(parents=True, exist_ok=True)
+    marker.write_text(json.dumps({
+        "completed_at": datetime.now(timezone.utc).isoformat(),
+        "config_hash": config_hash,
+    }))
 
 
 def setup_device() -> tuple[torch.device, int]:
