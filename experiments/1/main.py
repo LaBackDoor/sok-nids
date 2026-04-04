@@ -25,11 +25,15 @@ import logging
 import os
 import sys
 import time
+import warnings
 from functools import partial
 from pathlib import Path
 
 import numpy as np
 import torch
+
+# Suppress noisy sklearn/joblib compatibility warning from third-party libs
+warnings.filterwarnings("ignore", message=".*sklearn.utils.parallel.delayed.*")
 
 # Add experiment directory to path for local imports
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
