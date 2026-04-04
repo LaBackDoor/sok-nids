@@ -37,13 +37,25 @@ def generate_all_plots(all_results: dict, output_dir: Path) -> None:
 
     # Determine pipeline type
     stat_methods = {"Chi-Squared", "PCA", "Spearman", "InfoGain", "Full"}
-    df["pipeline"] = df["selection_method"].apply(
-        lambda m: "Statistical" if m in stat_methods else "XAI-Driven"
-    )
-    df.loc[df["selection_method"] == "Full", "pipeline"] = "Baseline"
+
+    def _classify_pipeline(method: str) -> str:
+        if method in stat_methods:
+            return "Statistical"
+        if method == "Full":
+            return "Baseline"
+        if method.startswith("PA-"):
+            return "PA-XAI"
+        return "XAI"
+
+    df["pipeline"] = df["selection_method"].apply(_classify_pipeline)
 
     # Color palette
-    palette = {"Baseline": "#666666", "Statistical": "#2196F3", "XAI-Driven": "#FF5722"}
+    palette = {
+        "Baseline": "#666666",
+        "Statistical": "#2196F3",
+        "XAI": "#FF5722",
+        "PA-XAI": "#4CAF50",
+    }
 
     for ds_name in df["dataset"].unique():
         ds_df = df[df["dataset"] == ds_name]
@@ -142,7 +154,7 @@ def generate_all_plots(all_results: dict, output_dir: Path) -> None:
                 "n_selected": sel["n_selected"],
                 "n_original": sel["n_original"],
                 "selection_time_s": sel["selection_time_s"],
-                "pipeline": "Statistical" if sel["method_name"] in stat_methods else "XAI-Driven",
+                "pipeline": _classify_pipeline(sel["method_name"]),
             })
 
     if selection_rows:
