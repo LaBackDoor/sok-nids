@@ -863,8 +863,8 @@ def parse_args():
     parser.add_argument(
         "--num-explain-samples",
         type=int,
-        default=10000,
-        help="Number of test samples to generate explanations for",
+        default=None,
+        help="Number of test samples to generate explanations for (default: from YAML)",
     )
     parser.add_argument(
         "--output-dir",
@@ -926,7 +926,8 @@ def main():
         if args.no_smote:
             config.data.apply_smote = False
         config.seed = args.seed
-        config.explainer.num_explain_samples = args.num_explain_samples
+        if args.num_explain_samples is not None:
+            config.explainer.num_explain_samples = args.num_explain_samples
 
         ds_list = datasets or config.ALL_DATASETS
         mode_label = "protocol-aware" if mode == "p" else "normal"
