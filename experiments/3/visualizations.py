@@ -260,60 +260,81 @@ def generate_all_plots(
     config,
     shap_values_for_dependence: np.ndarray | None = None,
     X_data_for_dependence: np.ndarray | None = None,
+    max_workers: int = 8,
 ) -> None:
-    """Generate all visualization plots for a dataset."""
+    """Generate all visualization plots for a dataset using parallel workers."""
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
     plot_dir.mkdir(parents=True, exist_ok=True)
 
+    tasks: list[tuple[str, callable]] = []
+
     if consensus_results:
-        plot_consensus_heatmap(
+        tasks.append(("spearman_heatmap", lambda: plot_consensus_heatmap(
             consensus_results, "spearman_mean",
             f"Spearman Rank Correlation — {dataset_name}",
             plot_dir / f"{dataset_name}_spearman_heatmap.png",
-        )
-        plot_consensus_heatmap(
+        )))
+        tasks.append(("kendall_heatmap", lambda: plot_consensus_heatmap(
             consensus_results, "kendall_mean",
             f"Kendall's Tau — {dataset_name}",
             plot_dir / f"{dataset_name}_kendall_heatmap.png",
-        )
-        plot_wilcoxon_pvalue_matrix(
+        )))
+        tasks.append(("wilcoxon_pvalues", lambda: plot_wilcoxon_pvalue_matrix(
             consensus_results, config.consensus.alpha,
             plot_dir / f"{dataset_name}_wilcoxon_pvalues.png",
-        )
-        plot_top_k_intersection(
+        )))
+        tasks.append(("top_k_intersection", lambda: plot_top_k_intersection(
             consensus_results, config.consensus.top_k_values,
             plot_dir / f"{dataset_name}_top_k_intersection",
-        )
+        )))
 
     if interaction_matrices:
         for model_name, matrix in interaction_matrices.items():
-            plot_interaction_heatmap(
-                matrix, feature_names,
-                top_n=min(15, matrix.shape[0]),
-                title=f"Feature Interaction Strength ({model_name}) — {dataset_name}",
-                output_path=plot_dir / f"{dataset_name}_{model_name}_interactions.png",
-            )
+            _mn, _mx = model_name, matrix
+            tasks.append((f"interactions_{_mn}", lambda mn=_mn, mx=_mx: plot_interaction_heatmap(
+                mx, feature_names,
+                top_n=min(15, mx.shape[0]),
+                title=f"Feature Interaction Strength ({mn}) — {dataset_name}",
+                output_path=plot_dir / f"{dataset_name}_{mn}_interactions.png",
+            )))
 
     if top_interactions and shap_values_for_dependence is not None and X_data_for_dependence is not None:
-        # Generate dependence plots for top 5 interactions
         for model_name, pairs in top_interactions.items():
             for pair_idx, pair in enumerate(pairs[:5]):
-                plot_shap_dependence(
+                _mn, _pi, _p = model_name, pair_idx, pair
+                tasks.append((f"dependence_{_mn}_{_pi}", lambda mn=_mn, pi=_pi, p=_p: plot_shap_dependence(
                     shap_values_for_dependence,
                     X_data_for_dependence,
-                    pair["feature_a_idx"],
-                    pair["feature_b_idx"],
+                    p["feature_a_idx"],
+                    p["feature_b_idx"],
                     feature_names,
-                    plot_dir / f"{dataset_name}_{model_name}_dependence_{pair_idx}.png",
-                )
+                    plot_dir / f"{dataset_name}_{mn}_dependence_{pi}.png",
+                )))
 
     if alignment_results:
-        plot_alignment_scores(
+        tasks.append(("rra_scores", lambda: plot_alignment_scores(
             alignment_results, "rra_score",
             f"Relevance Rank Accuracy (RRA) — {dataset_name}",
             plot_dir / f"{dataset_name}_rra_scores.png",
-        )
-        plot_alignment_scores(
+        )))
+        tasks.append(("rma_scores", lambda: plot_alignment_scores(
             alignment_results, "rma_score",
             f"Relevance Mass Accuracy (RMA) — {dataset_name}",
             plot_dir / f"{dataset_name}_rma_scores.png",
-        )
+        )))
+
+    if not tasks:
+        logger.info("  No plots to generate")
+        return
+
+    logger.info(f"  Generating {len(tasks)} plots with {min(max_workers, len(tasks))} workers")
+
+    with ThreadPoolExecutor(max_workers=min(max_workers, len(tasks))) as pool:
+        futures = {pool.submit(fn): name for name, fn in tasks}
+        for future in as_completed(futures):
+            name = futures[future]
+            try:
+                future.result()
+            except Exception as e:
+                logger.error(f"  Plot '{name}' failed: {e}", exc_info=True)
