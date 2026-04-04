@@ -5,7 +5,7 @@ Full pipeline: data loading -> feature selection (statistical + XAI) ->
 downstream model training -> inference benchmarking -> metric evaluation.
 
 Usage:
-    # Full experiment on all datasets
+    # Full experiment on all datasets (both normal + PA-XAI)
     python experiments/4/main.py
 
     # Specific dataset(s)
@@ -15,6 +15,11 @@ Usage:
     python experiments/4/main.py --phase select       # Feature selection only
     python experiments/4/main.py --phase benchmark    # Downstream training + eval only
     python experiments/4/main.py --phase all          # Full pipeline
+
+    # XAI mode selection
+    python experiments/4/main.py --xai-mode n         # Normal XAI only
+    python experiments/4/main.py --xai-mode p         # Protocol-Aware XAI only
+    python experiments/4/main.py --xai-mode both      # Both modes (default from YAML)
 
     # Skip specific pipelines
     python experiments/4/main.py --skip-statistical
@@ -42,7 +47,8 @@ sys.path.insert(0, _commons_dir)
 sys.path.insert(0, exp1_dir)
 sys.path.insert(0, _exp4_dir)
 
-from config import ExperimentConfig
+from config import ExperimentConfig, load_experiment_config
+from data_loader import DatasetBundle, load_dataset as load_dataset_exp1
 from evaluation import compute_reduction_summary, evaluate_downstream_model
 from feature_selection import FeatureSelectionResult, run_statistical_pipeline
 from models import (
@@ -115,8 +121,6 @@ def load_or_train_baseline_models(
     num_gpus: int,
 ) -> tuple:
     """Load Exp1 models if available, otherwise train fresh baseline DNN + RF."""
-    from models import NIDSNet, NNWrapper, SKLearnWrapper
-
     input_dim = dataset.X_train.shape[1]
     exp1_model_dir = config.exp1_output_dir / "models" / dataset.dataset_name
 
@@ -209,12 +213,8 @@ def phase_select(
         )
 
         xai_results = run_xai_pipeline(
-            dnn, rf,
-            dnn_wrapper.predict_proba, rf_wrapper.predict_proba,
-            dataset.X_train, dataset.y_train,
-            dataset.X_val, dataset.y_val,
-            dataset.feature_names, dataset.num_classes,
-            device, config.xai, dataset.dataset_name,
+            dnn, rf, dnn_wrapper, rf_wrapper,
+            dataset, device, config,
         )
         all_selections.extend(xai_results)
 
@@ -386,10 +386,12 @@ def run_experiment(
         json.dump({
             "datasets": datasets,
             "phases": phases,
+            "xai_modes": config.xai_modes,
             "dnn": vars(config.dnn),
             "cnn": vars(config.cnn),
             "rf": vars(config.rf),
             "svm": vars(config.svm),
+            "explainer": vars(config.explainer),
             "statistical": vars(config.statistical),
             "xai": vars(config.xai),
             "seed": config.seed,
@@ -404,8 +406,6 @@ def run_experiment(
 
         ds_start = time.time()
 
-        # data_loader is from experiment 1 (added to sys.path above)
-        from data_loader import DatasetBundle, load_dataset as load_dataset_exp1
         try:
             dataset = load_dataset_exp1(ds_name, config.data)
         except Exception as e:
@@ -537,6 +537,11 @@ def parse_args():
         help="Experiment phase(s) to run",
     )
     parser.add_argument(
+        "--xai-mode", type=str, default=None,
+        choices=["n", "p", "both"],
+        help="XAI mode: n (normal), p (protocol-aware), both (default from config.yaml)",
+    )
+    parser.add_argument(
         "--output-dir", type=str, default=None,
         help="Output directory for results",
     )
@@ -553,27 +558,34 @@ def parse_args():
         help="Disable SMOTE oversampling",
     )
     parser.add_argument(
-        "--seed", type=int, default=42,
-        help="Random seed",
+        "--seed", type=int, default=None,
+        help="Random seed (default from config.yaml)",
     )
     parser.add_argument(
-        "--shap-explain-samples", type=int, default=None,
-        help="Number of samples for SHAP explanations (default: 5000)",
+        "--config", type=str, default=None,
+        help="Path to config.yaml (default: experiments/commons/config.yaml)",
     )
     return parser.parse_args()
 
 
 def main():
     args = parse_args()
-    config = ExperimentConfig()
+    config = load_experiment_config(args.config)
 
+    # CLI overrides
     if args.output_dir:
         config.output_dir = Path(args.output_dir)
     if args.no_smote:
         config.data.apply_smote = False
-    if args.shap_explain_samples:
-        config.xai.shap_explain_samples = args.shap_explain_samples
-    config.seed = args.seed
+    if args.seed is not None:
+        config.seed = args.seed
+    if args.xai_mode:
+        if args.xai_mode == "both":
+            config.xai_modes = ["normal", "pa"]
+        elif args.xai_mode == "n":
+            config.xai_modes = ["normal"]
+        elif args.xai_mode == "p":
+            config.xai_modes = ["pa"]
 
     datasets = args.datasets or config.ALL_DATASETS
     phases = args.phase
@@ -587,6 +599,7 @@ def main():
     logger.info("Experiment 4: XAI-Driven Dimensionality Reduction vs Statistical Baselines")
     logger.info(f"Datasets: {datasets}")
     logger.info(f"Phases: {phases}")
+    logger.info(f"XAI modes: {config.xai_modes}")
     logger.info(f"Output: {config.output_dir}")
     logger.info(f"Skip statistical: {args.skip_statistical}")
     logger.info(f"Skip XAI: {args.skip_xai}")
