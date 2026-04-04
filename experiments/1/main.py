@@ -887,8 +887,8 @@ def parse_args():
     parser.add_argument(
         "--seed",
         type=int,
-        default=42,
-        help="Random seed",
+        default=None,
+        help="Random seed (default: from YAML)",
     )
     parser.add_argument(
         "-x", "--xai-mode",
@@ -909,11 +909,6 @@ def main():
     phases = args.phase
     selected_models = args.models
 
-    # Set seeds once
-    torch.manual_seed(args.seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(args.seed)
-
     for mode in modes:
         config = load_config()
         config.xai_mode = mode
@@ -921,13 +916,20 @@ def main():
         config.output_dir = Path("experiments/1/results") / mode_dir
         config.models_dir = Path("experiments/1/results")
 
+        # CLI overrides (only when explicitly passed)
         if args.output_dir:
             config.output_dir = Path(args.output_dir) / mode_dir
         if args.no_smote:
             config.data.apply_smote = False
-        config.seed = args.seed
+        if args.seed is not None:
+            config.seed = args.seed
         if args.num_explain_samples is not None:
             config.explainer.num_explain_samples = args.num_explain_samples
+
+        # Set seeds
+        torch.manual_seed(config.seed)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(config.seed)
 
         ds_list = datasets or config.ALL_DATASETS
         mode_label = "protocol-aware" if mode == "p" else "normal"
