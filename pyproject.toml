@@ -19,6 +19,7 @@ dependencies = [
     "tqdm>=4.66.0",
     "joblib>=1.3.0",
     "imblearn>=0.0",
+    "pyyaml>=6.0",
     "nvidia-cudnn-cu12>=9.19.0.56; sys_platform == 'linux'",
     "nvidia-cublas-cu12>=12.9.1.4; sys_platform == 'linux'",
     "nvidia-cuda-runtime-cu12>=12.9.79; sys_platform == 'linux'",
@@ -36,7 +37,7 @@ dependencies = [
     "nvidia-cufile-cu12>=1.14.1.1; sys_platform == 'linux'",
     "xgboost>=3.2.0",
     "stackforge>=0.7.3",
-    "cupy-cuda13x>=13.6.0",
+    "cupy-cuda13x>=13.6.0 ; sys_platform == 'linux'",
 ]
 
 [project.optional-dependencies]
