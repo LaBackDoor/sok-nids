@@ -48,16 +48,8 @@ from consensus import (
     compute_pairwise_consensus,
     compute_per_attack_consensus,
     consensus_to_dict,
+    tag_pair,
 )
-
-
-def tag_pair(key_a: str, key_b: str) -> str:
-    """Classify a consensus pair as within-mode or cross-mode."""
-    a_is_pa = "PA-" in key_a
-    b_is_pa = "PA-" in key_b
-    if a_is_pa == b_is_pa:
-        return "within-pa" if a_is_pa else "within-normal"
-    return "cross-mode"
 from data_loader import DatasetBundle, load_dataset
 from explainers import (
     ExplanationResult,
@@ -548,14 +540,19 @@ def phase_consensus(
     """Run pairwise consensus analysis between all explainers."""
     logger.info(f"=== CONSENSUS ANALYSIS on {dataset.dataset_name} ===")
     output_dir = config.output_dir / dataset.dataset_name
+    consensus_ckpt_dir = output_dir / "consensus_checkpoints"
 
     # Overall consensus
     logger.info("  Computing overall pairwise consensus...")
-    overall_results = compute_pairwise_consensus(explanations, config.consensus)
+    overall_results = compute_pairwise_consensus(
+        explanations, config.consensus,
+        max_workers=config.parallelism.max_consensus_workers,
+        checkpoint_dir=consensus_ckpt_dir / "overall",
+    )
 
     for r in overall_results:
         logger.info(
-            f"    {r.explainer_a} vs {r.explainer_b}: "
+            f"    {r.explainer_a} vs {r.explainer_b} [{tag_pair(r.explainer_a, r.explainer_b)}]: "
             f"Spearman={r.spearman_mean:.3f}+-{r.spearman_std:.3f}, "
             f"Kendall={r.kendall_mean:.3f}+-{r.kendall_std:.3f}, "
             f"Top-5={r.top_k_intersection.get(5, 0):.3f}, "
@@ -568,6 +565,8 @@ def phase_consensus(
     label_names = list(dataset.label_encoder.classes_)
     per_attack = compute_per_attack_consensus(
         explanations, y_explain, label_names, config.consensus,
+        max_workers=config.parallelism.max_consensus_workers,
+        checkpoint_dir=consensus_ckpt_dir / "per_attack",
     )
 
     # Save results
@@ -753,6 +752,7 @@ def phase_visualize(
         config=config,
         shap_values_for_dependence=shap_values,
         X_data_for_dependence=X_data,
+        max_workers=config.parallelism.max_plot_workers,
     )
 
 
