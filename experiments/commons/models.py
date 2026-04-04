@@ -18,7 +18,21 @@ from torch.amp import GradScaler, autocast
 from torch.utils.data import DataLoader, Dataset, TensorDataset
 from tqdm import tqdm
 
-from config import CNNGRUConfig, CNNLSTMConfig, DNNConfig, RFConfig, XGBConfig
+# Import config from the same directory as this file (commons/), not from
+# whatever config.py happens to be on sys.path. This avoids conflicts when
+# exp3's config.py shadows exp1's on sys.path.
+import importlib.util as _ilu
+import os as _os
+_config_path = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "..", "1", "config.py")
+_spec = _ilu.spec_from_file_location("_exp1_config_for_models", _config_path)
+_cfg = _ilu.module_from_spec(_spec)
+_spec.loader.exec_module(_cfg)
+CNNGRUConfig = _cfg.CNNGRUConfig
+CNNLSTMConfig = _cfg.CNNLSTMConfig
+DNNConfig = _cfg.DNNConfig
+RFConfig = _cfg.RFConfig
+XGBConfig = _cfg.XGBConfig
+
 from data_loader import DatasetBundle
 
 logger = logging.getLogger(__name__)

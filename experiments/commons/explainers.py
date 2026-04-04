@@ -12,7 +12,15 @@ import numpy as np
 import torch
 from tqdm import tqdm
 
-from config import ExplainerConfig
+# Import config from exp1 explicitly to avoid sys.path conflicts with exp3's config.
+import importlib.util as _ilu
+import os as _os
+_config_path = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "..", "1", "config.py")
+_spec = _ilu.spec_from_file_location("_exp1_config_for_explainers", _config_path)
+_cfg = _ilu.module_from_spec(_spec)
+_spec.loader.exec_module(_cfg)
+ExplainerConfig = _cfg.ExplainerConfig
+
 from models import SoftmaxModel
 
 logger = logging.getLogger(__name__)
