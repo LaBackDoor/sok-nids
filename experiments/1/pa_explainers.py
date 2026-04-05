@@ -78,16 +78,14 @@ def pa_explain_shap_dnn(
     dataset_name: str,
     device: torch.device,
     config,
+    checkpoint_dir=None,
 ) -> ExplanationResult:
-    """Protocol-Aware SHAP for DNN using DeepExplainer backend.
-
-    Uses threading-based parallelism (same approach as pa_explain_shap_tree)
-    since the underlying SHAP DeepExplainer releases the GIL during GPU ops.
-    """
+    """Protocol-Aware SHAP for DNN using DeepExplainer backend."""
     from pa_xai import ProtocolAwareSHAP
 
     schema = _get_schema(dataset_name)
-    logger.info(f"  PA-SHAP (DeepExplainer) on {len(X_explain)} samples")
+    n = len(X_explain)
+    logger.info(f"  PA-SHAP (DeepExplainer) on {n} samples")
 
     base_model = model.module if isinstance(model, torch.nn.DataParallel) else model
     base_model.eval()
@@ -97,29 +95,65 @@ def pa_explain_shap_dnn(
         backend="deep", n_background=config.shap_background_samples,
     )
 
+    # Resume from checkpoint
+    completed: dict[int, np.ndarray] = {}
+    ckpt_path: Path | None = None
+    if checkpoint_dir is not None:
+        ckpt_path = Path(checkpoint_dir) / f"shap_dnn_{dataset_name}.npz"
+        if ckpt_path.exists():
+            ckpt = np.load(ckpt_path)
+            for idx, attr in zip(ckpt["indices"], ckpt["attributions"]):
+                completed[int(idx)] = attr
+            logger.info(f"  Resumed {len(completed)}/{n} from checkpoint")
+
+    remaining = [i for i in range(n) if i not in completed]
+    if not remaining:
+        logger.info(f"  All {n} samples already checkpointed — skipping")
+        attributions = np.stack([completed[i] for i in range(n)])
+        if ckpt_path is not None:
+            ckpt_path.unlink(missing_ok=True)
+        return ExplanationResult(
+            attributions=attributions, method_name="SHAP", model_name="DNN",
+            time_per_sample_ms=0.0, total_time_s=0.0,
+        )
+
     total_cpus = os.cpu_count() or 1
     frac = getattr(config, "cpu_fraction", 0.9)
-    # For GPU-bound DNN work, limit thread count to avoid contention
     n_jobs = max(1, min(int(total_cpus * frac), 8))
-    logger.info(f"  PA-SHAP DNN parallelizing with {n_jobs} threads")
 
     def _explain_one(i):
-        return explainer.explain_instance(X_explain[i]).attributions
+        return i, explainer.explain_instance(X_explain[i]).attributions
 
     start = time.time()
     with _disable_cudnn_for_rnn(base_model):
-        results = Parallel(n_jobs=n_jobs, backend="threading", verbose=1)(
-            delayed(_explain_one)(i) for i in range(X_explain.shape[0])
-        )
-    elapsed = time.time() - start
+        with Parallel(n_jobs=n_jobs, backend="threading", verbose=1) as parallel:
+            for batch_off in range(0, len(remaining), CHECKPOINT_BATCH_SIZE):
+                batch = remaining[batch_off : batch_off + CHECKPOINT_BATCH_SIZE]
+                batch_results = parallel(delayed(_explain_one)(i) for i in batch)
 
-    attributions = np.stack(results, axis=0)
+                for idx, attrs in batch_results:
+                    completed[idx] = attrs
+
+                if ckpt_path is not None:
+                    sorted_keys = sorted(completed.keys())
+                    np.savez(
+                        ckpt_path,
+                        indices=np.array(sorted_keys, dtype=np.int64),
+                        attributions=np.stack([completed[k] for k in sorted_keys]),
+                    )
+                    logger.info(f"  Checkpoint saved: {len(completed)}/{n} complete")
+
+    elapsed = time.time() - start
+    attributions = np.stack([completed[i] for i in range(n)])
+
+    if ckpt_path is not None and ckpt_path.exists():
+        ckpt_path.unlink()
 
     return ExplanationResult(
         attributions=attributions,
         method_name="SHAP",
         model_name="DNN",
-        time_per_sample_ms=(elapsed / len(X_explain)) * 1000,
+        time_per_sample_ms=(elapsed / n) * 1000,
         total_time_s=elapsed,
     )
 
@@ -428,7 +462,7 @@ def pa_generate_all_explanations(
         try:
             results.append(pa_explain_shap_dnn(
                 dnn_model, X_explain, dataset.X_train, dataset.y_train,
-                ds_name, device, config,
+                ds_name, device, config, checkpoint_dir=checkpoint_dir,
             ))
         except Exception as e:
             logger.error(f"PA-SHAP DNN failed: {e}")
@@ -607,7 +641,7 @@ def pa_generate_cnn_explanations(
                 "PA-SHAP": pool.submit(
                     pa_explain_shap_dnn, shap_clone, X_explain,
                     dataset.X_train, dataset.y_train,
-                    ds_name, gpus[0], config,
+                    ds_name, gpus[0], config, checkpoint_dir,
                 ),
                 "PA-LIME": pool.submit(
                     pa_explain_lime, wrapper.predict_proba,
@@ -642,7 +676,7 @@ def pa_generate_cnn_explanations(
         try:
             r = pa_explain_shap_dnn(
                 flat_model, X_explain, dataset.X_train, dataset.y_train,
-                ds_name, device, config,
+                ds_name, device, config, checkpoint_dir=checkpoint_dir,
             )
             r.model_name = model_name
             results.append(r)
@@ -696,7 +730,7 @@ def pa_generate_cnn_explanations(
         for mname, fn, args in [
             ("PA-SHAP", pa_explain_shap_dnn, (
                 flat_model, X_explain, dataset.X_train, dataset.y_train,
-                ds_name, device, config)),
+                ds_name, device, config, checkpoint_dir)),
             ("PA-LIME", pa_explain_lime, (
                 wrapper.predict_proba, X_explain, dataset.X_train, ds_name, model_name, config,
                 checkpoint_dir)),
