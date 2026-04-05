@@ -1,10 +1,6 @@
 {
   "datasets": [
-    "nsl-kdd",
-    "cic-ids-2017",
-    "unsw-nb15",
-    "cse-cic-ids2018",
-    "cic-iov-2024"
+    "nsl-kdd"
   ],
   "phases": [
     "all"
@@ -25,7 +21,7 @@
     "pgd_num_steps": 20,
     "pgd_step_size_factor": 2.5,
     "num_attack_samples": 1000,
-    "attack_batch_size": 512,
+    "attack_batch_size": 4096,
     "run_constrained": true,
     "run_unconstrained": true
   },
@@ -41,7 +37,7 @@
     ],
     "biased_model_epochs": 50,
     "biased_model_lr": 0.01,
-    "lime_num_samples": 5000,
+    "lime_num_samples": 2000,
     "lime_num_features": 10,
     "shap_background_samples": 100,
     "scaffolding_datasets": [
@@ -54,15 +50,22 @@
     "explanation_methods": [
       "SHAP",
       "LIME",
-      "IG"
+      "IG",
+      "DeepLIFT"
+    ],
+    "pa_explanation_methods": [
+      "PA-SHAP",
+      "PA-LIME",
+      "PA-IG",
+      "PA-DeepLIFT"
     ],
     "distance_norm": "l2",
     "explanation_similarity_epsilon": 0.1,
     "shap_background_samples": 100,
-    "lime_num_samples": 5000,
+    "lime_num_samples": 2000,
     "lime_num_features": 10,
     "ig_n_steps": 50,
-    "ig_internal_batch_size": 64
+    "ig_internal_batch_size": 4096
   },
   "exp1_results_dir": "experiments/1/results",
   "seed": 42

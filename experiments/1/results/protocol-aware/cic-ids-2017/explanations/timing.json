@@ -1,0 +1,27 @@
+{
+  "DNN_SHAP": {
+    "time_per_sample_ms": 99.64398398399354,
+    "total_time_s": 498.21991991996765,
+    "summary_plot_time_s": 1.817748785018921
+  },
+  "RF_SHAP": {
+    "time_per_sample_ms": 234.5026882648468,
+    "total_time_s": 1172.513441324234,
+    "summary_plot_time_s": 1.8229715824127197
+  },
+  "XGB_SHAP": {
+    "time_per_sample_ms": 2917.9380063056947,
+    "total_time_s": 14589.690031528473,
+    "summary_plot_time_s": 1.8026490211486816
+  },
+  "DNN_IG": {
+    "time_per_sample_ms": 59.953162813186644,
+    "total_time_s": 299.7658140659332,
+    "summary_plot_time_s": 1.7993814945220947
+  },
+  "DNN_DeepLIFT": {
+    "time_per_sample_ms": 5.18824577331543,
+    "total_time_s": 25.94122886657715,
+    "summary_plot_time_s": 1.8046841621398926
+  }
+}
