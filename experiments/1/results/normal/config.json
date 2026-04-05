@@ -1,16 +1,17 @@
 {
+  "xai_mode": "n",
   "datasets": [
-    "nsl-kdd"
+    "cic-ids-2017"
   ],
   "phases": [
-    "train"
+    "train",
+    "explain",
+    "evaluate"
   ],
   "models": [
     "dnn",
     "rf",
-    "xgb",
-    "cnn-lstm",
-    "cnn-gru"
+    "xgb"
   ],
   "dnn": {
     "hidden_layers": [
@@ -20,7 +21,7 @@
     ],
     "dropout_rate": 0.01,
     "learning_rate": 0.01,
-    "batch_size": 1024,
+    "batch_size": 8192,
     "epochs": 100,
     "early_stopping_patience": 10
   },
@@ -47,7 +48,7 @@
     "num_lstm_layers": 1,
     "dropout": 0.5,
     "learning_rate": 0.001,
-    "batch_size": 512,
+    "batch_size": 4096,
     "epochs": 100,
     "early_stopping_patience": 10
   },
@@ -65,17 +66,18 @@
     "input_spatial_size": 11,
     "seq_len": 121,
     "learning_rate": 0.001,
-    "batch_size": 512,
+    "batch_size": 4096,
     "epochs": 100,
     "early_stopping_patience": 10
   },
   "explainer": {
     "shap_background_samples": 100,
     "lime_num_features": 10,
-    "lime_num_samples": 5000,
+    "lime_num_samples": 2000,
     "ig_n_steps": 50,
-    "ig_internal_batch_size": 1024,
-    "num_explain_samples": 10000
+    "ig_internal_batch_size": 8192,
+    "num_explain_samples": 5000,
+    "cpu_fraction": 0.9
   },
   "metric": {
     "faithfulness_k_values": [
@@ -99,9 +101,7 @@
     "efficiency_batch_size": 10000,
     "stability_runs": 3,
     "stability_top_k": 10,
-    "completeness_num_corrupted": 500,
-    "robustness_noise_std": 0.01,
-    "robustness_num_perturbations": 10
+    "completeness_num_corrupted": 500
   },
   "seed": 42
 }

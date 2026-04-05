@@ -33,7 +33,12 @@ import numpy as np
 import torch
 
 # Suppress noisy sklearn/joblib compatibility warning from third-party libs
-warnings.filterwarnings("ignore", message=".*sklearn.utils.parallel.delayed.*")
+warnings.filterwarnings(
+    "ignore",
+    message=r".*sklearn\.utils\.parallel\.delayed.*",
+    category=UserWarning,
+    module=r"sklearn\.utils\.parallel",
+)
 
 # Add experiment directory to path for local imports
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))

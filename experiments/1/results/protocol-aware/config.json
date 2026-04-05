@@ -1,18 +1,17 @@
 {
   "xai_mode": "p",
   "datasets": [
-    "nsl-kdd"
+    "cic-ids-2017"
   ],
   "phases": [
+    "train",
     "explain",
     "evaluate"
   ],
   "models": [
     "dnn",
     "rf",
-    "xgb",
-    "cnn-lstm",
-    "cnn-gru"
+    "xgb"
   ],
   "dnn": {
     "hidden_layers": [
@@ -74,10 +73,11 @@
   "explainer": {
     "shap_background_samples": 100,
     "lime_num_features": 10,
-    "lime_num_samples": 5000,
+    "lime_num_samples": 2000,
     "ig_n_steps": 50,
     "ig_internal_batch_size": 8192,
-    "num_explain_samples": 10000
+    "num_explain_samples": 5000,
+    "cpu_fraction": 0.9
   },
   "metric": {
     "faithfulness_k_values": [
