@@ -79,7 +79,11 @@ def pa_explain_shap_dnn(
     device: torch.device,
     config,
 ) -> ExplanationResult:
-    """Protocol-Aware SHAP for DNN using DeepExplainer backend."""
+    """Protocol-Aware SHAP for DNN using DeepExplainer backend.
+
+    Uses threading-based parallelism (same approach as pa_explain_shap_tree)
+    since the underlying SHAP DeepExplainer releases the GIL during GPU ops.
+    """
     from pa_xai import ProtocolAwareSHAP
 
     schema = _get_schema(dataset_name)
@@ -93,15 +97,23 @@ def pa_explain_shap_dnn(
         backend="deep", n_background=config.shap_background_samples,
     )
 
+    total_cpus = os.cpu_count() or 1
+    frac = getattr(config, "cpu_fraction", 0.9)
+    # For GPU-bound DNN work, limit thread count to avoid contention
+    n_jobs = max(1, min(int(total_cpus * frac), 8))
+    logger.info(f"  PA-SHAP DNN parallelizing with {n_jobs} threads")
+
+    def _explain_one(i):
+        return explainer.explain_instance(X_explain[i]).attributions
+
     start = time.time()
-    all_attrs = []
     with _disable_cudnn_for_rnn(base_model):
-        for i in range(len(X_explain)):
-            result = explainer.explain_instance(X_explain[i])
-            all_attrs.append(result.attributions)
+        results = Parallel(n_jobs=n_jobs, backend="threading", verbose=1)(
+            delayed(_explain_one)(i) for i in range(X_explain.shape[0])
+        )
     elapsed = time.time() - start
 
-    attributions = np.stack(all_attrs, axis=0)
+    attributions = np.stack(results, axis=0)
 
     return ExplanationResult(
         attributions=attributions,
