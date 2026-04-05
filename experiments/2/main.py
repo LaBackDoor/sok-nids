@@ -23,6 +23,7 @@ Usage:
 """
 
 import argparse
+import copy
 import json
 import logging
 import os
@@ -94,6 +95,9 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 logger = logging.getLogger("experiment2")
+
+# Suppress verbose SHAP internal logging (KernelExplainer dumps arrays at INFO)
+logging.getLogger("shap").setLevel(logging.WARNING)
 
 
 def setup_device() -> tuple[torch.device, int]:
@@ -185,8 +189,9 @@ def make_explain_fn(
     )
 
     if method == "SHAP":
+        model_copy = copy.deepcopy(dnn_model)
         def fn(X):
-            r = explain_shap_dnn(dnn_model, X, X_bg, device, explainer_cfg)
+            r = explain_shap_dnn(model_copy, X, X_bg, device, explainer_cfg)
             return r.attributions
         return fn
 
@@ -200,14 +205,16 @@ def make_explain_fn(
         return fn
 
     elif method == "IG":
+        model_copy = copy.deepcopy(dnn_model)
         def fn(X):
-            r = explain_ig(dnn_model, X, device, explainer_cfg)
+            r = explain_ig(model_copy, X, device, explainer_cfg)
             return r.attributions
         return fn
 
     elif method == "DeepLIFT":
+        model_copy = copy.deepcopy(dnn_model)
         def fn(X):
-            r = explain_deeplift(dnn_model, X, device, explainer_cfg)
+            r = explain_deeplift(model_copy, X, device, explainer_cfg)
             return r.attributions
         return fn
 
