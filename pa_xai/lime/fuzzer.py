@@ -175,14 +175,25 @@ class DomainConstraintFuzzer:
             )
             neighborhood[1:, s.protocol_index] = sampled_protocols
 
-        # --- Discrete features: sample per-row's protocol ---
+        # --- Discrete features: vectorized per-protocol-group sampling ---
         if self._discrete_distributions:
-            for i in range(1, num_samples):
-                proto_key = int(neighborhood[i, s.protocol_index]) if s.protocol_index is not None else -1
-                if proto_key in self._discrete_distributions:
-                    for idx, values in self._discrete_distributions[proto_key].items():
-                        neighborhood[i, idx] = np.random.choice(values)
-            # else: discrete features stay at x_row values
+            if s.protocol_index is not None:
+                proto_keys = neighborhood[1:, s.protocol_index].astype(int)
+                for proto_key, dist in self._discrete_distributions.items():
+                    mask = proto_keys == proto_key
+                    count = mask.sum()
+                    if count == 0:
+                        continue
+                    for idx, values in dist.items():
+                        neighborhood[1:][mask, idx] = np.random.choice(
+                            values, size=count,
+                        )
+            else:
+                # No protocol column — use the fallback key (-1)
+                dist = self._discrete_distributions.get(-1, {})
+                count = num_samples - 1
+                for idx, values in dist.items():
+                    neighborhood[1:, idx] = np.random.choice(values, size=count)
 
         # --- Pin row 0 to original ---
         neighborhood[0, :] = x_row
