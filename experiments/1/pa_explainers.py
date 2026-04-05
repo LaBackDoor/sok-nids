@@ -549,13 +549,13 @@ def pa_generate_all_explanations(
 ) -> tuple[list[ExplanationResult], np.ndarray]:
     """Generate protocol-aware explanations for all applicable models.
 
-    Execution is structured in three phases to maximise hardware utilisation:
+    Execution is structured in two phases to maximise hardware utilisation:
 
-      Phase 1 — DNN SHAP (fast, sequential, needs a clean GPU).
-      Phase 2 — **All LIMEs + tree SHAPs run concurrently.**
-                DNN LIME forwards predictions to GPU 0; RF/XGB are CPU-only,
-                so there is no resource conflict.
-      Phase 3 — DNN IG ‖ DeepLIFT (fast, distributed across available GPUs).
+      Phase 1 — **DNN SHAP + all LIMEs + tree SHAPs run concurrently.**
+                DNN SHAP (DeepExplainer) is GPU-bound; tree SHAPs and tree
+                LIMEs are CPU-bound; DNN LIME uses GPU for predict but
+                fuzzer/Ridge is CPU.  No resource conflict.
+      Phase 2 — DNN IG ‖ DeepLIFT (fast, distributed across available GPUs).
     """
     from explainers import _fix_xgb_base_score
 
@@ -568,20 +568,10 @@ def pa_generate_all_explanations(
     ds_name = dataset.dataset_name
     num_gpus = torch.cuda.device_count()
 
-    # ── Phase 1: DNN SHAP (fast, sequential) ──────────────────────────
-    if dnn_model is not None and dnn_wrapper is not None:
-        logger.info("--- DNN PA-Explanations ---")
-        try:
-            results.append(pa_explain_shap_dnn(
-                dnn_model, X_explain, dataset.X_train, dataset.y_train,
-                ds_name, device, config, checkpoint_dir=checkpoint_dir,
-            ))
-        except Exception as e:
-            logger.error(f"PA-SHAP DNN failed: {e}")
-
-    # ── Phase 2: All LIMEs + tree SHAPs (concurrent) ─────────────────
-    # Count how many LIME jobs will compete for CPU cores so we can
-    # divide them fairly.
+    # ── Phase 1: DNN SHAP + All LIMEs + tree SHAPs (concurrent) ────────
+    # DNN SHAP (DeepExplainer) is GPU-bound; tree SHAPs and tree LIMEs
+    # are CPU-bound; DNN LIME uses GPU for predict but fuzzer/Ridge is
+    # CPU.  No resource conflict — run everything concurrently.
     lime_job_count = sum([
         dnn_wrapper is not None,
         rf_wrapper is not None,
@@ -592,21 +582,24 @@ def pa_generate_all_explanations(
     usable_cpus = max(1, int(total_cpus * frac))
     n_jobs_each = max(1, usable_cpus // max(1, lime_job_count))
 
-    if lime_job_count > 1:
-        logger.info(
-            f"  Running {lime_job_count} LIME jobs concurrently "
-            f"({n_jobs_each} CPUs each, {usable_cpus} usable)"
-        )
-
     if xgb_model is not None:
         _fix_xgb_base_score(xgb_model)
 
-    # +2 headroom for the tree-SHAP tasks that finish quickly
-    max_workers = max(1, lime_job_count + 2)
-    lime_futures: dict[str, object] = {}
+    # +3 headroom: 1 for DNN SHAP + 2 for tree SHAPs that finish quickly
+    max_workers = max(1, lime_job_count + 3)
+    futures: dict[str, object] = {}
     with ThreadPoolExecutor(max_workers=max_workers) as pool:
+        # DNN SHAP — now concurrent with everything else
+        if dnn_model is not None and dnn_wrapper is not None:
+            logger.info("--- DNN PA-Explanations ---")
+            futures["PA-SHAP DNN"] = pool.submit(
+                pa_explain_shap_dnn,
+                dnn_model, X_explain, dataset.X_train, dataset.y_train,
+                ds_name, device, config, checkpoint_dir,
+            )
+
         if dnn_wrapper is not None:
-            lime_futures["PA-LIME DNN"] = pool.submit(
+            futures["PA-LIME DNN"] = pool.submit(
                 pa_explain_lime, dnn_wrapper.predict_proba,
                 X_explain, dataset.X_train, ds_name, "DNN", config,
                 checkpoint_dir,
@@ -615,11 +608,11 @@ def pa_generate_all_explanations(
 
         if rf_model is not None and rf_wrapper is not None:
             logger.info("--- RF PA-Explanations ---")
-            lime_futures["PA-SHAP RF"] = pool.submit(
+            futures["PA-SHAP RF"] = pool.submit(
                 pa_explain_shap_tree, rf_model, X_explain,
                 dataset.X_train, dataset.y_train, ds_name, config, "RF",
             )
-            lime_futures["PA-LIME RF"] = pool.submit(
+            futures["PA-LIME RF"] = pool.submit(
                 pa_explain_lime, rf_wrapper.predict_proba,
                 X_explain, dataset.X_train, ds_name, "RF", config,
                 checkpoint_dir,
@@ -628,24 +621,24 @@ def pa_generate_all_explanations(
 
         if xgb_model is not None and xgb_wrapper is not None:
             logger.info("--- XGBoost PA-Explanations ---")
-            lime_futures["PA-SHAP XGB"] = pool.submit(
+            futures["PA-SHAP XGB"] = pool.submit(
                 pa_explain_shap_tree, xgb_model, X_explain,
                 dataset.X_train, dataset.y_train, ds_name, config, "XGB",
             )
-            lime_futures["PA-LIME XGB"] = pool.submit(
+            futures["PA-LIME XGB"] = pool.submit(
                 pa_explain_lime, xgb_wrapper.predict_proba,
                 X_explain, dataset.X_train, ds_name, "XGB", config,
                 checkpoint_dir,
                 n_jobs_each if lime_job_count > 1 else None,
             )
 
-    for name, future in lime_futures.items():
+    for name, future in futures.items():
         try:
             results.append(future.result())
         except Exception as e:
             logger.error(f"{name} failed: {e}")
 
-    # ── Phase 3: DNN IG ‖ DeepLIFT (fast, GPU-bound) ─────────────────
+    # ── Phase 2: DNN IG ‖ DeepLIFT (GPU-bound) ──────────────────────
     if dnn_model is not None:
         if num_gpus >= 3:
             ig_clone = _clone_model_to_device(dnn_model, torch.device("cuda:1"))
