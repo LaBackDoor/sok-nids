@@ -101,6 +101,12 @@ class ExplainerConfig:
     ig_internal_batch_size: int = 8192
     num_explain_samples: int = 10000
     cpu_fraction: float = 0.9
+    # LIME stability tuning
+    lime_auto_tune: bool = False
+    lime_tune_candidates: list[int] = field(default_factory=lambda: [200, 500, 1000, 2000, 5000])
+    lime_tune_n_repeats: int = 5
+    lime_tune_stability_threshold: float = 0.85
+    lime_tune_probe_samples: int = 10
 
 
 @dataclass

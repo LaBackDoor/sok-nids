@@ -75,6 +75,11 @@ explainer:
   ig_n_steps: 50
   ig_internal_batch_size: 8192
   num_explain_samples: 5000
+  lime_auto_tune: false
+  lime_tune_candidates: [200, 500, 1000, 2000, 5000]
+  lime_tune_n_repeats: 5
+  lime_tune_stability_threshold: 0.85
+  lime_tune_probe_samples: 10
 
 experiment_1:
   output_dir: experiments/1/results
@@ -89,7 +94,7 @@ experiment_2:
     pgd_epsilons: [0.01, 0.05, 0.1]
     pgd_num_steps: 20
     pgd_step_size_factor: 2.5
-    num_attack_samples: 100
+    num_attack_samples: 1000
     attack_batch_size: 4096
     run_constrained: true
     run_unconstrained: true
@@ -101,19 +106,19 @@ experiment_2:
     biased_model_hidden: [64, 32]
     biased_model_epochs: 50
     biased_model_lr: 0.01
-    lime_num_samples: 500
+    lime_num_samples: 5000
     lime_num_features: 10
     shap_background_samples: 100
-    scaffolding_datasets: [nsl-kdd]
+    scaffolding_datasets: [nsl-kdd, cic-ids-2017, unsw-nb15, cse-cic-ids2018]
 
   robustness:
-    num_samples: 100
+    num_samples: 1000
     explanation_methods: [SHAP, LIME, IG, DeepLIFT]
     pa_explanation_methods: [PA-SHAP, PA-LIME, PA-IG, PA-DeepLIFT]
     distance_norm: l2
     explanation_similarity_epsilon: 0.1
     shap_background_samples: 100
-    lime_num_samples: 500
+    lime_num_samples: 5000
     lime_num_features: 10
     ig_n_steps: 50
     ig_internal_batch_size: 4096
