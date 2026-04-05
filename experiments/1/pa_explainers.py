@@ -240,6 +240,26 @@ def pa_explain_lime(
 
     explainer = ProtocolAwareLIME(schema, X_train=X_train)
 
+    lime_num_samples = config.lime_num_samples
+    if getattr(config, "lime_auto_tune", False):
+        from lime_tuner import find_stable_num_samples
+        probe_n = getattr(config, "lime_tune_probe_samples", 10)
+        probe_indices = np.random.RandomState(42).choice(
+            n, size=min(probe_n, n), replace=False,
+        )
+        tuned = find_stable_num_samples(
+            predict_fn=predict_fn,
+            X_train=X_train,
+            X_probe=X_explain[probe_indices],
+            feature_names=[f"f{i}" for i in range(X_train.shape[1])],
+            num_classes=predict_fn(X_train[:1]).shape[1],
+            candidate_counts=getattr(config, "lime_tune_candidates", None),
+            n_repeats=getattr(config, "lime_tune_n_repeats", 5),
+            stability_threshold=getattr(config, "lime_tune_stability_threshold", 0.85),
+        )
+        logger.info(f"  PA-LIME auto-tuned num_samples: {config.lime_num_samples} → {tuned}")
+        lime_num_samples = tuned
+
     # loky (process-based) for tree models to bypass GIL;
     # threading for neural nets whose predict_fn forwards to GPU.
     is_tree = model_name.upper() in ("RF", "XGB")
@@ -279,7 +299,7 @@ def pa_explain_lime(
     def _explain_one(i):
         r = explainer.explain_instance(
             X_explain[i], predict_fn,
-            num_samples=config.lime_num_samples,
+            num_samples=lime_num_samples,
         )
         return i, r.attributions
 

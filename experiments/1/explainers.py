@@ -401,6 +401,28 @@ def explain_lime(
     # Get predicted classes so LIME explains the predicted label
     preds = np.argmax(predict_fn(X_explain), axis=1)
 
+    # Auto-tune num_samples if enabled
+    lime_num_samples = config.lime_num_samples
+    if getattr(config, "lime_auto_tune", False):
+        from lime_tuner import find_stable_num_samples
+        probe_n = getattr(config, "lime_tune_probe_samples", 10)
+        probe_indices = np.random.RandomState(42).choice(
+            len(X_explain), size=min(probe_n, len(X_explain)), replace=False,
+        )
+        tuned = find_stable_num_samples(
+            predict_fn=predict_fn,
+            X_train=X_train,
+            X_probe=X_explain[probe_indices],
+            feature_names=feature_names,
+            num_classes=num_classes,
+            candidate_counts=getattr(config, "lime_tune_candidates", None),
+            n_repeats=getattr(config, "lime_tune_n_repeats", 5),
+            stability_threshold=getattr(config, "lime_tune_stability_threshold", 0.85),
+            lime_num_features=config.lime_num_features,
+        )
+        logger.info(f"  LIME auto-tuned num_samples: {config.lime_num_samples} → {tuned}")
+        lime_num_samples = tuned
+
     total_cpus = os.cpu_count() or 1
     frac = getattr(config, "cpu_fraction", 0.9)
     n_jobs = max(1, int(total_cpus * frac))
@@ -423,7 +445,7 @@ def explain_lime(
             X_explain[i],
             predict_fn,
             num_features=config.lime_num_features,
-            num_samples=config.lime_num_samples,
+            num_samples=lime_num_samples,
             labels=(int(preds[i]),),
         )
         row = np.zeros(n_features)
