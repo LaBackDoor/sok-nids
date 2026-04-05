@@ -357,36 +357,83 @@ def pa_explain_ig(
     device: torch.device,
     config,
     model_name: str = "DNN",
+    checkpoint_dir=None,
 ) -> ExplanationResult:
     """Protocol-Aware Integrated Gradients."""
     from pa_xai import ProtocolAwareIG
 
     schema = _get_schema(dataset_name)
-    logger.info(f"  PA-IG on {len(X_explain)} samples for {model_name}")
+    n = len(X_explain)
+    logger.info(f"  PA-IG on {n} samples for {model_name}")
 
     base_model = model.module if isinstance(model, torch.nn.DataParallel) else model
     base_model.eval()
 
     explainer = ProtocolAwareIG(schema, base_model, X_train)
 
-    start = time.time()
-    all_attrs = []
-    with _disable_cudnn_for_rnn(base_model):
-        for i in range(len(X_explain)):
-            result = explainer.explain_instance(
-                X_explain[i].astype(np.float32),
-                n_steps=config.ig_n_steps,
-            )
-            all_attrs.append(result.attributions)
-    elapsed = time.time() - start
+    # Resume from checkpoint
+    completed: dict[int, np.ndarray] = {}
+    ckpt_path: Path | None = None
+    if checkpoint_dir is not None:
+        ckpt_path = Path(checkpoint_dir) / f"ig_{dataset_name}_{model_name.lower()}.npz"
+        if ckpt_path.exists():
+            ckpt = np.load(ckpt_path)
+            for idx, attr in zip(ckpt["indices"], ckpt["attributions"]):
+                completed[int(idx)] = attr
+            logger.info(f"  Resumed {len(completed)}/{n} from checkpoint")
 
-    attributions = np.stack(all_attrs, axis=0)
+    remaining = [i for i in range(n) if i not in completed]
+    if not remaining:
+        logger.info(f"  All {n} samples already checkpointed — skipping")
+        attributions = np.stack([completed[i] for i in range(n)])
+        if ckpt_path is not None:
+            ckpt_path.unlink(missing_ok=True)
+        return ExplanationResult(
+            attributions=attributions, method_name="IG", model_name=model_name,
+            time_per_sample_ms=0.0, total_time_s=0.0,
+        )
+
+    total_cpus = os.cpu_count() or 1
+    frac = getattr(config, "cpu_fraction", 0.9)
+    n_jobs = max(1, min(int(total_cpus * frac), 8))
+
+    def _explain_one(i):
+        result = explainer.explain_instance(
+            X_explain[i].astype(np.float32),
+            n_steps=config.ig_n_steps,
+        )
+        return i, result.attributions
+
+    start = time.time()
+    with _disable_cudnn_for_rnn(base_model):
+        with Parallel(n_jobs=n_jobs, backend="threading", verbose=1) as parallel:
+            for batch_off in range(0, len(remaining), CHECKPOINT_BATCH_SIZE):
+                batch = remaining[batch_off : batch_off + CHECKPOINT_BATCH_SIZE]
+                batch_results = parallel(delayed(_explain_one)(i) for i in batch)
+
+                for idx, attrs in batch_results:
+                    completed[idx] = attrs
+
+                if ckpt_path is not None:
+                    sorted_keys = sorted(completed.keys())
+                    np.savez(
+                        ckpt_path,
+                        indices=np.array(sorted_keys, dtype=np.int64),
+                        attributions=np.stack([completed[k] for k in sorted_keys]),
+                    )
+                    logger.info(f"  Checkpoint saved: {len(completed)}/{n} complete")
+
+    elapsed = time.time() - start
+    attributions = np.stack([completed[i] for i in range(n)])
+
+    if ckpt_path is not None and ckpt_path.exists():
+        ckpt_path.unlink()
 
     return ExplanationResult(
         attributions=attributions,
         method_name="IG",
         model_name=model_name,
-        time_per_sample_ms=(elapsed / len(X_explain)) * 1000,
+        time_per_sample_ms=(elapsed / n) * 1000,
         total_time_s=elapsed,
     )
 
@@ -564,6 +611,7 @@ def pa_generate_all_explanations(
                     pa_explain_ig, ig_clone, X_explain,
                     dataset.X_train, dataset.y_train,
                     ds_name, torch.device("cuda:1"), config,
+                    checkpoint_dir=checkpoint_dir,
                 )
                 dl_future = pool.submit(
                     pa_explain_deeplift, dl_clone, X_explain,
@@ -590,6 +638,7 @@ def pa_generate_all_explanations(
                     pa_explain_ig, dnn_model, X_explain,
                     dataset.X_train, dataset.y_train,
                     ds_name, device, config,
+                    checkpoint_dir=checkpoint_dir,
                 )
                 dl_future = pool.submit(
                     pa_explain_deeplift, dl_clone, X_explain,
@@ -612,7 +661,7 @@ def pa_generate_all_explanations(
             for name, fn, args in [
                 ("PA-IG DNN", pa_explain_ig, (
                     dnn_model, X_explain, dataset.X_train, dataset.y_train,
-                    ds_name, device, config)),
+                    ds_name, device, config, "DNN", checkpoint_dir)),
                 ("PA-DeepLIFT DNN", pa_explain_deeplift, (
                     dnn_model, X_explain, dataset.X_train, dataset.y_train,
                     ds_name, device, config)),
@@ -672,6 +721,7 @@ def pa_generate_cnn_explanations(
                     pa_explain_ig, ig_clone, X_explain,
                     dataset.X_train, dataset.y_train,
                     ds_name, gpus[1], config, model_name,
+                    checkpoint_dir,
                 ),
                 "PA-DeepLIFT": pool.submit(
                     pa_explain_deeplift, dl_clone, X_explain,
@@ -722,6 +772,7 @@ def pa_generate_cnn_explanations(
                 pa_explain_ig, flat_model, X_explain,
                 dataset.X_train, dataset.y_train,
                 ds_name, device, config, model_name,
+                checkpoint_dir,
             )
             dl_future = pool.submit(
                 pa_explain_deeplift, dl_clone, X_explain,
@@ -756,7 +807,7 @@ def pa_generate_cnn_explanations(
                 checkpoint_dir)),
             ("PA-IG", pa_explain_ig, (
                 flat_model, X_explain, dataset.X_train, dataset.y_train,
-                ds_name, device, config, model_name)),
+                ds_name, device, config, model_name, checkpoint_dir)),
             ("PA-DeepLIFT", pa_explain_deeplift, (
                 flat_model, X_explain, dataset.X_train, dataset.y_train,
                 ds_name, device, config, model_name)),
