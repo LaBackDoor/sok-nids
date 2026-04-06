@@ -409,6 +409,122 @@ class ProtocolAwareSHAP:
             expected_value=expected_value,
         )
 
+    # ------------------------------------------------------------------
+    # Batch methods — process all samples in a single vectorised call
+    # ------------------------------------------------------------------
+
+    def explain_batch_deep(
+        self,
+        X_explain: np.ndarray,
+    ) -> np.ndarray:
+        """Batch Deep/GradientExplainer: one explainer, one shap_values call.
+
+        Returns attributions array of shape (N, D) with each row containing
+        the SHAP values for the predicted class of that sample.
+        """
+        import shap
+
+        device = next(self.model.parameters()).device
+        bg_tensor = torch.tensor(self._background, dtype=torch.float32).to(device)
+        base_model = (
+            self.model.module
+            if isinstance(self.model, torch.nn.DataParallel)
+            else self.model
+        )
+        base_model.eval()
+        use_gradient = _has_rnn_modules(base_model)
+
+        prev_cudnn = torch.backends.cudnn.enabled
+        if use_gradient:
+            torch.backends.cudnn.enabled = False
+        try:
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore")
+                if use_gradient:
+                    explainer = shap.GradientExplainer(base_model, bg_tensor)
+                else:
+                    explainer = shap.DeepExplainer(base_model, bg_tensor)
+
+                explain_tensor = torch.tensor(
+                    X_explain, dtype=torch.float32,
+                ).to(device)
+
+                if use_gradient:
+                    shap_values = explainer.shap_values(explain_tensor)
+                else:
+                    shap_values = explainer.shap_values(
+                        explain_tensor, check_additivity=False,
+                    )
+        finally:
+            if use_gradient:
+                torch.backends.cudnn.enabled = prev_cudnn
+
+        # Predict classes for all samples
+        with torch.no_grad():
+            explain_t = torch.tensor(
+                X_explain, dtype=torch.float32,
+            ).to(device)
+            preds = torch.argmax(base_model(explain_t), dim=1).cpu().numpy()
+
+        # Extract per-sample attributions for predicted class (vectorised)
+        n = len(X_explain)
+        # Handle shap.Explanation objects
+        if hasattr(shap_values, "values"):
+            shap_values = shap_values.values
+        if isinstance(shap_values, list):
+            stacked = np.stack(shap_values, axis=0)  # (classes, N, D)
+            attributions = stacked[preds, np.arange(n)]
+        elif isinstance(shap_values, np.ndarray) and shap_values.ndim == 3:
+            attributions = shap_values[np.arange(n), :, preds]
+        else:
+            attributions = np.asarray(shap_values)
+
+        return attributions
+
+    def explain_batch_tree(
+        self,
+        X_explain: np.ndarray,
+    ) -> np.ndarray:
+        """Batch TreeExplainer: one shap_values call for all samples.
+
+        Returns attributions array of shape (N, D) with each row containing
+        the SHAP values for the predicted class of that sample.
+        """
+        explainer = self._get_tree_explainer()
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore")
+            shap_values = explainer.shap_values(X_explain, check_additivity=False)
+
+        # Predict classes
+        if hasattr(self.model, "get_booster"):
+            import xgboost as xgb
+            try:
+                import cupy as cp
+                dm = xgb.DMatrix(cp.asarray(X_explain))
+            except ImportError:
+                dm = xgb.DMatrix(X_explain)
+            raw = self.model.get_booster().predict(dm)
+            if raw.ndim == 1:
+                preds = (raw > 0.5).astype(np.intp)
+            else:
+                preds = np.argmax(raw, axis=1).astype(np.intp)
+        else:
+            preds = self.model.predict(X_explain)
+
+        # Extract per-sample attributions for predicted class (vectorised)
+        n = len(X_explain)
+        if hasattr(shap_values, "values"):
+            shap_values = shap_values.values
+        if isinstance(shap_values, list):
+            stacked = np.stack(shap_values, axis=0)  # (classes, N, D)
+            attributions = stacked[preds, np.arange(n)]
+        elif isinstance(shap_values, np.ndarray) and shap_values.ndim == 3:
+            attributions = shap_values[np.arange(n), :, preds]
+        else:
+            attributions = np.asarray(shap_values)
+
+        return attributions
+
     def explain_pcap(
         self,
         pcap_path: str,

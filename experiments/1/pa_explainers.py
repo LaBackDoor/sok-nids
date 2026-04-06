@@ -109,12 +109,12 @@ def pa_explain_shap_dnn(
     config,
     checkpoint_dir=None,
 ) -> ExplanationResult:
-    """Protocol-Aware SHAP for DNN using DeepExplainer backend."""
+    """Protocol-Aware SHAP for DNN using batched DeepExplainer."""
     from pa_xai import ProtocolAwareSHAP
 
     schema = _get_schema(dataset_name)
     n = len(X_explain)
-    logger.info(f"  PA-SHAP (DeepExplainer) on {n} samples")
+    logger.info(f"  PA-SHAP (DeepExplainer) on {n} samples [batched]")
 
     base_model = model.module if isinstance(model, torch.nn.DataParallel) else model
     base_model.eval()
@@ -124,47 +124,10 @@ def pa_explain_shap_dnn(
         backend="deep", n_background=config.shap_background_samples,
     )
 
-    # Resume from checkpoint
-    n_features = X_explain.shape[1]
-    ckpt_path: Path | None = None
-    if checkpoint_dir is not None:
-        ckpt_path = Path(checkpoint_dir) / f"shap_dnn_{dataset_name}.npz"
-    attributions, done, remaining = _load_checkpoint(ckpt_path, n, n_features)
-
-    if not remaining:
-        logger.info(f"  All {n} samples already checkpointed — skipping")
-        if ckpt_path is not None:
-            ckpt_path.unlink(missing_ok=True)
-        return ExplanationResult(
-            attributions=attributions, method_name="SHAP", model_name="DNN",
-            time_per_sample_ms=0.0, total_time_s=0.0,
-        )
-
-    total_cpus = os.cpu_count() or 1
-    frac = getattr(config, "cpu_fraction", 0.9)
-    n_jobs = max(1, min(int(total_cpus * frac), 8))
-
-    def _explain_one(i):
-        return i, explainer.explain_instance(X_explain[i]).attributions
-
     start = time.time()
     with _disable_cudnn_for_rnn(base_model):
-        with Parallel(n_jobs=n_jobs, backend="threading", verbose=1) as parallel:
-            for batch_off in range(0, len(remaining), CHECKPOINT_BATCH_SIZE):
-                batch = remaining[batch_off : batch_off + CHECKPOINT_BATCH_SIZE]
-                batch_results = parallel(delayed(_explain_one)(i) for i in batch)
-
-                for idx, attrs in batch_results:
-                    attributions[idx] = attrs
-                    done[idx] = True
-
-                _save_checkpoint(ckpt_path, attributions, done)
-                logger.info(f"  Checkpoint saved: {int(done.sum())}/{n} complete")
-
+        attributions = explainer.explain_batch_deep(X_explain)
     elapsed = time.time() - start
-
-    if ckpt_path is not None and ckpt_path.exists():
-        ckpt_path.unlink()
 
     return ExplanationResult(
         attributions=attributions,
@@ -187,39 +150,29 @@ def pa_explain_shap_tree(
     dataset_name: str,
     config,
     model_name: str = "RF",
+    n_jobs: int | None = None,
 ) -> ExplanationResult:
-    """Protocol-Aware SHAP for tree models using TreeExplainer backend."""
+    """Protocol-Aware SHAP for tree models using batched TreeExplainer."""
     from pa_xai import ProtocolAwareSHAP
 
+    n = len(X_explain)
     schema = _get_schema(dataset_name)
-    logger.info(f"  PA-SHAP (TreeExplainer) on {len(X_explain)} samples for {model_name}")
+    logger.info(f"  PA-SHAP (TreeExplainer) on {n} samples for {model_name} [batched]")
 
     explainer = ProtocolAwareSHAP(
         schema, model, X_train, y_train,
         backend="tree", n_background=config.shap_background_samples,
     )
 
-    total_cpus = os.cpu_count() or 1
-    frac = getattr(config, "cpu_fraction", 0.9)
-    n_jobs = max(1, int(total_cpus * frac))
-    logger.info(f"  PA-SHAP Tree parallelizing with {n_jobs}/{total_cpus} CPUs")
-
-    def _explain_one(i):
-        return explainer.explain_instance(X_explain[i]).attributions
-
     start = time.time()
-    results = Parallel(n_jobs=n_jobs, backend="loky", verbose=1)(
-        delayed(_explain_one)(i) for i in range(len(X_explain))
-    )
+    attributions = explainer.explain_batch_tree(X_explain)
     elapsed = time.time() - start
-
-    attributions = np.stack(results, axis=0)
 
     return ExplanationResult(
         attributions=attributions,
         method_name="SHAP",
         model_name=model_name,
-        time_per_sample_ms=(elapsed / len(X_explain)) * 1000,
+        time_per_sample_ms=(elapsed / n) * 1000,
         total_time_s=elapsed,
     )
 
@@ -575,6 +528,8 @@ def pa_generate_all_explanations(
         rf_wrapper is not None,
         xgb_wrapper is not None,
     ])
+    # Tree SHAPs and DNN SHAP are now batched (single vectorised call) —
+    # only LIMEs need parallel CPU workers.
     total_cpus = os.cpu_count() or 1
     frac = getattr(config, "cpu_fraction", 0.9)
     usable_cpus = max(1, int(total_cpus * frac))
