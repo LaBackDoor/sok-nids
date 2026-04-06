@@ -316,7 +316,9 @@ def pa_explain_lime(
     start = time.time()
 
     # Process in checkpoint-sized batches, reusing the worker pool.
-    with Parallel(n_jobs=n_jobs, backend=backend, verbose=1) as parallel:
+    with Parallel(n_jobs=n_jobs, backend=backend, verbose=1,
+                   batch_size=50, pre_dispatch="2*n_jobs",
+                   max_nbytes="100M") as parallel:
         for batch_off in range(0, len(remaining), CHECKPOINT_BATCH_SIZE):
             batch = remaining[batch_off : batch_off + CHECKPOINT_BATCH_SIZE]
 
