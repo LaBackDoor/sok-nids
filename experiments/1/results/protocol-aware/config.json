@@ -77,7 +77,18 @@
     "ig_n_steps": 50,
     "ig_internal_batch_size": 8192,
     "num_explain_samples": 5000,
-    "cpu_fraction": 0.9
+    "cpu_fraction": 0.9,
+    "lime_auto_tune": false,
+    "lime_tune_candidates": [
+      200,
+      500,
+      1000,
+      2000,
+      5000
+    ],
+    "lime_tune_n_repeats": 5,
+    "lime_tune_stability_threshold": 0.85,
+    "lime_tune_probe_samples": 10
   },
   "metric": {
     "faithfulness_k_values": [
