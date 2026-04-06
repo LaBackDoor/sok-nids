@@ -71,14 +71,14 @@ def _save_pair_checkpoint(checkpoint_dir: Path, result: PairwiseConsensusResult)
     path.write_text(json.dumps({
         "explainer_a": result.explainer_a,
         "explainer_b": result.explainer_b,
-        "spearman_mean": result.spearman_mean,
-        "spearman_std": result.spearman_std,
-        "kendall_mean": result.kendall_mean,
-        "kendall_std": result.kendall_std,
-        "top_k_intersection": {str(k): v for k, v in result.top_k_intersection.items()},
-        "wilcoxon_statistic": result.wilcoxon_statistic,
-        "wilcoxon_p_value": result.wilcoxon_p_value,
-        "wilcoxon_reject_h0": result.wilcoxon_reject_h0,
+        "spearman_mean": float(result.spearman_mean),
+        "spearman_std": float(result.spearman_std),
+        "kendall_mean": float(result.kendall_mean),
+        "kendall_std": float(result.kendall_std),
+        "top_k_intersection": {str(k): float(v) for k, v in result.top_k_intersection.items()},
+        "wilcoxon_statistic": float(result.wilcoxon_statistic),
+        "wilcoxon_p_value": float(result.wilcoxon_p_value),
+        "wilcoxon_reject_h0": bool(result.wilcoxon_reject_h0),
     }, indent=2))
 
 
@@ -166,6 +166,12 @@ def _compute_single_pair(
 
     This is the unit of work for parallel execution.
     """
+    # Truncate to shared feature count for cross-mode pairs (normal vs PA)
+    if attrs_a.shape[1] != attrs_b.shape[1]:
+        min_feats = min(attrs_a.shape[1], attrs_b.shape[1])
+        attrs_a = attrs_a[:, :min_feats]
+        attrs_b = attrs_b[:, :min_feats]
+
     spearman_rhos, kendall_taus = _compute_pairwise_rank_correlations(attrs_a, attrs_b)
     top_k = _compute_top_k_intersection(attrs_a, attrs_b, top_k_values)
     w_stat, w_pval, w_reject = _compute_wilcoxon_test(attrs_a, attrs_b, alpha)
@@ -314,14 +320,14 @@ def consensus_to_dict(results: list[PairwiseConsensusResult]) -> list[dict]:
             "explainer_a": r.explainer_a,
             "explainer_b": r.explainer_b,
             "pair_type": tag_pair(r.explainer_a, r.explainer_b),
-            "spearman_mean": r.spearman_mean,
-            "spearman_std": r.spearman_std,
-            "kendall_mean": r.kendall_mean,
-            "kendall_std": r.kendall_std,
-            "top_k_intersection": {str(k): v for k, v in r.top_k_intersection.items()},
-            "wilcoxon_statistic": r.wilcoxon_statistic,
-            "wilcoxon_p_value": r.wilcoxon_p_value,
-            "wilcoxon_reject_h0": r.wilcoxon_reject_h0,
+            "spearman_mean": float(r.spearman_mean),
+            "spearman_std": float(r.spearman_std),
+            "kendall_mean": float(r.kendall_mean),
+            "kendall_std": float(r.kendall_std),
+            "top_k_intersection": {str(k): float(v) for k, v in r.top_k_intersection.items()},
+            "wilcoxon_statistic": float(r.wilcoxon_statistic),
+            "wilcoxon_p_value": float(r.wilcoxon_p_value),
+            "wilcoxon_reject_h0": bool(r.wilcoxon_reject_h0),
         }
         for r in results
     ]

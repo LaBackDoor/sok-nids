@@ -942,6 +942,17 @@ def main():
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(config.seed)
 
+    # Set up file logging
+    config.output_dir.mkdir(parents=True, exist_ok=True)
+    log_file = config.output_dir / f"experiment2_{time.strftime('%Y%m%d_%H%M%S')}.log"
+    fh = logging.FileHandler(log_file)
+    fh.setLevel(logging.INFO)
+    fh.setFormatter(logging.Formatter(
+        "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    ))
+    logging.getLogger().addHandler(fh)
+
     logger.info("Experiment 2: Adversarial Robustness and Explanation-Aware Attacks")
     logger.info(f"Datasets: {datasets}")
     logger.info(f"Phases: {phases}")

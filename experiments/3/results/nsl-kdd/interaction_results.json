@@ -1,0 +1,426 @@
+{
+  "top_interactions": {
+    "RF": [
+      {
+        "feature_a": "dst_host_serror_rate",
+        "feature_b": "flag_S0",
+        "feature_a_idx": 8,
+        "feature_b_idx": 19,
+        "interaction_strength": 0.005263169761747122
+      },
+      {
+        "feature_a": "logged_in",
+        "feature_b": "srv_count",
+        "feature_a_idx": 29,
+        "feature_b_idx": 115,
+        "interaction_strength": 0.004692557267844677
+      },
+      {
+        "feature_a": "dst_host_serror_rate",
+        "feature_b": "srv_serror_rate",
+        "feature_a_idx": 8,
+        "feature_b_idx": 118,
+        "interaction_strength": 0.004545197822153568
+      },
+      {
+        "feature_a": "dst_host_serror_rate",
+        "feature_b": "dst_host_srv_serror_rate",
+        "feature_a_idx": 8,
+        "feature_b_idx": 12,
+        "interaction_strength": 0.004016124177724123
+      },
+      {
+        "feature_a": "flag_S0",
+        "feature_b": "serror_rate",
+        "feature_a_idx": 19,
+        "feature_b_idx": 43,
+        "interaction_strength": 0.0036311454605311155
+      },
+      {
+        "feature_a": "count",
+        "feature_b": "service_http",
+        "feature_a_idx": 0,
+        "feature_b_idx": 68,
+        "interaction_strength": 0.0033638151362538338
+      },
+      {
+        "feature_a": "dst_host_same_src_port_rate",
+        "feature_b": "srv_count",
+        "feature_a_idx": 6,
+        "feature_b_idx": 115,
+        "interaction_strength": 0.0032675289548933506
+      },
+      {
+        "feature_a": "count",
+        "feature_b": "dst_host_srv_count",
+        "feature_a_idx": 0,
+        "feature_b_idx": 9,
+        "interaction_strength": 0.0032280345913022757
+      },
+      {
+        "feature_a": "count",
+        "feature_b": "logged_in",
+        "feature_a_idx": 0,
+        "feature_b_idx": 29,
+        "interaction_strength": 0.003185159992426634
+      },
+      {
+        "feature_a": "logged_in",
+        "feature_b": "service_ftp_data",
+        "feature_a_idx": 29,
+        "feature_b_idx": 64,
+        "interaction_strength": 0.0031818021088838577
+      },
+      {
+        "feature_a": "dst_host_serror_rate",
+        "feature_b": "serror_rate",
+        "feature_a_idx": 8,
+        "feature_b_idx": 43,
+        "interaction_strength": 0.0030872831121087074
+      },
+      {
+        "feature_a": "dst_host_diff_srv_rate",
+        "feature_b": "logged_in",
+        "feature_a_idx": 4,
+        "feature_b_idx": 29,
+        "interaction_strength": 0.003038290422409773
+      },
+      {
+        "feature_a": "dst_host_srv_count",
+        "feature_b": "srv_count",
+        "feature_a_idx": 9,
+        "feature_b_idx": 115,
+        "interaction_strength": 0.003006633138284087
+      },
+      {
+        "feature_a": "dst_host_srv_serror_rate",
+        "feature_b": "srv_serror_rate",
+        "feature_a_idx": 12,
+        "feature_b_idx": 118,
+        "interaction_strength": 0.0029881971422582865
+      },
+      {
+        "feature_a": "dst_host_same_src_port_rate",
+        "feature_b": "service_http",
+        "feature_a_idx": 6,
+        "feature_b_idx": 68,
+        "interaction_strength": 0.0029780324548482895
+      },
+      {
+        "feature_a": "count",
+        "feature_b": "dst_host_same_src_port_rate",
+        "feature_a_idx": 0,
+        "feature_b_idx": 6,
+        "interaction_strength": 0.0028987135738134384
+      },
+      {
+        "feature_a": "dst_host_same_src_port_rate",
+        "feature_b": "logged_in",
+        "feature_a_idx": 6,
+        "feature_b_idx": 29,
+        "interaction_strength": 0.0028370420914143324
+      },
+      {
+        "feature_a": "logged_in",
+        "feature_b": "same_srv_rate",
+        "feature_a_idx": 29,
+        "feature_b_idx": 42,
+        "interaction_strength": 0.002822713926434517
+      },
+      {
+        "feature_a": "dst_host_srv_count",
+        "feature_b": "service_http",
+        "feature_a_idx": 9,
+        "feature_b_idx": 68,
+        "interaction_strength": 0.0027593434788286686
+      },
+      {
+        "feature_a": "dst_host_srv_serror_rate",
+        "feature_b": "serror_rate",
+        "feature_a_idx": 12,
+        "feature_b_idx": 43,
+        "interaction_strength": 0.002718999283388257
+      }
+    ],
+    "DNN": [
+      {
+        "feature_a": "dst_host_rerror_rate",
+        "feature_b": "same_srv_rate",
+        "feature_a_idx": 5,
+        "feature_b_idx": 42,
+        "interaction_strength": 0.7562352418899536
+      },
+      {
+        "feature_a": "dst_host_serror_rate",
+        "feature_b": "dst_host_srv_count",
+        "feature_a_idx": 8,
+        "feature_b_idx": 9,
+        "interaction_strength": 0.5384639501571655
+      },
+      {
+        "feature_a": "dst_host_serror_rate",
+        "feature_b": "flag_S0",
+        "feature_a_idx": 8,
+        "feature_b_idx": 19,
+        "interaction_strength": 0.5344650149345398
+      },
+      {
+        "feature_a": "dst_host_rerror_rate",
+        "feature_b": "dst_host_srv_count",
+        "feature_a_idx": 5,
+        "feature_b_idx": 9,
+        "interaction_strength": 0.46251028776168823
+      },
+      {
+        "feature_a": "dst_host_count",
+        "feature_b": "dst_host_rerror_rate",
+        "feature_a_idx": 3,
+        "feature_b_idx": 5,
+        "interaction_strength": 0.4445219337940216
+      },
+      {
+        "feature_a": "dst_host_rerror_rate",
+        "feature_b": "rerror_rate",
+        "feature_a_idx": 5,
+        "feature_b_idx": 40,
+        "interaction_strength": 0.4278739094734192
+      },
+      {
+        "feature_a": "dst_host_srv_count",
+        "feature_b": "rerror_rate",
+        "feature_a_idx": 9,
+        "feature_b_idx": 40,
+        "interaction_strength": 0.41923677921295166
+      },
+      {
+        "feature_a": "dst_host_rerror_rate",
+        "feature_b": "flag_SF",
+        "feature_a_idx": 5,
+        "feature_b_idx": 23,
+        "interaction_strength": 0.38211238384246826
+      },
+      {
+        "feature_a": "dst_host_srv_count",
+        "feature_b": "srv_count",
+        "feature_a_idx": 9,
+        "feature_b_idx": 115,
+        "interaction_strength": 0.37944719195365906
+      },
+      {
+        "feature_a": "dst_host_count",
+        "feature_b": "dst_host_srv_count",
+        "feature_a_idx": 3,
+        "feature_b_idx": 9,
+        "interaction_strength": 0.3390868008136749
+      },
+      {
+        "feature_a": "flag_SF",
+        "feature_b": "same_srv_rate",
+        "feature_a_idx": 23,
+        "feature_b_idx": 42,
+        "interaction_strength": 0.3197958171367645
+      },
+      {
+        "feature_a": "dst_host_serror_rate",
+        "feature_b": "rerror_rate",
+        "feature_a_idx": 8,
+        "feature_b_idx": 40,
+        "interaction_strength": 0.31881412863731384
+      },
+      {
+        "feature_a": "dst_host_srv_count",
+        "feature_b": "service_private",
+        "feature_a_idx": 9,
+        "feature_b_idx": 93,
+        "interaction_strength": 0.3112509846687317
+      },
+      {
+        "feature_a": "dst_host_serror_rate",
+        "feature_b": "same_srv_rate",
+        "feature_a_idx": 8,
+        "feature_b_idx": 42,
+        "interaction_strength": 0.30069679021835327
+      },
+      {
+        "feature_a": "dst_host_serror_rate",
+        "feature_b": "srv_count",
+        "feature_a_idx": 8,
+        "feature_b_idx": 115,
+        "interaction_strength": 0.2948133051395416
+      },
+      {
+        "feature_a": "dst_host_rerror_rate",
+        "feature_b": "service_http",
+        "feature_a_idx": 5,
+        "feature_b_idx": 68,
+        "interaction_strength": 0.29062026739120483
+      },
+      {
+        "feature_a": "dst_host_srv_count",
+        "feature_b": "service_http",
+        "feature_a_idx": 9,
+        "feature_b_idx": 68,
+        "interaction_strength": 0.290360689163208
+      },
+      {
+        "feature_a": "dst_host_same_src_port_rate",
+        "feature_b": "same_srv_rate",
+        "feature_a_idx": 6,
+        "feature_b_idx": 42,
+        "interaction_strength": 0.2892002463340759
+      },
+      {
+        "feature_a": "dst_host_serror_rate",
+        "feature_b": "dst_host_srv_serror_rate",
+        "feature_a_idx": 8,
+        "feature_b_idx": 12,
+        "interaction_strength": 0.27476978302001953
+      },
+      {
+        "feature_a": "dst_host_srv_count",
+        "feature_b": "dst_host_srv_serror_rate",
+        "feature_a_idx": 9,
+        "feature_b_idx": 12,
+        "interaction_strength": 0.26957231760025024
+      }
+    ]
+  },
+  "lime_comparison": {
+    "RF": {
+      "main_effect_correlation": -0.2936438523201209,
+      "main_effect_correlation_p": 0.0010282017512281143,
+      "interaction_to_main_ratio": 1.3104210129917528,
+      "total_interaction_strength": 1.0497596263885498,
+      "features_underweighted_by_lime": [
+        {
+          "feature": "dst_host_count",
+          "lime_rank": 121,
+          "interaction_rank": 10,
+          "rank_gain": 111
+        },
+        {
+          "feature": "service_http",
+          "lime_rank": 106,
+          "interaction_rank": 7,
+          "rank_gain": 99
+        },
+        {
+          "feature": "serror_rate",
+          "lime_rank": 105,
+          "interaction_rank": 8,
+          "rank_gain": 97
+        },
+        {
+          "feature": "dst_host_srv_rerror_rate",
+          "lime_rank": 113,
+          "interaction_rank": 18,
+          "rank_gain": 95
+        },
+        {
+          "feature": "srv_count",
+          "lime_rank": 98,
+          "interaction_rank": 4,
+          "rank_gain": 94
+        },
+        {
+          "feature": "protocol_type_tcp",
+          "lime_rank": 116,
+          "interaction_rank": 24,
+          "rank_gain": 92
+        },
+        {
+          "feature": "same_srv_rate",
+          "lime_rank": 108,
+          "interaction_rank": 19,
+          "rank_gain": 89
+        },
+        {
+          "feature": "dst_host_srv_diff_host_rate",
+          "lime_rank": 109,
+          "interaction_rank": 21,
+          "rank_gain": 88
+        },
+        {
+          "feature": "dst_bytes",
+          "lime_rank": 120,
+          "interaction_rank": 35,
+          "rank_gain": 85
+        },
+        {
+          "feature": "diff_srv_rate",
+          "lime_rank": 100,
+          "interaction_rank": 17,
+          "rank_gain": 83
+        }
+      ]
+    },
+    "DNN": {
+      "main_effect_correlation": -0.5353236901501398,
+      "main_effect_correlation_p": 2.1154382974389033e-10,
+      "interaction_to_main_ratio": 2.0994293315807226,
+      "total_interaction_strength": 66.15777587890625,
+      "features_underweighted_by_lime": [
+        {
+          "feature": "flag_SF",
+          "lime_rank": 119,
+          "interaction_rank": 5,
+          "rank_gain": 114
+        },
+        {
+          "feature": "dst_host_rerror_rate",
+          "lime_rank": 115,
+          "interaction_rank": 2,
+          "rank_gain": 113
+        },
+        {
+          "feature": "dst_host_count",
+          "lime_rank": 117,
+          "interaction_rank": 6,
+          "rank_gain": 111
+        },
+        {
+          "feature": "flag_S0",
+          "lime_rank": 120,
+          "interaction_rank": 9,
+          "rank_gain": 111
+        },
+        {
+          "feature": "count",
+          "lime_rank": 121,
+          "interaction_rank": 13,
+          "rank_gain": 108
+        },
+        {
+          "feature": "service_http",
+          "lime_rank": 110,
+          "interaction_rank": 7,
+          "rank_gain": 103
+        },
+        {
+          "feature": "same_srv_rate",
+          "lime_rank": 105,
+          "interaction_rank": 3,
+          "rank_gain": 102
+        },
+        {
+          "feature": "dst_host_same_srv_rate",
+          "lime_rank": 114,
+          "interaction_rank": 15,
+          "rank_gain": 99
+        },
+        {
+          "feature": "logged_in",
+          "lime_rank": 112,
+          "interaction_rank": 14,
+          "rank_gain": 98
+        },
+        {
+          "feature": "dst_host_diff_srv_rate",
+          "lime_rank": 116,
+          "interaction_rank": 21,
+          "rank_gain": 95
+        }
+      ]
+    }
+  }
+}

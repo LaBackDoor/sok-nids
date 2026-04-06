@@ -1,0 +1,43 @@
+{
+  "datasets": [
+    "cic-ids-2017"
+  ],
+  "phases": [
+    "explain",
+    "alignment",
+    "consensus",
+    "interactions"
+  ],
+  "xai_modes": [
+    "normal",
+    "pa"
+  ],
+  "consensus": {
+    "top_k_values": [
+      5,
+      10
+    ],
+    "num_explain_samples": 10000,
+    "alpha": 0.05
+  },
+  "interaction": {
+    "top_n_interactions": 20,
+    "shap_interaction_samples": 500,
+    "shap_background_samples": 100
+  },
+  "alignment": {
+    "enabled": true,
+    "top_k_rra": [
+      5,
+      10,
+      15
+    ]
+  },
+  "parallelism": {
+    "max_dataset_workers": 4,
+    "max_consensus_workers": 16,
+    "max_plot_workers": 8,
+    "num_gpu_devices": 2
+  },
+  "seed": 42
+}

@@ -356,7 +356,7 @@ def phase_explain(
         logger.info(f"  Generating missing explanations...")
 
         # Need to generate — load models
-        dnn_model, rf_model = load_models(
+        dnn_model, rf_model, _, _ = load_models(
             config.exp1_output_dir, dataset.dataset_name,
             dataset.X_train.shape[1], dataset.num_classes,
             config.dnn, device,
@@ -600,9 +600,9 @@ def phase_interactions(
     logger.info(f"=== FEATURE INTERACTION ANALYSIS on {dataset.dataset_name} ===")
     output_dir = config.output_dir / dataset.dataset_name
 
-    # Load models
-    dnn_model, rf_model = load_models(
-        config.output_dir, dataset.dataset_name,
+    # Load models from exp1 results
+    dnn_model, rf_model, _, _ = load_models(
+        config.exp1_output_dir, dataset.dataset_name,
         dataset.X_train.shape[1], dataset.num_classes,
         config.dnn, device,
     )
@@ -1104,6 +1104,17 @@ def main():
     torch.manual_seed(config.seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(config.seed)
+
+    # Set up file logging
+    config.output_dir.mkdir(parents=True, exist_ok=True)
+    log_file = config.output_dir / f"experiment3_{time.strftime('%Y%m%d_%H%M%S')}.log"
+    fh = logging.FileHandler(log_file)
+    fh.setLevel(logging.INFO)
+    fh.setFormatter(logging.Formatter(
+        "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    ))
+    logging.getLogger().addHandler(fh)
 
     logger.info("Experiment 3: Feature Interaction, Consensus & Expert Alignment")
     logger.info(f"Datasets: {datasets}")
