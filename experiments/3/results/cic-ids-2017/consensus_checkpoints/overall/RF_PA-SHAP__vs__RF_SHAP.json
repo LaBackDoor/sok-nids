@@ -1,0 +1,15 @@
+{
+  "explainer_a": "RF_PA-SHAP",
+  "explainer_b": "RF_SHAP",
+  "spearman_mean": 0.7882594906532803,
+  "spearman_std": 0.08312938873198503,
+  "kendall_mean": 0.6243207411500303,
+  "kendall_std": 0.09554563989891773,
+  "top_k_intersection": {
+    "5": 0.43996,
+    "10": 0.50802
+  },
+  "wilcoxon_statistic": 651.0,
+  "wilcoxon_p_value": 0.0014246760890164734,
+  "wilcoxon_reject_h0": true
+}

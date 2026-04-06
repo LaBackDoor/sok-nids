@@ -3,10 +3,10 @@
     "cic-ids-2017"
   ],
   "phases": [
-    "explain",
     "alignment",
     "consensus",
-    "interactions"
+    "interactions",
+    "explain"
   ],
   "xai_modes": [
     "normal",
