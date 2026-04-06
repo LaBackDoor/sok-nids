@@ -396,6 +396,9 @@ def phase_explain(
                     logger.info(f"    {key}: {result.attributions.shape}, {result.time_per_sample_ms:.2f} ms/sample")
             except Exception as e:
                 logger.error(f"    {key} failed: {e}", exc_info=True)
+            # Free GPU memory between methods to prevent accumulation
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
 
         # Save indices for this mode
         np.save(exp3_explain_dir / "explain_indices.npy", indices)

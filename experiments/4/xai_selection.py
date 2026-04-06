@@ -80,6 +80,11 @@ def _iterative_prune(
     best_indices = current_indices.copy()
     best_f1 = baseline_f1
 
+    # Reuse a single RF across pruning steps with warm_start
+    rf_reduced = RandomForestClassifier(
+        n_estimators=50, max_depth=10, n_jobs=-1, random_state=42, warm_start=True,
+    )
+
     while len(current_indices) > min_n:
         # Remove pruning_step_ratio of remaining features
         n_remove = max(1, int(len(current_indices) * config.pruning_step_ratio))
@@ -90,8 +95,7 @@ def _iterative_prune(
         reranked = np.argsort(current_importance)[::-1]
         current_indices = current_indices[reranked[:n_keep]]
 
-        # Evaluate with reduced features
-        rf_reduced = RandomForestClassifier(n_estimators=50, max_depth=10, n_jobs=-1, random_state=42)
+        # Evaluate with reduced features (warm_start reuses prior trees)
         rf_reduced.fit(X_train[:, current_indices], y_train)
         y_pred = rf_reduced.predict(X_val[:, current_indices])
         current_f1 = f1_score(y_val, y_pred, average="weighted", zero_division=0)

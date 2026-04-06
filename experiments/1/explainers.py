@@ -269,18 +269,14 @@ def explain_shap_dnn(
     with torch.no_grad():
         preds = torch.argmax(base_model(explain_tensor), dim=1).cpu().numpy()
 
-    # Extract attributions for the predicted class per sample
+    # Extract attributions for the predicted class per sample (vectorized)
+    _n = len(X_explain)
     if isinstance(shap_values, list):
-        # List of (samples, features) arrays, one per class
         stacked = np.stack(shap_values, axis=0)  # (classes, samples, features)
-        attributions = np.zeros((len(X_explain), X_explain.shape[1]), dtype=np.float32)
-        for i, pred in enumerate(preds):
-            attributions[i] = stacked[pred, i]
+        attributions = stacked[preds, np.arange(_n)]
     elif isinstance(shap_values, np.ndarray) and shap_values.ndim == 3:
         # (samples, features, classes)
-        attributions = np.zeros((len(X_explain), X_explain.shape[1]), dtype=np.float32)
-        for i, pred in enumerate(preds):
-            attributions[i] = shap_values[i, :, pred]
+        attributions = shap_values[np.arange(_n), :, preds]
     else:
         attributions = np.asarray(shap_values)
 
@@ -324,18 +320,14 @@ def explain_shap_rf(
     else:
         preds = model.predict(X_explain)
 
-    # Extract attributions for the predicted class per sample
+    # Extract attributions for the predicted class per sample (vectorized)
+    _n = len(X_explain)
     if isinstance(shap_values, list):
-        # List of (samples, features) arrays, one per class
         stacked = np.stack(shap_values, axis=0)  # (classes, samples, features)
-        attributions = np.zeros((len(X_explain), X_explain.shape[1]), dtype=np.float32)
-        for i, pred in enumerate(preds):
-            attributions[i] = stacked[pred, i]
+        attributions = stacked[preds, np.arange(_n)]
     elif isinstance(shap_values, np.ndarray) and shap_values.ndim == 3:
         # (samples, features, classes)
-        attributions = np.zeros((len(X_explain), X_explain.shape[1]), dtype=np.float32)
-        for i, pred in enumerate(preds):
-            attributions[i] = shap_values[i, :, pred]
+        attributions = shap_values[np.arange(_n), :, preds]
     else:
         attributions = np.asarray(shap_values)
 
@@ -459,7 +451,7 @@ def explain_lime(
         return row
 
     start = time.time()
-    results = Parallel(n_jobs=n_jobs, backend="threading", verbose=1)(
+    results = Parallel(n_jobs=n_jobs, backend="loky", verbose=1)(
         delayed(_explain_one)(i) for i in range(len(X_explain))
     )
     attributions = np.array(results)

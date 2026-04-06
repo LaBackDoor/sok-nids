@@ -26,6 +26,35 @@ logger = logging.getLogger(__name__)
 CHECKPOINT_BATCH_SIZE = 500
 
 
+def _load_checkpoint(ckpt_path: Path | None, n: int, n_features: int):
+    """Load checkpoint into a pre-allocated array.
+
+    Returns (attributions, done_mask, remaining_indices).
+    attributions is shape (n, n_features) pre-allocated; done_mask tracks which
+    rows are filled.
+    """
+    attributions = np.empty((n, n_features), dtype=np.float32)
+    done = np.zeros(n, dtype=bool)
+
+    if ckpt_path is not None and ckpt_path.exists():
+        ckpt = np.load(ckpt_path)
+        indices = ckpt["indices"].astype(np.intp)
+        attributions[indices] = ckpt["attributions"]
+        done[indices] = True
+        logger.info(f"  Resumed {int(done.sum())}/{n} from checkpoint")
+
+    remaining = np.where(~done)[0].tolist()
+    return attributions, done, remaining
+
+
+def _save_checkpoint(ckpt_path: Path | None, attributions: np.ndarray, done: np.ndarray):
+    """Save checkpoint using the pre-allocated array (no re-stacking)."""
+    if ckpt_path is None:
+        return
+    indices = np.where(done)[0].astype(np.int64)
+    np.savez(ckpt_path, indices=indices, attributions=attributions[indices])
+
+
 # ---------------------------------------------------------------------------
 # Dataset name -> pa_xai schema mapping
 # ---------------------------------------------------------------------------
@@ -96,20 +125,14 @@ def pa_explain_shap_dnn(
     )
 
     # Resume from checkpoint
-    completed: dict[int, np.ndarray] = {}
+    n_features = X_explain.shape[1]
     ckpt_path: Path | None = None
     if checkpoint_dir is not None:
         ckpt_path = Path(checkpoint_dir) / f"shap_dnn_{dataset_name}.npz"
-        if ckpt_path.exists():
-            ckpt = np.load(ckpt_path)
-            for idx, attr in zip(ckpt["indices"], ckpt["attributions"]):
-                completed[int(idx)] = attr
-            logger.info(f"  Resumed {len(completed)}/{n} from checkpoint")
+    attributions, done, remaining = _load_checkpoint(ckpt_path, n, n_features)
 
-    remaining = [i for i in range(n) if i not in completed]
     if not remaining:
         logger.info(f"  All {n} samples already checkpointed — skipping")
-        attributions = np.stack([completed[i] for i in range(n)])
         if ckpt_path is not None:
             ckpt_path.unlink(missing_ok=True)
         return ExplanationResult(
@@ -132,19 +155,13 @@ def pa_explain_shap_dnn(
                 batch_results = parallel(delayed(_explain_one)(i) for i in batch)
 
                 for idx, attrs in batch_results:
-                    completed[idx] = attrs
+                    attributions[idx] = attrs
+                    done[idx] = True
 
-                if ckpt_path is not None:
-                    sorted_keys = sorted(completed.keys())
-                    np.savez(
-                        ckpt_path,
-                        indices=np.array(sorted_keys, dtype=np.int64),
-                        attributions=np.stack([completed[k] for k in sorted_keys]),
-                    )
-                    logger.info(f"  Checkpoint saved: {len(completed)}/{n} complete")
+                _save_checkpoint(ckpt_path, attributions, done)
+                logger.info(f"  Checkpoint saved: {int(done.sum())}/{n} complete")
 
     elapsed = time.time() - start
-    attributions = np.stack([completed[i] for i in range(n)])
 
     if ckpt_path is not None and ckpt_path.exists():
         ckpt_path.unlink()
@@ -191,7 +208,7 @@ def pa_explain_shap_tree(
         return explainer.explain_instance(X_explain[i]).attributions
 
     start = time.time()
-    results = Parallel(n_jobs=n_jobs, backend="threading", verbose=1)(
+    results = Parallel(n_jobs=n_jobs, backend="loky", verbose=1)(
         delayed(_explain_one)(i) for i in range(len(X_explain))
     )
     elapsed = time.time() - start
@@ -272,21 +289,14 @@ def pa_explain_lime(
     logger.info(f"  PA-LIME {model_name}: {n_jobs} workers, backend={backend}")
 
     # ── Resume from checkpoint if one exists ──
-    completed: dict[int, np.ndarray] = {}
+    n_features = X_explain.shape[1]
     ckpt_path: Path | None = None
     if checkpoint_dir is not None:
         ckpt_path = Path(checkpoint_dir) / f"lime_{dataset_name}_{model_name.lower()}.npz"
-        if ckpt_path.exists():
-            ckpt = np.load(ckpt_path)
-            for idx, attr in zip(ckpt["indices"], ckpt["attributions"]):
-                completed[int(idx)] = attr
-            logger.info(f"  Resumed {len(completed)}/{n} from checkpoint")
-
-    remaining = [i for i in range(n) if i not in completed]
+    attributions, done, remaining = _load_checkpoint(ckpt_path, n, n_features)
 
     if not remaining:
         logger.info(f"  All {n} samples already checkpointed — skipping")
-        attributions = np.stack([completed[i] for i in range(n)])
         if ckpt_path is not None:
             ckpt_path.unlink(missing_ok=True)
         return ExplanationResult(
@@ -315,20 +325,13 @@ def pa_explain_lime(
             )
 
             for idx, attrs in batch_results:
-                completed[idx] = attrs
+                attributions[idx] = attrs
+                done[idx] = True
 
-            # Flush checkpoint to disk
-            if ckpt_path is not None:
-                sorted_keys = sorted(completed.keys())
-                np.savez(
-                    ckpt_path,
-                    indices=np.array(sorted_keys, dtype=np.int64),
-                    attributions=np.stack([completed[k] for k in sorted_keys]),
-                )
-                logger.info(f"  Checkpoint saved: {len(completed)}/{n} complete")
+            _save_checkpoint(ckpt_path, attributions, done)
+            logger.info(f"  Checkpoint saved: {int(done.sum())}/{n} complete")
 
     elapsed = time.time() - start
-    attributions = np.stack([completed[i] for i in range(n)])
 
     # Clean up checkpoint after successful completion
     if ckpt_path is not None and ckpt_path.exists():
@@ -372,20 +375,14 @@ def pa_explain_ig(
     explainer = ProtocolAwareIG(schema, base_model, X_train)
 
     # Resume from checkpoint
-    completed: dict[int, np.ndarray] = {}
+    n_features = X_explain.shape[1]
     ckpt_path: Path | None = None
     if checkpoint_dir is not None:
         ckpt_path = Path(checkpoint_dir) / f"ig_{dataset_name}_{model_name.lower()}.npz"
-        if ckpt_path.exists():
-            ckpt = np.load(ckpt_path)
-            for idx, attr in zip(ckpt["indices"], ckpt["attributions"]):
-                completed[int(idx)] = attr
-            logger.info(f"  Resumed {len(completed)}/{n} from checkpoint")
+    attributions, done, remaining = _load_checkpoint(ckpt_path, n, n_features)
 
-    remaining = [i for i in range(n) if i not in completed]
     if not remaining:
         logger.info(f"  All {n} samples already checkpointed — skipping")
-        attributions = np.stack([completed[i] for i in range(n)])
         if ckpt_path is not None:
             ckpt_path.unlink(missing_ok=True)
         return ExplanationResult(
@@ -412,19 +409,13 @@ def pa_explain_ig(
                 batch_results = parallel(delayed(_explain_one)(i) for i in batch)
 
                 for idx, attrs in batch_results:
-                    completed[idx] = attrs
+                    attributions[idx] = attrs
+                    done[idx] = True
 
-                if ckpt_path is not None:
-                    sorted_keys = sorted(completed.keys())
-                    np.savez(
-                        ckpt_path,
-                        indices=np.array(sorted_keys, dtype=np.int64),
-                        attributions=np.stack([completed[k] for k in sorted_keys]),
-                    )
-                    logger.info(f"  Checkpoint saved: {len(completed)}/{n} complete")
+                _save_checkpoint(ckpt_path, attributions, done)
+                logger.info(f"  Checkpoint saved: {int(done.sum())}/{n} complete")
 
     elapsed = time.time() - start
-    attributions = np.stack([completed[i] for i in range(n)])
 
     if ckpt_path is not None and ckpt_path.exists():
         ckpt_path.unlink()
@@ -466,20 +457,14 @@ def pa_explain_deeplift(
     explainer = ProtocolAwareDeepLIFT(schema, base_model, X_train)
 
     # Resume from checkpoint
-    completed: dict[int, np.ndarray] = {}
+    n_features = X_explain.shape[1]
     ckpt_path: Path | None = None
     if checkpoint_dir is not None:
         ckpt_path = Path(checkpoint_dir) / f"deeplift_{dataset_name}_{model_name.lower()}.npz"
-        if ckpt_path.exists():
-            ckpt = np.load(ckpt_path)
-            for idx, attr in zip(ckpt["indices"], ckpt["attributions"]):
-                completed[int(idx)] = attr
-            logger.info(f"  Resumed {len(completed)}/{n} from checkpoint")
+    attributions, done, remaining = _load_checkpoint(ckpt_path, n, n_features)
 
-    remaining = [i for i in range(n) if i not in completed]
     if not remaining:
         logger.info(f"  All {n} samples already checkpointed — skipping")
-        attributions = np.stack([completed[i] for i in range(n)])
         if ckpt_path is not None:
             ckpt_path.unlink(missing_ok=True)
         return ExplanationResult(
@@ -505,19 +490,13 @@ def pa_explain_deeplift(
                 batch_results = parallel(delayed(_explain_one)(i) for i in batch)
 
                 for idx, attrs in batch_results:
-                    completed[idx] = attrs
+                    attributions[idx] = attrs
+                    done[idx] = True
 
-                if ckpt_path is not None:
-                    sorted_keys = sorted(completed.keys())
-                    np.savez(
-                        ckpt_path,
-                        indices=np.array(sorted_keys, dtype=np.int64),
-                        attributions=np.stack([completed[k] for k in sorted_keys]),
-                    )
-                    logger.info(f"  Checkpoint saved: {len(completed)}/{n} complete")
+                _save_checkpoint(ckpt_path, attributions, done)
+                logger.info(f"  Checkpoint saved: {int(done.sum())}/{n} complete")
 
     elapsed = time.time() - start
-    attributions = np.stack([completed[i] for i in range(n)])
 
     if ckpt_path is not None and ckpt_path.exists():
         ckpt_path.unlink()
@@ -568,10 +547,27 @@ def pa_generate_all_explanations(
     ds_name = dataset.dataset_name
     num_gpus = torch.cuda.device_count()
 
+    # ── Pre-clone models for Phase 2 while Phase 1 runs ──────────────
+    # Start cloning in a background thread so it overlaps with Phase 1.
+    ig_clone = dl_clone = None
+    clone_future = None
+    if dnn_model is not None and num_gpus >= 2:
+        def _pre_clone():
+            if num_gpus >= 3:
+                return (
+                    _clone_model_to_device(dnn_model, torch.device("cuda:1")),
+                    _clone_model_to_device(dnn_model, torch.device("cuda:2")),
+                )
+            else:
+                return (
+                    None,  # IG reuses dnn_model on GPU 0
+                    _clone_model_to_device(dnn_model, torch.device("cuda:1")),
+                )
+        clone_pool = ThreadPoolExecutor(max_workers=1)
+        clone_future = clone_pool.submit(_pre_clone)
+        clone_pool.shutdown(wait=False)
+
     # ── Phase 1: DNN SHAP + All LIMEs + tree SHAPs (concurrent) ────────
-    # DNN SHAP (DeepExplainer) is GPU-bound; tree SHAPs and tree LIMEs
-    # are CPU-bound; DNN LIME uses GPU for predict but fuzzer/Ridge is
-    # CPU.  No resource conflict — run everything concurrently.
     lime_job_count = sum([
         dnn_wrapper is not None,
         rf_wrapper is not None,
@@ -589,7 +585,6 @@ def pa_generate_all_explanations(
     max_workers = max(1, lime_job_count + 3)
     futures: dict[str, object] = {}
     with ThreadPoolExecutor(max_workers=max_workers) as pool:
-        # DNN SHAP — now concurrent with everything else
         if dnn_model is not None and dnn_wrapper is not None:
             logger.info("--- DNN PA-Explanations ---")
             futures["PA-SHAP DNN"] = pool.submit(
@@ -639,10 +634,12 @@ def pa_generate_all_explanations(
             logger.error(f"{name} failed: {e}")
 
     # ── Phase 2: DNN IG ‖ DeepLIFT (GPU-bound) ──────────────────────
+    # Clones were pre-built in background during Phase 1.
     if dnn_model is not None:
+        if clone_future is not None:
+            ig_clone, dl_clone = clone_future.result()
+
         if num_gpus >= 3:
-            ig_clone = _clone_model_to_device(dnn_model, torch.device("cuda:1"))
-            dl_clone = _clone_model_to_device(dnn_model, torch.device("cuda:2"))
             logger.info("  Running PA-IG (GPU 1) || PA-DeepLIFT (GPU 2)")
             with ThreadPoolExecutor(max_workers=2) as pool:
                 ig_future = pool.submit(
@@ -669,8 +666,6 @@ def pa_generate_all_explanations(
             torch.cuda.empty_cache()
 
         elif num_gpus >= 2:
-            gpu1 = torch.device("cuda:1")
-            dl_clone = _clone_model_to_device(dnn_model, gpu1)
             logger.info("  Running PA-IG (GPU 0) || PA-DeepLIFT (GPU 1)")
             with ThreadPoolExecutor(max_workers=2) as pool:
                 ig_future = pool.submit(
@@ -682,7 +677,7 @@ def pa_generate_all_explanations(
                 dl_future = pool.submit(
                     pa_explain_deeplift, dl_clone, X_explain,
                     dataset.X_train, dataset.y_train,
-                    ds_name, gpu1, config,
+                    ds_name, torch.device("cuda:1"), config,
                     checkpoint_dir=checkpoint_dir,
                 )
             try:
