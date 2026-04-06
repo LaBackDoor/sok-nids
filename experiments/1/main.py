@@ -92,6 +92,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger("experiment1")
 
+# Suppress verbose SHAP internal logging (KernelExplainer dumps arrays at INFO)
+logging.getLogger("shap").setLevel(logging.WARNING)
+logging.getLogger("shap").handlers.clear()
+
 
 def setup_device() -> tuple[torch.device, int]:
     """Detect available GPUs and set up device."""

@@ -28,6 +28,7 @@ import json
 import logging
 import os
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -98,6 +99,7 @@ logger = logging.getLogger("experiment2")
 
 # Suppress verbose SHAP internal logging (KernelExplainer dumps arrays at INFO)
 logging.getLogger("shap").setLevel(logging.WARNING)
+logging.getLogger("shap").handlers.clear()  # remove any handlers SHAP may have added
 
 
 def setup_device() -> tuple[torch.device, int]:
@@ -151,6 +153,10 @@ def ensure_models_trained(
     return dnn_model, dnn_wrapper, rf_wrapper
 
 
+# Lock to serialise GPU-based explainers (SHAP DeepExplainer, IG, DeepLIFT)
+# that modify model hooks/grads — concurrent access triggers PyTorch internal asserts.
+_gpu_explain_lock = threading.Lock()
+
 def make_explain_fn(
     method: str,
     dnn_model: NIDSNet,
@@ -167,9 +173,16 @@ def make_explain_fn(
     """
     # PA methods delegate to pa_explainers module
     if method.startswith("PA-"):
-        return make_pa_explain_fn(
+        base_fn = make_pa_explain_fn(
             method, dnn_model, dnn_wrapper, dataset, device, config,
         )
+        # GPU-based PA methods need the same lock as vanilla GPU methods
+        if method in ("PA-SHAP", "PA-IG", "PA-DeepLIFT"):
+            def _locked_pa_fn(X, _fn=base_fn):
+                with _gpu_explain_lock:
+                    return _fn(X)
+            return _locked_pa_fn
+        return base_fn
 
     # Vanilla methods
     rng = np.random.RandomState(42)
@@ -191,7 +204,8 @@ def make_explain_fn(
     if method == "SHAP":
         model_copy = copy.deepcopy(dnn_model)
         def fn(X):
-            r = explain_shap_dnn(model_copy, X, X_bg, device, explainer_cfg)
+            with _gpu_explain_lock:
+                r = explain_shap_dnn(model_copy, X, X_bg, device, explainer_cfg)
             return r.attributions
         return fn
 
@@ -207,14 +221,16 @@ def make_explain_fn(
     elif method == "IG":
         model_copy = copy.deepcopy(dnn_model)
         def fn(X):
-            r = explain_ig(model_copy, X, device, explainer_cfg)
+            with _gpu_explain_lock:
+                r = explain_ig(model_copy, X, device, explainer_cfg)
             return r.attributions
         return fn
 
     elif method == "DeepLIFT":
         model_copy = copy.deepcopy(dnn_model)
         def fn(X):
-            r = explain_deeplift(model_copy, X, device, explainer_cfg)
+            with _gpu_explain_lock:
+                r = explain_deeplift(model_copy, X, device, explainer_cfg)
             return r.attributions
         return fn
 

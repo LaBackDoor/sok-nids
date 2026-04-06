@@ -213,6 +213,27 @@ def _load_cic_ids_2017(config: DataConfig) -> pd.DataFrame:
         else:
             df = pd.concat([df, chunk], ignore_index=True)
     logger.info(f"  Combined shape: {df.shape}")
+
+    # Derive Protocol column (not present in MachineLearningCVE CSVs).
+    # TCP=6: any TCP flag > 0 or Init_Win_bytes_forward >= 0.
+    # ICMP=1: Destination Port == 0 and not TCP.
+    # UDP=17: everything else.
+    if "Protocol" not in df.columns:
+        tcp_flag_cols = [
+            "FIN Flag Count", "SYN Flag Count", "RST Flag Count",
+            "PSH Flag Count", "ACK Flag Count", "URG Flag Count",
+            "CWE Flag Count", "ECE Flag Count",
+        ]
+        is_tcp = (df[tcp_flag_cols] > 0).any(axis=1) | (df["Init_Win_bytes_forward"] >= 0)
+        is_icmp = ~is_tcp & (df["Destination Port"] == 0)
+        protocol = pd.Series(17, index=df.index, dtype="int8")  # default UDP
+        protocol[is_tcp] = 6
+        protocol[is_icmp] = 1
+        # Insert after "Destination Port" to match schema ordering
+        dst_pos = df.columns.get_loc("Destination Port") + 1
+        df.insert(dst_pos, "Protocol", protocol)
+        logger.info(f"  Derived Protocol column (TCP={is_tcp.sum()}, UDP={(~is_tcp & ~is_icmp).sum()}, ICMP={is_icmp.sum()})")
+
     return df
 
 
