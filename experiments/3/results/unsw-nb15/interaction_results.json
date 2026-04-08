@@ -1,0 +1,426 @@
+{
+  "top_interactions": {
+    "RF": [
+      {
+        "feature_a": "Bwd Packets/s",
+        "feature_b": "Fwd Seg Size Min",
+        "feature_a_idx": 37,
+        "feature_b_idx": 68,
+        "interaction_strength": 0.004599218722432852
+      },
+      {
+        "feature_a": "Bwd Init Win Bytes",
+        "feature_b": "Fwd Seg Size Min",
+        "feature_a_idx": 66,
+        "feature_b_idx": 68,
+        "interaction_strength": 0.0038746828213334084
+      },
+      {
+        "feature_a": "Flow IAT Std",
+        "feature_b": "FWD Init Win Bytes",
+        "feature_a_idx": 17,
+        "feature_b_idx": 65,
+        "interaction_strength": 0.002745789010077715
+      },
+      {
+        "feature_a": "Bwd Packets/s",
+        "feature_b": "PSH Flag Count",
+        "feature_a_idx": 37,
+        "feature_b_idx": 46,
+        "interaction_strength": 0.002420678036287427
+      },
+      {
+        "feature_a": "Flow Packets/s",
+        "feature_b": "FWD Init Win Bytes",
+        "feature_a_idx": 15,
+        "feature_b_idx": 65,
+        "interaction_strength": 0.0022178003564476967
+      },
+      {
+        "feature_a": "PSH Flag Count",
+        "feature_b": "Fwd Seg Size Min",
+        "feature_a_idx": 46,
+        "feature_b_idx": 68,
+        "interaction_strength": 0.0021150177344679832
+      },
+      {
+        "feature_a": "Flow IAT Std",
+        "feature_b": "Fwd Seg Size Min",
+        "feature_a_idx": 17,
+        "feature_b_idx": 68,
+        "interaction_strength": 0.002087394706904888
+      },
+      {
+        "feature_a": "Flow IAT Mean",
+        "feature_b": "Fwd Seg Size Min",
+        "feature_a_idx": 16,
+        "feature_b_idx": 68,
+        "interaction_strength": 0.0019983004312962294
+      },
+      {
+        "feature_a": "Flow IAT Max",
+        "feature_b": "FWD Init Win Bytes",
+        "feature_a_idx": 18,
+        "feature_b_idx": 65,
+        "interaction_strength": 0.001978408545255661
+      },
+      {
+        "feature_a": "Flow Packets/s",
+        "feature_b": "Bwd Init Win Bytes",
+        "feature_a_idx": 15,
+        "feature_b_idx": 66,
+        "interaction_strength": 0.001907676924020052
+      },
+      {
+        "feature_a": "Down/Up Ratio",
+        "feature_b": "Fwd Seg Size Min",
+        "feature_a_idx": 51,
+        "feature_b_idx": 68,
+        "interaction_strength": 0.001870225416496396
+      },
+      {
+        "feature_a": "Fwd Packets/s",
+        "feature_b": "Fwd Seg Size Min",
+        "feature_a_idx": 36,
+        "feature_b_idx": 68,
+        "interaction_strength": 0.001850505592301488
+      },
+      {
+        "feature_a": "Fwd IAT Mean",
+        "feature_b": "PSH Flag Count",
+        "feature_a_idx": 21,
+        "feature_b_idx": 46,
+        "interaction_strength": 0.0018201975617557764
+      },
+      {
+        "feature_a": "Flow IAT Max",
+        "feature_b": "Fwd Seg Size Min",
+        "feature_a_idx": 18,
+        "feature_b_idx": 68,
+        "interaction_strength": 0.0017524731811136007
+      },
+      {
+        "feature_a": "PSH Flag Count",
+        "feature_b": "Bwd Init Win Bytes",
+        "feature_a_idx": 46,
+        "feature_b_idx": 66,
+        "interaction_strength": 0.0017031739698722959
+      },
+      {
+        "feature_a": "PSH Flag Count",
+        "feature_b": "FWD Init Win Bytes",
+        "feature_a_idx": 46,
+        "feature_b_idx": 65,
+        "interaction_strength": 0.0016523267840966582
+      },
+      {
+        "feature_a": "Flow Packets/s",
+        "feature_b": "PSH Flag Count",
+        "feature_a_idx": 15,
+        "feature_b_idx": 46,
+        "interaction_strength": 0.0015991136897355318
+      },
+      {
+        "feature_a": "Fwd IAT Std",
+        "feature_b": "Fwd Seg Size Min",
+        "feature_a_idx": 22,
+        "feature_b_idx": 68,
+        "interaction_strength": 0.001558702439069748
+      },
+      {
+        "feature_a": "PSH Flag Count",
+        "feature_b": "Down/Up Ratio",
+        "feature_a_idx": 46,
+        "feature_b_idx": 51,
+        "interaction_strength": 0.0015243991510942578
+      },
+      {
+        "feature_a": "Bwd Packet Length Max",
+        "feature_b": "Fwd Seg Size Min",
+        "feature_a_idx": 10,
+        "feature_b_idx": 68,
+        "interaction_strength": 0.001503483741544187
+      }
+    ],
+    "DNN": [
+      {
+        "feature_a": "PSH Flag Count",
+        "feature_b": "Fwd Seg Size Min",
+        "feature_a_idx": 46,
+        "feature_b_idx": 68,
+        "interaction_strength": 2.754502058029175
+      },
+      {
+        "feature_a": "FWD Init Win Bytes",
+        "feature_b": "Fwd Seg Size Min",
+        "feature_a_idx": 65,
+        "feature_b_idx": 68,
+        "interaction_strength": 2.134969711303711
+      },
+      {
+        "feature_a": "Bwd Packets/s",
+        "feature_b": "Fwd Seg Size Min",
+        "feature_a_idx": 37,
+        "feature_b_idx": 68,
+        "interaction_strength": 1.8429443836212158
+      },
+      {
+        "feature_a": "Protocol",
+        "feature_b": "Fwd Seg Size Min",
+        "feature_a_idx": 0,
+        "feature_b_idx": 68,
+        "interaction_strength": 1.7092639207839966
+      },
+      {
+        "feature_a": "Bwd Packet Length Max",
+        "feature_b": "PSH Flag Count",
+        "feature_a_idx": 10,
+        "feature_b_idx": 46,
+        "interaction_strength": 1.6257869005203247
+      },
+      {
+        "feature_a": "Bwd Packet Length Max",
+        "feature_b": "Bwd Packet Length Std",
+        "feature_a_idx": 10,
+        "feature_b_idx": 13,
+        "interaction_strength": 1.587302803993225
+      },
+      {
+        "feature_a": "SYN Flag Count",
+        "feature_b": "Fwd Seg Size Min",
+        "feature_a_idx": 44,
+        "feature_b_idx": 68,
+        "interaction_strength": 1.5316740274429321
+      },
+      {
+        "feature_a": "FIN Flag Count",
+        "feature_b": "Fwd Seg Size Min",
+        "feature_a_idx": 43,
+        "feature_b_idx": 68,
+        "interaction_strength": 1.4546257257461548
+      },
+      {
+        "feature_a": "Packet Length Variance",
+        "feature_b": "PSH Flag Count",
+        "feature_a_idx": 42,
+        "feature_b_idx": 46,
+        "interaction_strength": 1.4315038919448853
+      },
+      {
+        "feature_a": "Bwd Packets/s",
+        "feature_b": "PSH Flag Count",
+        "feature_a_idx": 37,
+        "feature_b_idx": 46,
+        "interaction_strength": 1.332463264465332
+      },
+      {
+        "feature_a": "Bwd Packet Length Max",
+        "feature_b": "Fwd Seg Size Min",
+        "feature_a_idx": 10,
+        "feature_b_idx": 68,
+        "interaction_strength": 1.1881662607192993
+      },
+      {
+        "feature_a": "Packet Length Max",
+        "feature_b": "PSH Flag Count",
+        "feature_a_idx": 39,
+        "feature_b_idx": 46,
+        "interaction_strength": 1.066125750541687
+      },
+      {
+        "feature_a": "Bwd Packet Length Std",
+        "feature_b": "PSH Flag Count",
+        "feature_a_idx": 13,
+        "feature_b_idx": 46,
+        "interaction_strength": 0.9980987906455994
+      },
+      {
+        "feature_a": "Bwd Packets/s",
+        "feature_b": "SYN Flag Count",
+        "feature_a_idx": 37,
+        "feature_b_idx": 44,
+        "interaction_strength": 0.9243208765983582
+      },
+      {
+        "feature_a": "Bwd Packet Length Max",
+        "feature_b": "Packet Length Variance",
+        "feature_a_idx": 10,
+        "feature_b_idx": 42,
+        "interaction_strength": 0.890334963798523
+      },
+      {
+        "feature_a": "Bwd Init Win Bytes",
+        "feature_b": "Fwd Seg Size Min",
+        "feature_a_idx": 66,
+        "feature_b_idx": 68,
+        "interaction_strength": 0.8766522407531738
+      },
+      {
+        "feature_a": "Bwd Packet Length Std",
+        "feature_b": "Packet Length Max",
+        "feature_a_idx": 13,
+        "feature_b_idx": 39,
+        "interaction_strength": 0.8659713268280029
+      },
+      {
+        "feature_a": "Bwd Packet Length Std",
+        "feature_b": "Packet Length Variance",
+        "feature_a_idx": 13,
+        "feature_b_idx": 42,
+        "interaction_strength": 0.8149685263633728
+      },
+      {
+        "feature_a": "Packet Length Variance",
+        "feature_b": "Fwd Seg Size Min",
+        "feature_a_idx": 42,
+        "feature_b_idx": 68,
+        "interaction_strength": 0.8141152262687683
+      },
+      {
+        "feature_a": "Bwd Packet Length Std",
+        "feature_b": "Fwd Seg Size Min",
+        "feature_a_idx": 13,
+        "feature_b_idx": 68,
+        "interaction_strength": 0.8041068911552429
+      }
+    ]
+  },
+  "lime_comparison": {
+    "RF": {
+      "main_effect_correlation": 0.39850788856833863,
+      "main_effect_correlation_p": 0.00033117898333485555,
+      "interaction_to_main_ratio": 1.4699671566578412,
+      "total_interaction_strength": 0.7433338165283203,
+      "features_underweighted_by_lime": [
+        {
+          "feature": "Flow IAT Max",
+          "lime_rank": 73,
+          "interaction_rank": 15,
+          "rank_gain": 58
+        },
+        {
+          "feature": "Total Bwd packets",
+          "lime_rank": 74,
+          "interaction_rank": 24,
+          "rank_gain": 50
+        },
+        {
+          "feature": "Down/Up Ratio",
+          "lime_rank": 55,
+          "interaction_rank": 8,
+          "rank_gain": 47
+        },
+        {
+          "feature": "Bwd Header Length",
+          "lime_rank": 45,
+          "interaction_rank": 7,
+          "rank_gain": 38
+        },
+        {
+          "feature": "Protocol",
+          "lime_rank": 76,
+          "interaction_rank": 41,
+          "rank_gain": 35
+        },
+        {
+          "feature": "Flow Duration",
+          "lime_rank": 75,
+          "interaction_rank": 40,
+          "rank_gain": 35
+        },
+        {
+          "feature": "Total Fwd Packet",
+          "lime_rank": 56,
+          "interaction_rank": 23,
+          "rank_gain": 33
+        },
+        {
+          "feature": "Bwd IAT Max",
+          "lime_rank": 67,
+          "interaction_rank": 36,
+          "rank_gain": 31
+        },
+        {
+          "feature": "Fwd IAT Std",
+          "lime_rank": 44,
+          "interaction_rank": 16,
+          "rank_gain": 28
+        },
+        {
+          "feature": "Fwd IAT Total",
+          "lime_rank": 70,
+          "interaction_rank": 43,
+          "rank_gain": 27
+        }
+      ]
+    },
+    "DNN": {
+      "main_effect_correlation": 0.48251621176798304,
+      "main_effect_correlation_p": 8.832762655563623e-06,
+      "interaction_to_main_ratio": 1.5046078355164754,
+      "total_interaction_strength": 152.10794067382812,
+      "features_underweighted_by_lime": [
+        {
+          "feature": "Protocol",
+          "lime_rank": 76,
+          "interaction_rank": 5,
+          "rank_gain": 71
+        },
+        {
+          "feature": "Fwd Packets/s",
+          "lime_rank": 64,
+          "interaction_rank": 28,
+          "rank_gain": 36
+        },
+        {
+          "feature": "Bwd IAT Mean",
+          "lime_rank": 65,
+          "interaction_rank": 30,
+          "rank_gain": 35
+        },
+        {
+          "feature": "Total Bwd packets",
+          "lime_rank": 63,
+          "interaction_rank": 29,
+          "rank_gain": 34
+        },
+        {
+          "feature": "Bwd Packet Length Min",
+          "lime_rank": 55,
+          "interaction_rank": 23,
+          "rank_gain": 32
+        },
+        {
+          "feature": "Fwd Segment Size Avg",
+          "lime_rank": 50,
+          "interaction_rank": 18,
+          "rank_gain": 32
+        },
+        {
+          "feature": "Fwd Packet Length Min",
+          "lime_rank": 54,
+          "interaction_rank": 24,
+          "rank_gain": 30
+        },
+        {
+          "feature": "Bwd IAT Total",
+          "lime_rank": 52,
+          "interaction_rank": 22,
+          "rank_gain": 30
+        },
+        {
+          "feature": "SYN Flag Count",
+          "lime_rank": 39,
+          "interaction_rank": 9,
+          "rank_gain": 30
+        },
+        {
+          "feature": "Packet Length Min",
+          "lime_rank": 51,
+          "interaction_rank": 25,
+          "rank_gain": 26
+        }
+      ]
+    }
+  }
+}

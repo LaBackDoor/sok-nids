@@ -1,16 +1,8 @@
 {
   "unsw-nb15": {
-    "consensus_mean_spearman": 0.21442787357955623,
-    "consensus_mean_kendall": 0.16628894989160417,
-    "n_significant_divergences": 51,
-    "total_pairs": 66
-  },
-  "cse-cic-ids2018": {
-    "consensus_mean_spearman": 0.25596826292698044,
-    "consensus_mean_kendall": 0.2062771932566598,
+    "consensus_mean_spearman": 0.3094378497227663,
+    "consensus_mean_kendall": 0.24931418414205814,
     "n_significant_divergences": 56,
-    "total_pairs": 66,
-    "mean_rra": 0.22827069950627232,
-    "mean_rma": 0.11652423666405294
+    "total_pairs": 66
   }
 }
