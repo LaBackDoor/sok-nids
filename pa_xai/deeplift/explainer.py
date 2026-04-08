@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import warnings
 from contextlib import contextmanager
 
@@ -142,9 +143,10 @@ class ProtocolAwareDeepLIFT:
                 target = int(torch.argmax(logits, dim=1).item())
 
         baseline = self._baselines[target]
-        baseline_tensor = torch.tensor(baseline, dtype=torch.float32, device=device).unsqueeze(0)
+        baseline_tensor = torch.tensor(baseline, dtype=torch.float32, device=device).unsqueeze(0).requires_grad_(True)
 
-        softmax_model = _SoftmaxModel(self.model)
+        model_clone = copy.deepcopy(self.model).to(device)
+        softmax_model = _SoftmaxModel(model_clone)
         softmax_model.eval()
         dl = DeepLift(softmax_model, eps=self.eps, multiply_by_inputs=self.multiply_by_inputs)
 

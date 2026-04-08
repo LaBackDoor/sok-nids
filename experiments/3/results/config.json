@@ -1,12 +1,12 @@
 {
   "datasets": [
-    "cic-ids-2017"
+    "unsw-nb15"
   ],
   "phases": [
+    "explain",
     "alignment",
     "consensus",
-    "interactions",
-    "explain"
+    "interactions"
   ],
   "xai_modes": [
     "normal",

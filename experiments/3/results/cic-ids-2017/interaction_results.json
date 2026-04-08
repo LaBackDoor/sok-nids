@@ -1,0 +1,426 @@
+{
+  "top_interactions": {
+    "RF": [
+      {
+        "feature_a": "Max Packet Length",
+        "feature_b": "Packet Length Std",
+        "feature_a_idx": 40,
+        "feature_b_idx": 42,
+        "interaction_strength": 0.002103508450090885
+      },
+      {
+        "feature_a": "Total Length of Fwd Packets",
+        "feature_b": "Packet Length Std",
+        "feature_a_idx": 5,
+        "feature_b_idx": 42,
+        "interaction_strength": 0.001788303256034851
+      },
+      {
+        "feature_a": "Bwd Packet Length Mean",
+        "feature_b": "Avg Bwd Segment Size",
+        "feature_a_idx": 13,
+        "feature_b_idx": 55,
+        "interaction_strength": 0.0017563111614435911
+      },
+      {
+        "feature_a": "Bwd Packet Length Std",
+        "feature_b": "Avg Bwd Segment Size",
+        "feature_a_idx": 14,
+        "feature_b_idx": 55,
+        "interaction_strength": 0.0013895584270358086
+      },
+      {
+        "feature_a": "Fwd Packet Length Mean",
+        "feature_b": "Subflow Fwd Bytes",
+        "feature_a_idx": 9,
+        "feature_b_idx": 64,
+        "interaction_strength": 0.0013687977334484458
+      },
+      {
+        "feature_a": "Fwd Packet Length Mean",
+        "feature_b": "Packet Length Std",
+        "feature_a_idx": 9,
+        "feature_b_idx": 42,
+        "interaction_strength": 0.0013365773484110832
+      },
+      {
+        "feature_a": "Packet Length Mean",
+        "feature_b": "Average Packet Size",
+        "feature_a_idx": 41,
+        "feature_b_idx": 53,
+        "interaction_strength": 0.0012483570026233792
+      },
+      {
+        "feature_a": "Fwd Packet Length Max",
+        "feature_b": "Avg Fwd Segment Size",
+        "feature_a_idx": 7,
+        "feature_b_idx": 54,
+        "interaction_strength": 0.0012391882482916117
+      },
+      {
+        "feature_a": "Bwd Packet Length Max",
+        "feature_b": "Avg Bwd Segment Size",
+        "feature_a_idx": 11,
+        "feature_b_idx": 55,
+        "interaction_strength": 0.0012326148571446538
+      },
+      {
+        "feature_a": "Total Backward Packets",
+        "feature_b": "Average Packet Size",
+        "feature_a_idx": 4,
+        "feature_b_idx": 53,
+        "interaction_strength": 0.0011992761865258217
+      },
+      {
+        "feature_a": "Packet Length Std",
+        "feature_b": "Subflow Fwd Packets",
+        "feature_a_idx": 42,
+        "feature_b_idx": 63,
+        "interaction_strength": 0.0011865441920235753
+      },
+      {
+        "feature_a": "Packet Length Mean",
+        "feature_b": "Avg Bwd Segment Size",
+        "feature_a_idx": 41,
+        "feature_b_idx": 55,
+        "interaction_strength": 0.0011292127892374992
+      },
+      {
+        "feature_a": "Packet Length Std",
+        "feature_b": "Packet Length Variance",
+        "feature_a_idx": 42,
+        "feature_b_idx": 43,
+        "interaction_strength": 0.0011233517434448004
+      },
+      {
+        "feature_a": "Avg Fwd Segment Size",
+        "feature_b": "Avg Bwd Segment Size",
+        "feature_a_idx": 54,
+        "feature_b_idx": 55,
+        "interaction_strength": 0.0011223205365240574
+      },
+      {
+        "feature_a": "Destination Port",
+        "feature_b": "Avg Bwd Segment Size",
+        "feature_a_idx": 0,
+        "feature_b_idx": 55,
+        "interaction_strength": 0.0010724711464717984
+      },
+      {
+        "feature_a": "Avg Bwd Segment Size",
+        "feature_b": "Init_Win_bytes_backward",
+        "feature_a_idx": 55,
+        "feature_b_idx": 68,
+        "interaction_strength": 0.0010551956947892904
+      },
+      {
+        "feature_a": "Bwd Packet Length Mean",
+        "feature_b": "Packet Length Std",
+        "feature_a_idx": 13,
+        "feature_b_idx": 42,
+        "interaction_strength": 0.0010444020153954625
+      },
+      {
+        "feature_a": "Bwd Packet Length Mean",
+        "feature_b": "Bwd Packet Length Std",
+        "feature_a_idx": 13,
+        "feature_b_idx": 14,
+        "interaction_strength": 0.001041996874846518
+      },
+      {
+        "feature_a": "Fwd Packet Length Max",
+        "feature_b": "Subflow Fwd Packets",
+        "feature_a_idx": 7,
+        "feature_b_idx": 63,
+        "interaction_strength": 0.0010295214597135782
+      },
+      {
+        "feature_a": "Bwd Packet Length Max",
+        "feature_b": "Bwd Packet Length Std",
+        "feature_a_idx": 11,
+        "feature_b_idx": 14,
+        "interaction_strength": 0.0009667933918535709
+      }
+    ],
+    "DNN": [
+      {
+        "feature_a": "Destination Port",
+        "feature_b": "Fwd IAT Total",
+        "feature_a_idx": 0,
+        "feature_b_idx": 21,
+        "interaction_strength": 1.3567334413528442
+      },
+      {
+        "feature_a": "Destination Port",
+        "feature_b": "Flow Duration",
+        "feature_a_idx": 0,
+        "feature_b_idx": 2,
+        "interaction_strength": 1.2569212913513184
+      },
+      {
+        "feature_a": "Destination Port",
+        "feature_b": "URG Flag Count",
+        "feature_a_idx": 0,
+        "feature_b_idx": 49,
+        "interaction_strength": 1.1653081178665161
+      },
+      {
+        "feature_a": "Destination Port",
+        "feature_b": "Fwd IAT Std",
+        "feature_a_idx": 0,
+        "feature_b_idx": 23,
+        "interaction_strength": 1.037283182144165
+      },
+      {
+        "feature_a": "Destination Port",
+        "feature_b": "Fwd IAT Max",
+        "feature_a_idx": 0,
+        "feature_b_idx": 24,
+        "interaction_strength": 0.9476328492164612
+      },
+      {
+        "feature_a": "Destination Port",
+        "feature_b": "PSH Flag Count",
+        "feature_a_idx": 0,
+        "feature_b_idx": 47,
+        "interaction_strength": 0.9358574748039246
+      },
+      {
+        "feature_a": "Destination Port",
+        "feature_b": "Flow IAT Max",
+        "feature_a_idx": 0,
+        "feature_b_idx": 19,
+        "interaction_strength": 0.9066501259803772
+      },
+      {
+        "feature_a": "Destination Port",
+        "feature_b": "ACK Flag Count",
+        "feature_a_idx": 0,
+        "feature_b_idx": 48,
+        "interaction_strength": 0.5861578583717346
+      },
+      {
+        "feature_a": "Protocol",
+        "feature_b": "ACK Flag Count",
+        "feature_a_idx": 1,
+        "feature_b_idx": 48,
+        "interaction_strength": 0.5816509127616882
+      },
+      {
+        "feature_a": "Protocol",
+        "feature_b": "PSH Flag Count",
+        "feature_a_idx": 1,
+        "feature_b_idx": 47,
+        "interaction_strength": 0.5786351561546326
+      },
+      {
+        "feature_a": "PSH Flag Count",
+        "feature_b": "Init_Win_bytes_forward",
+        "feature_a_idx": 47,
+        "feature_b_idx": 67,
+        "interaction_strength": 0.48698073625564575
+      },
+      {
+        "feature_a": "Destination Port",
+        "feature_b": "Fwd IAT Min",
+        "feature_a_idx": 0,
+        "feature_b_idx": 25,
+        "interaction_strength": 0.45800548791885376
+      },
+      {
+        "feature_a": "PSH Flag Count",
+        "feature_b": "ACK Flag Count",
+        "feature_a_idx": 47,
+        "feature_b_idx": 48,
+        "interaction_strength": 0.4389290511608124
+      },
+      {
+        "feature_a": "Flow Duration",
+        "feature_b": "Fwd IAT Total",
+        "feature_a_idx": 2,
+        "feature_b_idx": 21,
+        "interaction_strength": 0.4271378815174103
+      },
+      {
+        "feature_a": "ACK Flag Count",
+        "feature_b": "Init_Win_bytes_forward",
+        "feature_a_idx": 48,
+        "feature_b_idx": 67,
+        "interaction_strength": 0.4134598970413208
+      },
+      {
+        "feature_a": "Destination Port",
+        "feature_b": "Init_Win_bytes_backward",
+        "feature_a_idx": 0,
+        "feature_b_idx": 68,
+        "interaction_strength": 0.3668997883796692
+      },
+      {
+        "feature_a": "PSH Flag Count",
+        "feature_b": "URG Flag Count",
+        "feature_a_idx": 47,
+        "feature_b_idx": 49,
+        "interaction_strength": 0.33944520354270935
+      },
+      {
+        "feature_a": "Destination Port",
+        "feature_b": "Bwd IAT Total",
+        "feature_a_idx": 0,
+        "feature_b_idx": 26,
+        "interaction_strength": 0.33688884973526
+      },
+      {
+        "feature_a": "Destination Port",
+        "feature_b": "Init_Win_bytes_forward",
+        "feature_a_idx": 0,
+        "feature_b_idx": 67,
+        "interaction_strength": 0.3196367621421814
+      },
+      {
+        "feature_a": "Protocol",
+        "feature_b": "Init_Win_bytes_forward",
+        "feature_a_idx": 1,
+        "feature_b_idx": 67,
+        "interaction_strength": 0.3123951256275177
+      }
+    ]
+  },
+  "lime_comparison": {
+    "RF": {
+      "main_effect_correlation": 0.4151059860358035,
+      "main_effect_correlation_p": 0.00014244795884173805,
+      "interaction_to_main_ratio": 1.953860257190201,
+      "total_interaction_strength": 0.7128808498382568,
+      "features_underweighted_by_lime": [
+        {
+          "feature": "Fwd IAT Std",
+          "lime_rank": 65,
+          "interaction_rank": 28,
+          "rank_gain": 37
+        },
+        {
+          "feature": "Flow IAT Max",
+          "lime_rank": 61,
+          "interaction_rank": 25,
+          "rank_gain": 36
+        },
+        {
+          "feature": "ACK Flag Count",
+          "lime_rank": 69,
+          "interaction_rank": 33,
+          "rank_gain": 36
+        },
+        {
+          "feature": "Bwd Packets/s",
+          "lime_rank": 67,
+          "interaction_rank": 36,
+          "rank_gain": 31
+        },
+        {
+          "feature": "Average Packet Size",
+          "lime_rank": 44,
+          "interaction_rank": 13,
+          "rank_gain": 31
+        },
+        {
+          "feature": "Flow Duration",
+          "lime_rank": 56,
+          "interaction_rank": 26,
+          "rank_gain": 30
+        },
+        {
+          "feature": "Fwd IAT Max",
+          "lime_rank": 60,
+          "interaction_rank": 30,
+          "rank_gain": 30
+        },
+        {
+          "feature": "Fwd IAT Mean",
+          "lime_rank": 63,
+          "interaction_rank": 34,
+          "rank_gain": 29
+        },
+        {
+          "feature": "Subflow Fwd Packets",
+          "lime_rank": 43,
+          "interaction_rank": 14,
+          "rank_gain": 29
+        },
+        {
+          "feature": "Total Length of Bwd Packets",
+          "lime_rank": 70,
+          "interaction_rank": 47,
+          "rank_gain": 23
+        }
+      ]
+    },
+    "DNN": {
+      "main_effect_correlation": 0.44685435152806635,
+      "main_effect_correlation_p": 3.655815558566871e-05,
+      "interaction_to_main_ratio": 3.0567513811651055,
+      "total_interaction_strength": 92.28359985351562,
+      "features_underweighted_by_lime": [
+        {
+          "feature": "Bwd Packet Length Min",
+          "lime_rank": 66,
+          "interaction_rank": 15,
+          "rank_gain": 51
+        },
+        {
+          "feature": "Flow IAT Max",
+          "lime_rank": 59,
+          "interaction_rank": 13,
+          "rank_gain": 46
+        },
+        {
+          "feature": "Fwd IAT Total",
+          "lime_rank": 52,
+          "interaction_rank": 7,
+          "rank_gain": 45
+        },
+        {
+          "feature": "Flow Duration",
+          "lime_rank": 46,
+          "interaction_rank": 6,
+          "rank_gain": 40
+        },
+        {
+          "feature": "Average Packet Size",
+          "lime_rank": 43,
+          "interaction_rank": 11,
+          "rank_gain": 32
+        },
+        {
+          "feature": "Init_Win_bytes_forward",
+          "lime_rank": 32,
+          "interaction_rank": 2,
+          "rank_gain": 30
+        },
+        {
+          "feature": "Min Packet Length",
+          "lime_rank": 38,
+          "interaction_rank": 9,
+          "rank_gain": 29
+        },
+        {
+          "feature": "Packet Length Mean",
+          "lime_rank": 44,
+          "interaction_rank": 17,
+          "rank_gain": 27
+        },
+        {
+          "feature": "Idle Mean",
+          "lime_rank": 40,
+          "interaction_rank": 19,
+          "rank_gain": 21
+        },
+        {
+          "feature": "Fwd IAT Mean",
+          "lime_rank": 56,
+          "interaction_rank": 36,
+          "rank_gain": 20
+        }
+      ]
+    }
+  }
+}

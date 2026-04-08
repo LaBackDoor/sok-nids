@@ -1,0 +1,15 @@
+{
+  "explainer_a": "DNN_SHAP",
+  "explainer_b": "RF_SHAP",
+  "spearman_mean": 0.5163295401082264,
+  "spearman_std": 0.011125710525366409,
+  "kendall_mean": 0.3825696930576327,
+  "kendall_std": 0.00841695584644111,
+  "top_k_intersection": {
+    "5": 0.5052631578947369,
+    "10": 0.4973684210526315
+  },
+  "wilcoxon_statistic": 188.0,
+  "wilcoxon_p_value": 6.780511209773784e-10,
+  "wilcoxon_reject_h0": true
+}

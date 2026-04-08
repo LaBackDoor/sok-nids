@@ -1,0 +1,1730 @@
+[
+  {
+    "attack_type": "Bot",
+    "explainer_key": "DNN_SHAP",
+    "rra_score": 0.5022440645949849,
+    "rma_score": 0.23377406663843142,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Fwd IAT Mean",
+      "Bwd IAT Mean",
+      "Flow Byts/s",
+      "Fwd Pkts/s"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "Bot",
+    "explainer_key": "DNN_LIME",
+    "rra_score": 0.5291444743271985,
+    "rma_score": 0.2513660406670653,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Fwd IAT Mean",
+      "Bwd IAT Mean",
+      "Flow Byts/s",
+      "Fwd Pkts/s"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "Bot",
+    "explainer_key": "DNN_IG",
+    "rra_score": 0.3402868762696904,
+    "rma_score": 0.24188017949702365,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Fwd IAT Mean",
+      "Bwd IAT Mean",
+      "Flow Byts/s",
+      "Fwd Pkts/s"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "Bot",
+    "explainer_key": "DNN_DeepLIFT",
+    "rra_score": 0.5887991615370584,
+    "rma_score": 0.3878836110123595,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Fwd IAT Mean",
+      "Bwd IAT Mean",
+      "Flow Byts/s",
+      "Fwd Pkts/s"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "Bot",
+    "explainer_key": "RF_SHAP",
+    "rra_score": 0.491302581638716,
+    "rma_score": 0.1517932568746154,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Fwd IAT Mean",
+      "Bwd IAT Mean",
+      "Flow Byts/s",
+      "Fwd Pkts/s"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "Bot",
+    "explainer_key": "RF_LIME",
+    "rra_score": 0.4644593779932125,
+    "rma_score": 0.19268612396658327,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Fwd IAT Mean",
+      "Bwd IAT Mean",
+      "Flow Byts/s",
+      "Fwd Pkts/s"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "Bot",
+    "explainer_key": "DNN_PA-SHAP",
+    "rra_score": 0.4632106509558094,
+    "rma_score": 0.19833378368923008,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Fwd IAT Mean",
+      "Bwd IAT Mean",
+      "Flow Byts/s",
+      "Fwd Pkts/s"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "Bot",
+    "explainer_key": "DNN_PA-LIME",
+    "rra_score": 0.08358113265022572,
+    "rma_score": 0.0689650246926827,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Fwd IAT Mean",
+      "Bwd IAT Mean",
+      "Flow Byts/s",
+      "Fwd Pkts/s"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "Bot",
+    "explainer_key": "DNN_PA-IG",
+    "rra_score": 0.4707431106848016,
+    "rma_score": 0.1574748544974166,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Fwd IAT Mean",
+      "Bwd IAT Mean",
+      "Flow Byts/s",
+      "Fwd Pkts/s"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "Bot",
+    "explainer_key": "DNN_PA-DeepLIFT",
+    "rra_score": 0.49941327763865284,
+    "rma_score": 0.4145194982265146,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Fwd IAT Mean",
+      "Bwd IAT Mean",
+      "Flow Byts/s",
+      "Fwd Pkts/s"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "Bot",
+    "explainer_key": "RF_PA-SHAP",
+    "rra_score": 0.4759634593730704,
+    "rma_score": 0.14913061329454844,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Fwd IAT Mean",
+      "Bwd IAT Mean",
+      "Flow Byts/s",
+      "Fwd Pkts/s"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "Bot",
+    "explainer_key": "RF_PA-LIME",
+    "rra_score": 0.11279215821182981,
+    "rma_score": 0.08786472793000517,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Fwd IAT Mean",
+      "Bwd IAT Mean",
+      "Flow Byts/s",
+      "Fwd Pkts/s"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DDOS attack-HOIC",
+    "explainer_key": "DNN_SHAP",
+    "rra_score": 0.1144804092707392,
+    "rma_score": 0.04155821338488893,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Tot Fwd Pkts",
+      "Flow Byts/s",
+      "Flow Pkts/s",
+      "Fwd Pkt Len Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DDOS attack-HOIC",
+    "explainer_key": "DNN_LIME",
+    "rra_score": 0.08986696956621766,
+    "rma_score": 0.007623078986073742,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Tot Fwd Pkts",
+      "Flow Byts/s",
+      "Flow Pkts/s",
+      "Fwd Pkt Len Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DDOS attack-HOIC",
+    "explainer_key": "DNN_IG",
+    "rra_score": 0.11892934052769123,
+    "rma_score": 0.010205925818836403,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Tot Fwd Pkts",
+      "Flow Byts/s",
+      "Flow Pkts/s",
+      "Fwd Pkt Len Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DDOS attack-HOIC",
+    "explainer_key": "DNN_DeepLIFT",
+    "rra_score": 0.16261816081744052,
+    "rma_score": 0.0242500628169096,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Tot Fwd Pkts",
+      "Flow Byts/s",
+      "Flow Pkts/s",
+      "Fwd Pkt Len Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DDOS attack-HOIC",
+    "explainer_key": "RF_SHAP",
+    "rra_score": 0.4844950967399947,
+    "rma_score": 0.19207093781828793,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Tot Fwd Pkts",
+      "Flow Byts/s",
+      "Flow Pkts/s",
+      "Fwd Pkt Len Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DDOS attack-HOIC",
+    "explainer_key": "RF_LIME",
+    "rra_score": 0.3405977775725675,
+    "rma_score": 0.1991092257650129,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Tot Fwd Pkts",
+      "Flow Byts/s",
+      "Flow Pkts/s",
+      "Fwd Pkt Len Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DDOS attack-HOIC",
+    "explainer_key": "DNN_PA-SHAP",
+    "rra_score": 0.07247607102647244,
+    "rma_score": 0.006588128285225199,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Tot Fwd Pkts",
+      "Flow Byts/s",
+      "Flow Pkts/s",
+      "Fwd Pkt Len Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DDOS attack-HOIC",
+    "explainer_key": "DNN_PA-LIME",
+    "rra_score": 0.05745233542613989,
+    "rma_score": 0.043957229363109425,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Tot Fwd Pkts",
+      "Flow Byts/s",
+      "Flow Pkts/s",
+      "Fwd Pkt Len Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DDOS attack-HOIC",
+    "explainer_key": "DNN_PA-IG",
+    "rra_score": 0.29428354758486813,
+    "rma_score": 0.056306918913531415,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Tot Fwd Pkts",
+      "Flow Byts/s",
+      "Flow Pkts/s",
+      "Fwd Pkt Len Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DDOS attack-HOIC",
+    "explainer_key": "DNN_PA-DeepLIFT",
+    "rra_score": 0.1276439447210789,
+    "rma_score": 0.028539632764564473,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Tot Fwd Pkts",
+      "Flow Byts/s",
+      "Flow Pkts/s",
+      "Fwd Pkt Len Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DDOS attack-HOIC",
+    "explainer_key": "RF_PA-SHAP",
+    "rra_score": 0.3937946702809169,
+    "rma_score": 0.17575773209404805,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Tot Fwd Pkts",
+      "Flow Byts/s",
+      "Flow Pkts/s",
+      "Fwd Pkt Len Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DDOS attack-HOIC",
+    "explainer_key": "RF_PA-LIME",
+    "rra_score": 0.2917829357415004,
+    "rma_score": 0.14917183581740887,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Tot Fwd Pkts",
+      "Flow Byts/s",
+      "Flow Pkts/s",
+      "Fwd Pkt Len Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DDoS attacks-LOIC-HTTP",
+    "explainer_key": "DNN_SHAP",
+    "rra_score": 0.13983843002105367,
+    "rma_score": 0.07476615715855445,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Tot Fwd Pkts",
+      "Flow Byts/s",
+      "Flow Pkts/s",
+      "Fwd Pkt Len Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DDoS attacks-LOIC-HTTP",
+    "explainer_key": "DNN_LIME",
+    "rra_score": 0.28958947931829787,
+    "rma_score": 0.13012963769321473,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Tot Fwd Pkts",
+      "Flow Byts/s",
+      "Flow Pkts/s",
+      "Fwd Pkt Len Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DDoS attacks-LOIC-HTTP",
+    "explainer_key": "DNN_IG",
+    "rra_score": 0.09226318164288785,
+    "rma_score": 0.03348975377510612,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Tot Fwd Pkts",
+      "Flow Byts/s",
+      "Flow Pkts/s",
+      "Fwd Pkt Len Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DDoS attacks-LOIC-HTTP",
+    "explainer_key": "DNN_DeepLIFT",
+    "rra_score": 0.14132607220785887,
+    "rma_score": 0.022520127058742324,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Tot Fwd Pkts",
+      "Flow Byts/s",
+      "Flow Pkts/s",
+      "Fwd Pkt Len Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DDoS attacks-LOIC-HTTP",
+    "explainer_key": "RF_SHAP",
+    "rra_score": 0.3721946043374615,
+    "rma_score": 0.2102524922361203,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Tot Fwd Pkts",
+      "Flow Byts/s",
+      "Flow Pkts/s",
+      "Fwd Pkt Len Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DDoS attacks-LOIC-HTTP",
+    "explainer_key": "RF_LIME",
+    "rra_score": 0.34437533091143857,
+    "rma_score": 0.252345313380574,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Tot Fwd Pkts",
+      "Flow Byts/s",
+      "Flow Pkts/s",
+      "Fwd Pkt Len Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DDoS attacks-LOIC-HTTP",
+    "explainer_key": "DNN_PA-SHAP",
+    "rra_score": 0.08505200679101214,
+    "rma_score": 0.018197734447315428,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Tot Fwd Pkts",
+      "Flow Byts/s",
+      "Flow Pkts/s",
+      "Fwd Pkt Len Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DDoS attacks-LOIC-HTTP",
+    "explainer_key": "DNN_PA-LIME",
+    "rra_score": 0.0579655395654513,
+    "rma_score": 0.046116105263730514,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Tot Fwd Pkts",
+      "Flow Byts/s",
+      "Flow Pkts/s",
+      "Fwd Pkt Len Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DDoS attacks-LOIC-HTTP",
+    "explainer_key": "DNN_PA-IG",
+    "rra_score": 0.1529382091120784,
+    "rma_score": 0.0359267921132358,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Tot Fwd Pkts",
+      "Flow Byts/s",
+      "Flow Pkts/s",
+      "Fwd Pkt Len Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DDoS attacks-LOIC-HTTP",
+    "explainer_key": "DNN_PA-DeepLIFT",
+    "rra_score": 0.06948549332557113,
+    "rma_score": 0.004699798058949961,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Tot Fwd Pkts",
+      "Flow Byts/s",
+      "Flow Pkts/s",
+      "Fwd Pkt Len Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DDoS attacks-LOIC-HTTP",
+    "explainer_key": "RF_PA-SHAP",
+    "rra_score": 0.5629245040103723,
+    "rma_score": 0.17823469987934468,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Tot Fwd Pkts",
+      "Flow Byts/s",
+      "Flow Pkts/s",
+      "Fwd Pkt Len Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DDoS attacks-LOIC-HTTP",
+    "explainer_key": "RF_PA-LIME",
+    "rra_score": 0.295902142423765,
+    "rma_score": 0.15214744277473627,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Tot Fwd Pkts",
+      "Flow Byts/s",
+      "Flow Pkts/s",
+      "Fwd Pkt Len Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS attacks-GoldenEye",
+    "explainer_key": "DNN_SHAP",
+    "rra_score": 0.07470502581597457,
+    "rma_score": 0.014078407203982027,
+    "expert_features": [
+      "Flow Duration",
+      "Flow Byts/s",
+      "Fwd Pkts/s",
+      "Bwd Pkts/s",
+      "Tot Fwd Pkts",
+      "Fwd IAT Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS attacks-GoldenEye",
+    "explainer_key": "DNN_LIME",
+    "rra_score": 0.050109194656236616,
+    "rma_score": 0.005982333009619563,
+    "expert_features": [
+      "Flow Duration",
+      "Flow Byts/s",
+      "Fwd Pkts/s",
+      "Bwd Pkts/s",
+      "Tot Fwd Pkts",
+      "Fwd IAT Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS attacks-GoldenEye",
+    "explainer_key": "DNN_IG",
+    "rra_score": 0.10296368133652373,
+    "rma_score": 0.03659779579851281,
+    "expert_features": [
+      "Flow Duration",
+      "Flow Byts/s",
+      "Fwd Pkts/s",
+      "Bwd Pkts/s",
+      "Tot Fwd Pkts",
+      "Fwd IAT Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS attacks-GoldenEye",
+    "explainer_key": "DNN_DeepLIFT",
+    "rra_score": 0.21533393982373575,
+    "rma_score": 0.07998468676444606,
+    "expert_features": [
+      "Flow Duration",
+      "Flow Byts/s",
+      "Fwd Pkts/s",
+      "Bwd Pkts/s",
+      "Tot Fwd Pkts",
+      "Fwd IAT Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS attacks-GoldenEye",
+    "explainer_key": "RF_SHAP",
+    "rra_score": 0.1475646915064061,
+    "rma_score": 0.0673026964716301,
+    "expert_features": [
+      "Flow Duration",
+      "Flow Byts/s",
+      "Fwd Pkts/s",
+      "Bwd Pkts/s",
+      "Tot Fwd Pkts",
+      "Fwd IAT Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS attacks-GoldenEye",
+    "explainer_key": "RF_LIME",
+    "rra_score": 0.058800254688349214,
+    "rma_score": 0.006486563791793601,
+    "expert_features": [
+      "Flow Duration",
+      "Flow Byts/s",
+      "Fwd Pkts/s",
+      "Bwd Pkts/s",
+      "Tot Fwd Pkts",
+      "Fwd IAT Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS attacks-GoldenEye",
+    "explainer_key": "DNN_PA-SHAP",
+    "rra_score": 0.05226066066605672,
+    "rma_score": 0.002581864075587562,
+    "expert_features": [
+      "Flow Duration",
+      "Flow Byts/s",
+      "Fwd Pkts/s",
+      "Bwd Pkts/s",
+      "Tot Fwd Pkts",
+      "Fwd IAT Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS attacks-GoldenEye",
+    "explainer_key": "DNN_PA-LIME",
+    "rra_score": 0.06614702124716602,
+    "rma_score": 0.05511706648725828,
+    "expert_features": [
+      "Flow Duration",
+      "Flow Byts/s",
+      "Fwd Pkts/s",
+      "Bwd Pkts/s",
+      "Tot Fwd Pkts",
+      "Fwd IAT Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS attacks-GoldenEye",
+    "explainer_key": "DNN_PA-IG",
+    "rra_score": 0.4946273438764775,
+    "rma_score": 0.1510621339840178,
+    "expert_features": [
+      "Flow Duration",
+      "Flow Byts/s",
+      "Fwd Pkts/s",
+      "Bwd Pkts/s",
+      "Tot Fwd Pkts",
+      "Fwd IAT Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS attacks-GoldenEye",
+    "explainer_key": "DNN_PA-DeepLIFT",
+    "rra_score": 0.09456046268851873,
+    "rma_score": 0.038060990610662405,
+    "expert_features": [
+      "Flow Duration",
+      "Flow Byts/s",
+      "Fwd Pkts/s",
+      "Bwd Pkts/s",
+      "Tot Fwd Pkts",
+      "Fwd IAT Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS attacks-GoldenEye",
+    "explainer_key": "RF_PA-SHAP",
+    "rra_score": 0.1356736707986964,
+    "rma_score": 0.06676342817409195,
+    "expert_features": [
+      "Flow Duration",
+      "Flow Byts/s",
+      "Fwd Pkts/s",
+      "Bwd Pkts/s",
+      "Tot Fwd Pkts",
+      "Fwd IAT Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS attacks-GoldenEye",
+    "explainer_key": "RF_PA-LIME",
+    "rra_score": 0.1203180170314855,
+    "rma_score": 0.06469534444824077,
+    "expert_features": [
+      "Flow Duration",
+      "Flow Byts/s",
+      "Fwd Pkts/s",
+      "Bwd Pkts/s",
+      "Tot Fwd Pkts",
+      "Fwd IAT Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS attacks-Hulk",
+    "explainer_key": "DNN_SHAP",
+    "rra_score": 0.15268638941594345,
+    "rma_score": 0.09604966337496924,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Tot Fwd Pkts",
+      "Flow Byts/s",
+      "Fwd Pkt Len Mean",
+      "Flow Pkts/s"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS attacks-Hulk",
+    "explainer_key": "DNN_LIME",
+    "rra_score": 0.19989000117893777,
+    "rma_score": 0.12017521498046295,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Tot Fwd Pkts",
+      "Flow Byts/s",
+      "Fwd Pkt Len Mean",
+      "Flow Pkts/s"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS attacks-Hulk",
+    "explainer_key": "DNN_IG",
+    "rra_score": 0.17389326551289208,
+    "rma_score": 0.07586174955327292,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Tot Fwd Pkts",
+      "Flow Byts/s",
+      "Fwd Pkt Len Mean",
+      "Flow Pkts/s"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS attacks-Hulk",
+    "explainer_key": "DNN_DeepLIFT",
+    "rra_score": 0.19897100254243108,
+    "rma_score": 0.05172787671769204,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Tot Fwd Pkts",
+      "Flow Byts/s",
+      "Fwd Pkt Len Mean",
+      "Flow Pkts/s"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS attacks-Hulk",
+    "explainer_key": "RF_SHAP",
+    "rra_score": 0.29606745295520803,
+    "rma_score": 0.15375592351074158,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Tot Fwd Pkts",
+      "Flow Byts/s",
+      "Fwd Pkt Len Mean",
+      "Flow Pkts/s"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS attacks-Hulk",
+    "explainer_key": "RF_LIME",
+    "rra_score": 0.3463905708803668,
+    "rma_score": 0.17714787221472084,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Tot Fwd Pkts",
+      "Flow Byts/s",
+      "Fwd Pkt Len Mean",
+      "Flow Pkts/s"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS attacks-Hulk",
+    "explainer_key": "DNN_PA-SHAP",
+    "rra_score": 0.08835734215330823,
+    "rma_score": 0.02218438022366843,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Tot Fwd Pkts",
+      "Flow Byts/s",
+      "Fwd Pkt Len Mean",
+      "Flow Pkts/s"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS attacks-Hulk",
+    "explainer_key": "DNN_PA-LIME",
+    "rra_score": 0.04965294964504077,
+    "rma_score": 0.0408425336341198,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Tot Fwd Pkts",
+      "Flow Byts/s",
+      "Fwd Pkt Len Mean",
+      "Flow Pkts/s"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS attacks-Hulk",
+    "explainer_key": "DNN_PA-IG",
+    "rra_score": 0.4639141707931696,
+    "rma_score": 0.10871131097599661,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Tot Fwd Pkts",
+      "Flow Byts/s",
+      "Fwd Pkt Len Mean",
+      "Flow Pkts/s"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS attacks-Hulk",
+    "explainer_key": "DNN_PA-DeepLIFT",
+    "rra_score": 0.08213158723362805,
+    "rma_score": 0.008472187650255102,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Tot Fwd Pkts",
+      "Flow Byts/s",
+      "Fwd Pkt Len Mean",
+      "Flow Pkts/s"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS attacks-Hulk",
+    "explainer_key": "RF_PA-SHAP",
+    "rra_score": 0.2697844384203138,
+    "rma_score": 0.14600807682032238,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Tot Fwd Pkts",
+      "Flow Byts/s",
+      "Fwd Pkt Len Mean",
+      "Flow Pkts/s"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS attacks-Hulk",
+    "explainer_key": "RF_PA-LIME",
+    "rra_score": 0.1954505773253611,
+    "rma_score": 0.1220705400517364,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Tot Fwd Pkts",
+      "Flow Byts/s",
+      "Fwd Pkt Len Mean",
+      "Flow Pkts/s"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS attacks-SlowHTTPTest",
+    "explainer_key": "DNN_SHAP",
+    "rra_score": 0.17469129402131053,
+    "rma_score": 0.12041103268892284,
+    "expert_features": [
+      "Flow Duration",
+      "Fwd IAT Mean",
+      "Fwd IAT Max",
+      "TotLen Fwd Pkts",
+      "Fwd Pkt Len Mean",
+      "Flow Pkts/s"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS attacks-SlowHTTPTest",
+    "explainer_key": "DNN_LIME",
+    "rra_score": 0.08862650072828393,
+    "rma_score": 0.0,
+    "expert_features": [
+      "Flow Duration",
+      "Fwd IAT Mean",
+      "Fwd IAT Max",
+      "TotLen Fwd Pkts",
+      "Fwd Pkt Len Mean",
+      "Flow Pkts/s"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS attacks-SlowHTTPTest",
+    "explainer_key": "DNN_IG",
+    "rra_score": 0.20401121110970263,
+    "rma_score": 0.037057936553286465,
+    "expert_features": [
+      "Flow Duration",
+      "Fwd IAT Mean",
+      "Fwd IAT Max",
+      "TotLen Fwd Pkts",
+      "Fwd Pkt Len Mean",
+      "Flow Pkts/s"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS attacks-SlowHTTPTest",
+    "explainer_key": "DNN_DeepLIFT",
+    "rra_score": 0.2379774420590747,
+    "rma_score": 0.1772189063467191,
+    "expert_features": [
+      "Flow Duration",
+      "Fwd IAT Mean",
+      "Fwd IAT Max",
+      "TotLen Fwd Pkts",
+      "Fwd Pkt Len Mean",
+      "Flow Pkts/s"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS attacks-SlowHTTPTest",
+    "explainer_key": "RF_SHAP",
+    "rra_score": 0.17261815220998894,
+    "rma_score": 0.09761256450123657,
+    "expert_features": [
+      "Flow Duration",
+      "Fwd IAT Mean",
+      "Fwd IAT Max",
+      "TotLen Fwd Pkts",
+      "Fwd Pkt Len Mean",
+      "Flow Pkts/s"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS attacks-SlowHTTPTest",
+    "explainer_key": "RF_LIME",
+    "rra_score": 0.1727556724038075,
+    "rma_score": 0.09264843253319317,
+    "expert_features": [
+      "Flow Duration",
+      "Fwd IAT Mean",
+      "Fwd IAT Max",
+      "TotLen Fwd Pkts",
+      "Fwd Pkt Len Mean",
+      "Flow Pkts/s"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS attacks-SlowHTTPTest",
+    "explainer_key": "DNN_PA-SHAP",
+    "rra_score": 0.17775641150068647,
+    "rma_score": 0.07446015352264673,
+    "expert_features": [
+      "Flow Duration",
+      "Fwd IAT Mean",
+      "Fwd IAT Max",
+      "TotLen Fwd Pkts",
+      "Fwd Pkt Len Mean",
+      "Flow Pkts/s"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS attacks-SlowHTTPTest",
+    "explainer_key": "DNN_PA-LIME",
+    "rra_score": 0.07621196846887122,
+    "rma_score": 0.0648123542240536,
+    "expert_features": [
+      "Flow Duration",
+      "Fwd IAT Mean",
+      "Fwd IAT Max",
+      "TotLen Fwd Pkts",
+      "Fwd Pkt Len Mean",
+      "Flow Pkts/s"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS attacks-SlowHTTPTest",
+    "explainer_key": "DNN_PA-IG",
+    "rra_score": 0.07738463350708247,
+    "rma_score": 0.014819774647209186,
+    "expert_features": [
+      "Flow Duration",
+      "Fwd IAT Mean",
+      "Fwd IAT Max",
+      "TotLen Fwd Pkts",
+      "Fwd Pkt Len Mean",
+      "Flow Pkts/s"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS attacks-SlowHTTPTest",
+    "explainer_key": "DNN_PA-DeepLIFT",
+    "rra_score": 0.10622128104726236,
+    "rma_score": 0.033000221884933706,
+    "expert_features": [
+      "Flow Duration",
+      "Fwd IAT Mean",
+      "Fwd IAT Max",
+      "TotLen Fwd Pkts",
+      "Fwd Pkt Len Mean",
+      "Flow Pkts/s"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS attacks-SlowHTTPTest",
+    "explainer_key": "RF_PA-SHAP",
+    "rra_score": 0.1393807356032147,
+    "rma_score": 0.07774701720680395,
+    "expert_features": [
+      "Flow Duration",
+      "Fwd IAT Mean",
+      "Fwd IAT Max",
+      "TotLen Fwd Pkts",
+      "Fwd Pkt Len Mean",
+      "Flow Pkts/s"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS attacks-SlowHTTPTest",
+    "explainer_key": "RF_PA-LIME",
+    "rra_score": 0.19240215566746177,
+    "rma_score": 0.12336729401080132,
+    "expert_features": [
+      "Flow Duration",
+      "Fwd IAT Mean",
+      "Fwd IAT Max",
+      "TotLen Fwd Pkts",
+      "Fwd Pkt Len Mean",
+      "Flow Pkts/s"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "FTP-BruteForce",
+    "explainer_key": "DNN_SHAP",
+    "rra_score": 0.2791780306592683,
+    "rma_score": 0.23863130388309395,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Fwd Pkts/s",
+      "Bwd Pkts/s",
+      "TotLen Fwd Pkts",
+      "Fwd IAT Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "FTP-BruteForce",
+    "explainer_key": "DNN_LIME",
+    "rra_score": 0.0893567983973571,
+    "rma_score": 0.014720922613058074,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Fwd Pkts/s",
+      "Bwd Pkts/s",
+      "TotLen Fwd Pkts",
+      "Fwd IAT Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "FTP-BruteForce",
+    "explainer_key": "DNN_IG",
+    "rra_score": 0.2498849397218501,
+    "rma_score": 0.08994186587410197,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Fwd Pkts/s",
+      "Bwd Pkts/s",
+      "TotLen Fwd Pkts",
+      "Fwd IAT Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "FTP-BruteForce",
+    "explainer_key": "DNN_DeepLIFT",
+    "rra_score": 0.4035189833509161,
+    "rma_score": 0.3152112641969838,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Fwd Pkts/s",
+      "Bwd Pkts/s",
+      "TotLen Fwd Pkts",
+      "Fwd IAT Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "FTP-BruteForce",
+    "explainer_key": "RF_SHAP",
+    "rra_score": 0.3548303042147091,
+    "rma_score": 0.23733029167170805,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Fwd Pkts/s",
+      "Bwd Pkts/s",
+      "TotLen Fwd Pkts",
+      "Fwd IAT Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "FTP-BruteForce",
+    "explainer_key": "RF_LIME",
+    "rra_score": 0.3463032132982871,
+    "rma_score": 0.28164263386748645,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Fwd Pkts/s",
+      "Bwd Pkts/s",
+      "TotLen Fwd Pkts",
+      "Fwd IAT Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "FTP-BruteForce",
+    "explainer_key": "DNN_PA-SHAP",
+    "rra_score": 0.2088504140380758,
+    "rma_score": 0.15396326939945126,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Fwd Pkts/s",
+      "Bwd Pkts/s",
+      "TotLen Fwd Pkts",
+      "Fwd IAT Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "FTP-BruteForce",
+    "explainer_key": "DNN_PA-LIME",
+    "rra_score": 0.05023774406738894,
+    "rma_score": 0.03472916476476388,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Fwd Pkts/s",
+      "Bwd Pkts/s",
+      "TotLen Fwd Pkts",
+      "Fwd IAT Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "FTP-BruteForce",
+    "explainer_key": "DNN_PA-IG",
+    "rra_score": 0.1680147902466617,
+    "rma_score": 0.14073136242925452,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Fwd Pkts/s",
+      "Bwd Pkts/s",
+      "TotLen Fwd Pkts",
+      "Fwd IAT Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "FTP-BruteForce",
+    "explainer_key": "DNN_PA-DeepLIFT",
+    "rra_score": 0.2053472331738368,
+    "rma_score": 0.11168445272761233,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Fwd Pkts/s",
+      "Bwd Pkts/s",
+      "TotLen Fwd Pkts",
+      "Fwd IAT Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "FTP-BruteForce",
+    "explainer_key": "RF_PA-SHAP",
+    "rra_score": 0.35362755939814344,
+    "rma_score": 0.2430186977286221,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Fwd Pkts/s",
+      "Bwd Pkts/s",
+      "TotLen Fwd Pkts",
+      "Fwd IAT Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "FTP-BruteForce",
+    "explainer_key": "RF_PA-LIME",
+    "rra_score": 0.11755516636308287,
+    "rma_score": 0.06751428989458706,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Fwd Pkts/s",
+      "Bwd Pkts/s",
+      "TotLen Fwd Pkts",
+      "Fwd IAT Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "Infilteration",
+    "explainer_key": "DNN_SHAP",
+    "rra_score": 0.1215044891439576,
+    "rma_score": 0.05522732759814641,
+    "expert_features": [
+      "Flow Duration",
+      "Tot Fwd Pkts",
+      "Flow Byts/s",
+      "Init Fwd Win Byts",
+      "Fwd IAT Mean",
+      "Bwd IAT Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "Infilteration",
+    "explainer_key": "DNN_LIME",
+    "rra_score": 0.10264095561985699,
+    "rma_score": 0.013154711797285128,
+    "expert_features": [
+      "Flow Duration",
+      "Tot Fwd Pkts",
+      "Flow Byts/s",
+      "Init Fwd Win Byts",
+      "Fwd IAT Mean",
+      "Bwd IAT Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "Infilteration",
+    "explainer_key": "DNN_IG",
+    "rra_score": 0.25692330306161837,
+    "rma_score": 0.1353718969940505,
+    "expert_features": [
+      "Flow Duration",
+      "Tot Fwd Pkts",
+      "Flow Byts/s",
+      "Init Fwd Win Byts",
+      "Fwd IAT Mean",
+      "Bwd IAT Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "Infilteration",
+    "explainer_key": "DNN_DeepLIFT",
+    "rra_score": 0.2008338639232376,
+    "rma_score": 0.07230436149630821,
+    "expert_features": [
+      "Flow Duration",
+      "Tot Fwd Pkts",
+      "Flow Byts/s",
+      "Init Fwd Win Byts",
+      "Fwd IAT Mean",
+      "Bwd IAT Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "Infilteration",
+    "explainer_key": "RF_SHAP",
+    "rra_score": 0.19613871452904935,
+    "rma_score": 0.10248579866613397,
+    "expert_features": [
+      "Flow Duration",
+      "Tot Fwd Pkts",
+      "Flow Byts/s",
+      "Init Fwd Win Byts",
+      "Fwd IAT Mean",
+      "Bwd IAT Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "Infilteration",
+    "explainer_key": "RF_LIME",
+    "rra_score": 0.09327459968181372,
+    "rma_score": 0.02783398880740014,
+    "expert_features": [
+      "Flow Duration",
+      "Tot Fwd Pkts",
+      "Flow Byts/s",
+      "Init Fwd Win Byts",
+      "Fwd IAT Mean",
+      "Bwd IAT Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "Infilteration",
+    "explainer_key": "DNN_PA-SHAP",
+    "rra_score": 0.10883999709693919,
+    "rma_score": 0.040576251441251064,
+    "expert_features": [
+      "Flow Duration",
+      "Tot Fwd Pkts",
+      "Flow Byts/s",
+      "Init Fwd Win Byts",
+      "Fwd IAT Mean",
+      "Bwd IAT Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "Infilteration",
+    "explainer_key": "DNN_PA-LIME",
+    "rra_score": 0.08425525825364669,
+    "rma_score": 0.06012029210300848,
+    "expert_features": [
+      "Flow Duration",
+      "Tot Fwd Pkts",
+      "Flow Byts/s",
+      "Init Fwd Win Byts",
+      "Fwd IAT Mean",
+      "Bwd IAT Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "Infilteration",
+    "explainer_key": "DNN_PA-IG",
+    "rra_score": 0.4710214001298856,
+    "rma_score": 0.5540052273838881,
+    "expert_features": [
+      "Flow Duration",
+      "Tot Fwd Pkts",
+      "Flow Byts/s",
+      "Init Fwd Win Byts",
+      "Fwd IAT Mean",
+      "Bwd IAT Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "Infilteration",
+    "explainer_key": "DNN_PA-DeepLIFT",
+    "rra_score": 0.45063313370636293,
+    "rma_score": 0.2542358363479484,
+    "expert_features": [
+      "Flow Duration",
+      "Tot Fwd Pkts",
+      "Flow Byts/s",
+      "Init Fwd Win Byts",
+      "Fwd IAT Mean",
+      "Bwd IAT Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "Infilteration",
+    "explainer_key": "RF_PA-SHAP",
+    "rra_score": 0.11185549144732818,
+    "rma_score": 0.064483331524021,
+    "expert_features": [
+      "Flow Duration",
+      "Tot Fwd Pkts",
+      "Flow Byts/s",
+      "Init Fwd Win Byts",
+      "Fwd IAT Mean",
+      "Bwd IAT Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "Infilteration",
+    "explainer_key": "RF_PA-LIME",
+    "rra_score": 0.10838532899125741,
+    "rma_score": 0.07932015971671663,
+    "expert_features": [
+      "Flow Duration",
+      "Tot Fwd Pkts",
+      "Flow Byts/s",
+      "Init Fwd Win Byts",
+      "Fwd IAT Mean",
+      "Bwd IAT Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "SSH-Bruteforce",
+    "explainer_key": "DNN_SHAP",
+    "rra_score": 0.2310916344787666,
+    "rma_score": 0.13210810357335845,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Fwd Pkts/s",
+      "TotLen Fwd Pkts",
+      "Fwd IAT Mean",
+      "Init Fwd Win Byts"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "SSH-Bruteforce",
+    "explainer_key": "DNN_LIME",
+    "rra_score": 0.23450375892364483,
+    "rma_score": 0.13322707928907734,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Fwd Pkts/s",
+      "TotLen Fwd Pkts",
+      "Fwd IAT Mean",
+      "Init Fwd Win Byts"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "SSH-Bruteforce",
+    "explainer_key": "DNN_IG",
+    "rra_score": 0.3577287044503718,
+    "rma_score": 0.2151030965795429,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Fwd Pkts/s",
+      "TotLen Fwd Pkts",
+      "Fwd IAT Mean",
+      "Init Fwd Win Byts"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "SSH-Bruteforce",
+    "explainer_key": "DNN_DeepLIFT",
+    "rra_score": 0.35998339195223045,
+    "rma_score": 0.34015617482161664,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Fwd Pkts/s",
+      "TotLen Fwd Pkts",
+      "Fwd IAT Mean",
+      "Init Fwd Win Byts"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "SSH-Bruteforce",
+    "explainer_key": "RF_SHAP",
+    "rra_score": 0.6182012916706794,
+    "rma_score": 0.2771734772594452,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Fwd Pkts/s",
+      "TotLen Fwd Pkts",
+      "Fwd IAT Mean",
+      "Init Fwd Win Byts"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "SSH-Bruteforce",
+    "explainer_key": "RF_LIME",
+    "rra_score": 0.3258063055833343,
+    "rma_score": 0.2256773406847627,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Fwd Pkts/s",
+      "TotLen Fwd Pkts",
+      "Fwd IAT Mean",
+      "Init Fwd Win Byts"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "SSH-Bruteforce",
+    "explainer_key": "DNN_PA-SHAP",
+    "rra_score": 0.0988738513968945,
+    "rma_score": 0.029980359789688084,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Fwd Pkts/s",
+      "TotLen Fwd Pkts",
+      "Fwd IAT Mean",
+      "Init Fwd Win Byts"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "SSH-Bruteforce",
+    "explainer_key": "DNN_PA-LIME",
+    "rra_score": 0.051817948996106436,
+    "rma_score": 0.040403949204688386,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Fwd Pkts/s",
+      "TotLen Fwd Pkts",
+      "Fwd IAT Mean",
+      "Init Fwd Win Byts"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "SSH-Bruteforce",
+    "explainer_key": "DNN_PA-IG",
+    "rra_score": 0.2169712373794006,
+    "rma_score": 0.1222526241336923,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Fwd Pkts/s",
+      "TotLen Fwd Pkts",
+      "Fwd IAT Mean",
+      "Init Fwd Win Byts"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "SSH-Bruteforce",
+    "explainer_key": "DNN_PA-DeepLIFT",
+    "rra_score": 0.1684066023486002,
+    "rma_score": 0.1066190768454194,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Fwd Pkts/s",
+      "TotLen Fwd Pkts",
+      "Fwd IAT Mean",
+      "Init Fwd Win Byts"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "SSH-Bruteforce",
+    "explainer_key": "RF_PA-SHAP",
+    "rra_score": 0.6305044814278293,
+    "rma_score": 0.2520997016814267,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Fwd Pkts/s",
+      "TotLen Fwd Pkts",
+      "Fwd IAT Mean",
+      "Init Fwd Win Byts"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "SSH-Bruteforce",
+    "explainer_key": "RF_PA-LIME",
+    "rra_score": 0.10182687621792294,
+    "rma_score": 0.06706478762651269,
+    "expert_features": [
+      "Dst Port",
+      "Flow Duration",
+      "Fwd Pkts/s",
+      "TotLen Fwd Pkts",
+      "Fwd IAT Mean",
+      "Init Fwd Win Byts"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  }
+]

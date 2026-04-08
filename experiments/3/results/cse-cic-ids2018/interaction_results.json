@@ -1,0 +1,426 @@
+{
+  "top_interactions": {
+    "RF": [
+      {
+        "feature_a": "Dst Port",
+        "feature_b": "Init Fwd Win Byts",
+        "feature_a_idx": 0,
+        "feature_b_idx": 66,
+        "interaction_strength": 0.005054674111306667
+      },
+      {
+        "feature_a": "Dst Port",
+        "feature_b": "Fwd Seg Size Min",
+        "feature_a_idx": 0,
+        "feature_b_idx": 69,
+        "interaction_strength": 0.004011477343738079
+      },
+      {
+        "feature_a": "Dst Port",
+        "feature_b": "Fwd Seg Size Avg",
+        "feature_a_idx": 0,
+        "feature_b_idx": 54,
+        "interaction_strength": 0.0038940163794904947
+      },
+      {
+        "feature_a": "Dst Port",
+        "feature_b": "Fwd Pkt Len Mean",
+        "feature_a_idx": 0,
+        "feature_b_idx": 9,
+        "interaction_strength": 0.0032707976642996073
+      },
+      {
+        "feature_a": "Bwd Pkt Len Mean",
+        "feature_b": "Bwd Seg Size Avg",
+        "feature_a_idx": 13,
+        "feature_b_idx": 55,
+        "interaction_strength": 0.0026010428555309772
+      },
+      {
+        "feature_a": "Fwd Pkt Len Max",
+        "feature_b": "Fwd Pkt Len Std",
+        "feature_a_idx": 7,
+        "feature_b_idx": 10,
+        "interaction_strength": 0.0022734152153134346
+      },
+      {
+        "feature_a": "Fwd Pkt Len Mean",
+        "feature_b": "Fwd Seg Size Avg",
+        "feature_a_idx": 9,
+        "feature_b_idx": 54,
+        "interaction_strength": 0.0022032333072274923
+      },
+      {
+        "feature_a": "Dst Port",
+        "feature_b": "Fwd Header Len",
+        "feature_a_idx": 0,
+        "feature_b_idx": 35,
+        "interaction_strength": 0.002193313790485263
+      },
+      {
+        "feature_a": "Dst Port",
+        "feature_b": "Bwd Pkt Len Max",
+        "feature_a_idx": 0,
+        "feature_b_idx": 11,
+        "interaction_strength": 0.002101364079862833
+      },
+      {
+        "feature_a": "Init Fwd Win Byts",
+        "feature_b": "Fwd Seg Size Min",
+        "feature_a_idx": 66,
+        "feature_b_idx": 69,
+        "interaction_strength": 0.002060878789052367
+      },
+      {
+        "feature_a": "Dst Port",
+        "feature_b": "Bwd Seg Size Avg",
+        "feature_a_idx": 0,
+        "feature_b_idx": 55,
+        "interaction_strength": 0.0020533152855932713
+      },
+      {
+        "feature_a": "Fwd Header Len",
+        "feature_b": "Init Fwd Win Byts",
+        "feature_a_idx": 35,
+        "feature_b_idx": 66,
+        "interaction_strength": 0.001928302925080061
+      },
+      {
+        "feature_a": "Fwd Seg Size Avg",
+        "feature_b": "Fwd Seg Size Min",
+        "feature_a_idx": 54,
+        "feature_b_idx": 69,
+        "interaction_strength": 0.001893331529572606
+      },
+      {
+        "feature_a": "Fwd Pkt Len Max",
+        "feature_b": "Pkt Len Std",
+        "feature_a_idx": 7,
+        "feature_b_idx": 42,
+        "interaction_strength": 0.0018843639409169555
+      },
+      {
+        "feature_a": "Fwd Pkt Len Mean",
+        "feature_b": "Init Fwd Win Byts",
+        "feature_a_idx": 9,
+        "feature_b_idx": 66,
+        "interaction_strength": 0.0018761003157123923
+      },
+      {
+        "feature_a": "Fwd Pkt Len Std",
+        "feature_b": "Fwd Header Len",
+        "feature_a_idx": 10,
+        "feature_b_idx": 35,
+        "interaction_strength": 0.0017338310135528445
+      },
+      {
+        "feature_a": "Dst Port",
+        "feature_b": "Fwd Pkt Len Max",
+        "feature_a_idx": 0,
+        "feature_b_idx": 7,
+        "interaction_strength": 0.0017035650089383125
+      },
+      {
+        "feature_a": "Fwd Pkt Len Max",
+        "feature_b": "Pkt Len Mean",
+        "feature_a_idx": 7,
+        "feature_b_idx": 41,
+        "interaction_strength": 0.0016552561428397894
+      },
+      {
+        "feature_a": "Fwd Pkt Len Mean",
+        "feature_b": "Flow Pkts/s",
+        "feature_a_idx": 9,
+        "feature_b_idx": 16,
+        "interaction_strength": 0.001617736415937543
+      },
+      {
+        "feature_a": "Fwd Pkt Len Mean",
+        "feature_b": "Fwd Seg Size Min",
+        "feature_a_idx": 9,
+        "feature_b_idx": 69,
+        "interaction_strength": 0.0015763731207698584
+      }
+    ],
+    "DNN": [
+      {
+        "feature_a": "Bwd IAT Tot",
+        "feature_b": "PSH Flag Cnt",
+        "feature_a_idx": 26,
+        "feature_b_idx": 47,
+        "interaction_strength": 4.70720100402832
+      },
+      {
+        "feature_a": "Bwd IAT Tot",
+        "feature_b": "ACK Flag Cnt",
+        "feature_a_idx": 26,
+        "feature_b_idx": 48,
+        "interaction_strength": 4.7028045654296875
+      },
+      {
+        "feature_a": "Bwd IAT Tot",
+        "feature_b": "RST Flag Cnt",
+        "feature_a_idx": 26,
+        "feature_b_idx": 46,
+        "interaction_strength": 3.3216209411621094
+      },
+      {
+        "feature_a": "Bwd IAT Tot",
+        "feature_b": "ECE Flag Cnt",
+        "feature_a_idx": 26,
+        "feature_b_idx": 51,
+        "interaction_strength": 3.10408353805542
+      },
+      {
+        "feature_a": "Dst Port",
+        "feature_b": "Bwd IAT Tot",
+        "feature_a_idx": 0,
+        "feature_b_idx": 26,
+        "interaction_strength": 2.3739423751831055
+      },
+      {
+        "feature_a": "Dst Port",
+        "feature_b": "PSH Flag Cnt",
+        "feature_a_idx": 0,
+        "feature_b_idx": 47,
+        "interaction_strength": 2.148588180541992
+      },
+      {
+        "feature_a": "Dst Port",
+        "feature_b": "ACK Flag Cnt",
+        "feature_a_idx": 0,
+        "feature_b_idx": 48,
+        "interaction_strength": 1.9244498014450073
+      },
+      {
+        "feature_a": "Bwd IAT Tot",
+        "feature_b": "Init Fwd Win Byts",
+        "feature_a_idx": 26,
+        "feature_b_idx": 66,
+        "interaction_strength": 1.3037015199661255
+      },
+      {
+        "feature_a": "Dst Port",
+        "feature_b": "Fwd Seg Size Min",
+        "feature_a_idx": 0,
+        "feature_b_idx": 69,
+        "interaction_strength": 1.2606513500213623
+      },
+      {
+        "feature_a": "Dst Port",
+        "feature_b": "Init Fwd Win Byts",
+        "feature_a_idx": 0,
+        "feature_b_idx": 66,
+        "interaction_strength": 1.2182514667510986
+      },
+      {
+        "feature_a": "PSH Flag Cnt",
+        "feature_b": "ECE Flag Cnt",
+        "feature_a_idx": 47,
+        "feature_b_idx": 51,
+        "interaction_strength": 1.1943843364715576
+      },
+      {
+        "feature_a": "Bwd IAT Tot",
+        "feature_b": "Bwd IAT Std",
+        "feature_a_idx": 26,
+        "feature_b_idx": 28,
+        "interaction_strength": 1.153983235359192
+      },
+      {
+        "feature_a": "Dst Port",
+        "feature_b": "ECE Flag Cnt",
+        "feature_a_idx": 0,
+        "feature_b_idx": 51,
+        "interaction_strength": 1.1409419775009155
+      },
+      {
+        "feature_a": "ACK Flag Cnt",
+        "feature_b": "Init Fwd Win Byts",
+        "feature_a_idx": 48,
+        "feature_b_idx": 66,
+        "interaction_strength": 1.0921334028244019
+      },
+      {
+        "feature_a": "PSH Flag Cnt",
+        "feature_b": "ACK Flag Cnt",
+        "feature_a_idx": 47,
+        "feature_b_idx": 48,
+        "interaction_strength": 1.0897895097732544
+      },
+      {
+        "feature_a": "RST Flag Cnt",
+        "feature_b": "PSH Flag Cnt",
+        "feature_a_idx": 46,
+        "feature_b_idx": 47,
+        "interaction_strength": 1.0656720399856567
+      },
+      {
+        "feature_a": "Dst Port",
+        "feature_b": "Flow Pkts/s",
+        "feature_a_idx": 0,
+        "feature_b_idx": 16,
+        "interaction_strength": 1.0434037446975708
+      },
+      {
+        "feature_a": "RST Flag Cnt",
+        "feature_b": "ECE Flag Cnt",
+        "feature_a_idx": 46,
+        "feature_b_idx": 51,
+        "interaction_strength": 1.0431007146835327
+      },
+      {
+        "feature_a": "Dst Port",
+        "feature_b": "RST Flag Cnt",
+        "feature_a_idx": 0,
+        "feature_b_idx": 46,
+        "interaction_strength": 1.0337053537368774
+      },
+      {
+        "feature_a": "Bwd IAT Tot",
+        "feature_b": "Bwd IAT Mean",
+        "feature_a_idx": 26,
+        "feature_b_idx": 27,
+        "interaction_strength": 0.952858567237854
+      }
+    ]
+  },
+  "lime_comparison": {
+    "RF": {
+      "main_effect_correlation": 0.5923522485310713,
+      "main_effect_correlation_p": 1.111934524409504e-08,
+      "interaction_to_main_ratio": 2.2409299981067563,
+      "total_interaction_strength": 0.8312714099884033,
+      "features_underweighted_by_lime": [
+        {
+          "feature": "Pkt Len Max",
+          "lime_rank": 62,
+          "interaction_rank": 17,
+          "rank_gain": 45
+        },
+        {
+          "feature": "Protocol",
+          "lime_rank": 77,
+          "interaction_rank": 34,
+          "rank_gain": 43
+        },
+        {
+          "feature": "Pkt Size Avg",
+          "lime_rank": 66,
+          "interaction_rank": 25,
+          "rank_gain": 41
+        },
+        {
+          "feature": "Bwd IAT Tot",
+          "lime_rank": 70,
+          "interaction_rank": 36,
+          "rank_gain": 34
+        },
+        {
+          "feature": "Bwd Seg Size Avg",
+          "lime_rank": 41,
+          "interaction_rank": 7,
+          "rank_gain": 34
+        },
+        {
+          "feature": "Bwd Pkt Len Mean",
+          "lime_rank": 40,
+          "interaction_rank": 8,
+          "rank_gain": 32
+        },
+        {
+          "feature": "Idle Max",
+          "lime_rank": 76,
+          "interaction_rank": 46,
+          "rank_gain": 30
+        },
+        {
+          "feature": "Pkt Len Var",
+          "lime_rank": 65,
+          "interaction_rank": 37,
+          "rank_gain": 28
+        },
+        {
+          "feature": "Bwd IAT Mean",
+          "lime_rank": 63,
+          "interaction_rank": 41,
+          "rank_gain": 22
+        },
+        {
+          "feature": "Fwd Pkt Len Std",
+          "lime_rank": 32,
+          "interaction_rank": 11,
+          "rank_gain": 21
+        }
+      ]
+    },
+    "DNN": {
+      "main_effect_correlation": 0.28041720766851475,
+      "main_effect_correlation_p": 0.012893290190183735,
+      "interaction_to_main_ratio": 3.301202095011192,
+      "total_interaction_strength": 171.9815673828125,
+      "features_underweighted_by_lime": [
+        {
+          "feature": "Bwd Pkt Len Std",
+          "lime_rank": 77,
+          "interaction_rank": 7,
+          "rank_gain": 70
+        },
+        {
+          "feature": "Bwd Pkt Len Mean",
+          "lime_rank": 76,
+          "interaction_rank": 14,
+          "rank_gain": 62
+        },
+        {
+          "feature": "Protocol",
+          "lime_rank": 60,
+          "interaction_rank": 12,
+          "rank_gain": 48
+        },
+        {
+          "feature": "Pkt Len Max",
+          "lime_rank": 64,
+          "interaction_rank": 19,
+          "rank_gain": 45
+        },
+        {
+          "feature": "Flow Pkts/s",
+          "lime_rank": 61,
+          "interaction_rank": 18,
+          "rank_gain": 43
+        },
+        {
+          "feature": "Bwd IAT Std",
+          "lime_rank": 48,
+          "interaction_rank": 11,
+          "rank_gain": 37
+        },
+        {
+          "feature": "Fwd Pkt Len Std",
+          "lime_rank": 49,
+          "interaction_rank": 17,
+          "rank_gain": 32
+        },
+        {
+          "feature": "Bwd Pkt Len Max",
+          "lime_rank": 42,
+          "interaction_rank": 13,
+          "rank_gain": 29
+        },
+        {
+          "feature": "Fwd Seg Size Avg",
+          "lime_rank": 58,
+          "interaction_rank": 30,
+          "rank_gain": 28
+        },
+        {
+          "feature": "RST Flag Cnt",
+          "lime_rank": 32,
+          "interaction_rank": 6,
+          "rank_gain": 26
+        }
+      ]
+    }
+  }
+}

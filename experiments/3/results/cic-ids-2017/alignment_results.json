@@ -1,0 +1,1574 @@
+[
+  {
+    "attack_type": "DDoS",
+    "explainer_key": "DNN_SHAP",
+    "rra_score": 0.5229793885726455,
+    "rma_score": 0.24547335431959424,
+    "expert_features": [
+      "Destination Port",
+      "Flow Duration",
+      "Total Fwd Packets",
+      "Flow Bytes/s",
+      "Flow Packets/s",
+      "Fwd Packet Length Mean",
+      "SYN Flag Count",
+      "ACK Flag Count"
+    ],
+    "n_expert_features": 8,
+    "n_resolved": 8
+  },
+  {
+    "attack_type": "DDoS",
+    "explainer_key": "DNN_LIME",
+    "rra_score": 0.4999129811595176,
+    "rma_score": 0.2184606775662948,
+    "expert_features": [
+      "Destination Port",
+      "Flow Duration",
+      "Total Fwd Packets",
+      "Flow Bytes/s",
+      "Flow Packets/s",
+      "Fwd Packet Length Mean",
+      "SYN Flag Count",
+      "ACK Flag Count"
+    ],
+    "n_expert_features": 8,
+    "n_resolved": 8
+  },
+  {
+    "attack_type": "DDoS",
+    "explainer_key": "DNN_IG",
+    "rra_score": 0.47043882782185226,
+    "rma_score": 0.22686278952895012,
+    "expert_features": [
+      "Destination Port",
+      "Flow Duration",
+      "Total Fwd Packets",
+      "Flow Bytes/s",
+      "Flow Packets/s",
+      "Fwd Packet Length Mean",
+      "SYN Flag Count",
+      "ACK Flag Count"
+    ],
+    "n_expert_features": 8,
+    "n_resolved": 8
+  },
+  {
+    "attack_type": "DDoS",
+    "explainer_key": "DNN_DeepLIFT",
+    "rra_score": 0.5549978092674368,
+    "rma_score": 0.4362158621614442,
+    "expert_features": [
+      "Destination Port",
+      "Flow Duration",
+      "Total Fwd Packets",
+      "Flow Bytes/s",
+      "Flow Packets/s",
+      "Fwd Packet Length Mean",
+      "SYN Flag Count",
+      "ACK Flag Count"
+    ],
+    "n_expert_features": 8,
+    "n_resolved": 8
+  },
+  {
+    "attack_type": "DDoS",
+    "explainer_key": "RF_SHAP",
+    "rra_score": 0.13033656595693713,
+    "rma_score": 0.08988826242570121,
+    "expert_features": [
+      "Destination Port",
+      "Flow Duration",
+      "Total Fwd Packets",
+      "Flow Bytes/s",
+      "Flow Packets/s",
+      "Fwd Packet Length Mean",
+      "SYN Flag Count",
+      "ACK Flag Count"
+    ],
+    "n_expert_features": 8,
+    "n_resolved": 8
+  },
+  {
+    "attack_type": "DDoS",
+    "explainer_key": "RF_LIME",
+    "rra_score": 0.11731076698914202,
+    "rma_score": 0.07174493244104925,
+    "expert_features": [
+      "Destination Port",
+      "Flow Duration",
+      "Total Fwd Packets",
+      "Flow Bytes/s",
+      "Flow Packets/s",
+      "Fwd Packet Length Mean",
+      "SYN Flag Count",
+      "ACK Flag Count"
+    ],
+    "n_expert_features": 8,
+    "n_resolved": 8
+  },
+  {
+    "attack_type": "DDoS",
+    "explainer_key": "DNN_PA-SHAP",
+    "rra_score": 0.4542230921641784,
+    "rma_score": 0.16886023440583584,
+    "expert_features": [
+      "Destination Port",
+      "Flow Duration",
+      "Total Fwd Packets",
+      "Flow Bytes/s",
+      "Flow Packets/s",
+      "Fwd Packet Length Mean",
+      "SYN Flag Count",
+      "ACK Flag Count"
+    ],
+    "n_expert_features": 8,
+    "n_resolved": 8
+  },
+  {
+    "attack_type": "DDoS",
+    "explainer_key": "DNN_PA-LIME",
+    "rra_score": 0.07725389696284238,
+    "rma_score": 0.0533113713953567,
+    "expert_features": [
+      "Destination Port",
+      "Flow Duration",
+      "Total Fwd Packets",
+      "Flow Bytes/s",
+      "Flow Packets/s",
+      "Fwd Packet Length Mean",
+      "SYN Flag Count",
+      "ACK Flag Count"
+    ],
+    "n_expert_features": 8,
+    "n_resolved": 8
+  },
+  {
+    "attack_type": "DDoS",
+    "explainer_key": "DNN_PA-IG",
+    "rra_score": 0.070743090009053,
+    "rma_score": 0.029924003855749587,
+    "expert_features": [
+      "Destination Port",
+      "Flow Duration",
+      "Total Fwd Packets",
+      "Flow Bytes/s",
+      "Flow Packets/s",
+      "Fwd Packet Length Mean",
+      "SYN Flag Count",
+      "ACK Flag Count"
+    ],
+    "n_expert_features": 8,
+    "n_resolved": 8
+  },
+  {
+    "attack_type": "DDoS",
+    "explainer_key": "DNN_PA-DeepLIFT",
+    "rra_score": 0.06936210789536144,
+    "rma_score": 0.012292816199218267,
+    "expert_features": [
+      "Destination Port",
+      "Flow Duration",
+      "Total Fwd Packets",
+      "Flow Bytes/s",
+      "Flow Packets/s",
+      "Fwd Packet Length Mean",
+      "SYN Flag Count",
+      "ACK Flag Count"
+    ],
+    "n_expert_features": 8,
+    "n_resolved": 8
+  },
+  {
+    "attack_type": "DDoS",
+    "explainer_key": "RF_PA-SHAP",
+    "rra_score": 0.45091489074909247,
+    "rma_score": 0.12332873352885686,
+    "expert_features": [
+      "Destination Port",
+      "Flow Duration",
+      "Total Fwd Packets",
+      "Flow Bytes/s",
+      "Flow Packets/s",
+      "Fwd Packet Length Mean",
+      "SYN Flag Count",
+      "ACK Flag Count"
+    ],
+    "n_expert_features": 8,
+    "n_resolved": 8
+  },
+  {
+    "attack_type": "DDoS",
+    "explainer_key": "RF_PA-LIME",
+    "rra_score": 0.26094343654583274,
+    "rma_score": 0.1373947519336332,
+    "expert_features": [
+      "Destination Port",
+      "Flow Duration",
+      "Total Fwd Packets",
+      "Flow Bytes/s",
+      "Flow Packets/s",
+      "Fwd Packet Length Mean",
+      "SYN Flag Count",
+      "ACK Flag Count"
+    ],
+    "n_expert_features": 8,
+    "n_resolved": 8
+  },
+  {
+    "attack_type": "DoS GoldenEye",
+    "explainer_key": "DNN_SHAP",
+    "rra_score": 0.08183026729891422,
+    "rma_score": 0.03661186895080516,
+    "expert_features": [
+      "Flow Duration",
+      "Flow Bytes/s",
+      "Fwd Packets/s",
+      "Bwd Packets/s",
+      "Total Fwd Packets",
+      "Fwd IAT Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS GoldenEye",
+    "explainer_key": "DNN_LIME",
+    "rra_score": 0.04488312986637689,
+    "rma_score": 0.006696584016838008,
+    "expert_features": [
+      "Flow Duration",
+      "Flow Bytes/s",
+      "Fwd Packets/s",
+      "Bwd Packets/s",
+      "Total Fwd Packets",
+      "Fwd IAT Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS GoldenEye",
+    "explainer_key": "DNN_IG",
+    "rra_score": 0.07130598234717228,
+    "rma_score": 0.03439851493435705,
+    "expert_features": [
+      "Flow Duration",
+      "Flow Bytes/s",
+      "Fwd Packets/s",
+      "Bwd Packets/s",
+      "Total Fwd Packets",
+      "Fwd IAT Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS GoldenEye",
+    "explainer_key": "DNN_DeepLIFT",
+    "rra_score": 0.12042164781155114,
+    "rma_score": 0.041960640636663944,
+    "expert_features": [
+      "Flow Duration",
+      "Flow Bytes/s",
+      "Fwd Packets/s",
+      "Bwd Packets/s",
+      "Total Fwd Packets",
+      "Fwd IAT Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS GoldenEye",
+    "explainer_key": "RF_SHAP",
+    "rra_score": 0.07001394236417277,
+    "rma_score": 0.06202993971745941,
+    "expert_features": [
+      "Flow Duration",
+      "Flow Bytes/s",
+      "Fwd Packets/s",
+      "Bwd Packets/s",
+      "Total Fwd Packets",
+      "Fwd IAT Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS GoldenEye",
+    "explainer_key": "RF_LIME",
+    "rra_score": 0.04882733308294963,
+    "rma_score": 0.00912344813750486,
+    "expert_features": [
+      "Flow Duration",
+      "Flow Bytes/s",
+      "Fwd Packets/s",
+      "Bwd Packets/s",
+      "Total Fwd Packets",
+      "Fwd IAT Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS GoldenEye",
+    "explainer_key": "DNN_PA-SHAP",
+    "rra_score": 0.09064892414646109,
+    "rma_score": 0.039172268611386396,
+    "expert_features": [
+      "Flow Duration",
+      "Flow Bytes/s",
+      "Fwd Packets/s",
+      "Bwd Packets/s",
+      "Total Fwd Packets",
+      "Fwd IAT Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS GoldenEye",
+    "explainer_key": "DNN_PA-LIME",
+    "rra_score": 0.07690931780314368,
+    "rma_score": 0.042859755635381386,
+    "expert_features": [
+      "Flow Duration",
+      "Flow Bytes/s",
+      "Fwd Packets/s",
+      "Bwd Packets/s",
+      "Total Fwd Packets",
+      "Fwd IAT Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS GoldenEye",
+    "explainer_key": "DNN_PA-IG",
+    "rra_score": 0.061034454426959664,
+    "rma_score": 0.008495866848452929,
+    "expert_features": [
+      "Flow Duration",
+      "Flow Bytes/s",
+      "Fwd Packets/s",
+      "Bwd Packets/s",
+      "Total Fwd Packets",
+      "Fwd IAT Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS GoldenEye",
+    "explainer_key": "DNN_PA-DeepLIFT",
+    "rra_score": 0.059091423323806166,
+    "rma_score": 0.008251833610314717,
+    "expert_features": [
+      "Flow Duration",
+      "Flow Bytes/s",
+      "Fwd Packets/s",
+      "Bwd Packets/s",
+      "Total Fwd Packets",
+      "Fwd IAT Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS GoldenEye",
+    "explainer_key": "RF_PA-SHAP",
+    "rra_score": 0.07054476673267585,
+    "rma_score": 0.05655026609455415,
+    "expert_features": [
+      "Flow Duration",
+      "Flow Bytes/s",
+      "Fwd Packets/s",
+      "Bwd Packets/s",
+      "Total Fwd Packets",
+      "Fwd IAT Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS GoldenEye",
+    "explainer_key": "RF_PA-LIME",
+    "rra_score": 0.060962679407525686,
+    "rma_score": 0.038845072799617776,
+    "expert_features": [
+      "Flow Duration",
+      "Flow Bytes/s",
+      "Fwd Packets/s",
+      "Bwd Packets/s",
+      "Total Fwd Packets",
+      "Fwd IAT Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS Hulk",
+    "explainer_key": "DNN_SHAP",
+    "rra_score": 0.25578310220782163,
+    "rma_score": 0.09822502277918309,
+    "expert_features": [
+      "Destination Port",
+      "Flow Duration",
+      "Total Fwd Packets",
+      "Flow Bytes/s",
+      "Fwd Packet Length Mean",
+      "Flow Packets/s"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS Hulk",
+    "explainer_key": "DNN_LIME",
+    "rra_score": 0.06364518445183133,
+    "rma_score": 0.023312463465873602,
+    "expert_features": [
+      "Destination Port",
+      "Flow Duration",
+      "Total Fwd Packets",
+      "Flow Bytes/s",
+      "Fwd Packet Length Mean",
+      "Flow Packets/s"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS Hulk",
+    "explainer_key": "DNN_IG",
+    "rra_score": 0.1316948481263865,
+    "rma_score": 0.09203996227452602,
+    "expert_features": [
+      "Destination Port",
+      "Flow Duration",
+      "Total Fwd Packets",
+      "Flow Bytes/s",
+      "Fwd Packet Length Mean",
+      "Flow Packets/s"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS Hulk",
+    "explainer_key": "DNN_DeepLIFT",
+    "rra_score": 0.26395805531143873,
+    "rma_score": 0.10136437136459199,
+    "expert_features": [
+      "Destination Port",
+      "Flow Duration",
+      "Total Fwd Packets",
+      "Flow Bytes/s",
+      "Fwd Packet Length Mean",
+      "Flow Packets/s"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS Hulk",
+    "explainer_key": "RF_SHAP",
+    "rra_score": 0.08695109240620147,
+    "rma_score": 0.06739954041090375,
+    "expert_features": [
+      "Destination Port",
+      "Flow Duration",
+      "Total Fwd Packets",
+      "Flow Bytes/s",
+      "Fwd Packet Length Mean",
+      "Flow Packets/s"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS Hulk",
+    "explainer_key": "RF_LIME",
+    "rra_score": 0.1926873162980509,
+    "rma_score": 0.08568942099176682,
+    "expert_features": [
+      "Destination Port",
+      "Flow Duration",
+      "Total Fwd Packets",
+      "Flow Bytes/s",
+      "Fwd Packet Length Mean",
+      "Flow Packets/s"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS Hulk",
+    "explainer_key": "DNN_PA-SHAP",
+    "rra_score": 0.4610165323819205,
+    "rma_score": 0.14640150186187317,
+    "expert_features": [
+      "Destination Port",
+      "Flow Duration",
+      "Total Fwd Packets",
+      "Flow Bytes/s",
+      "Fwd Packet Length Mean",
+      "Flow Packets/s"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS Hulk",
+    "explainer_key": "DNN_PA-LIME",
+    "rra_score": 0.09454305503203371,
+    "rma_score": 0.06763606160648232,
+    "expert_features": [
+      "Destination Port",
+      "Flow Duration",
+      "Total Fwd Packets",
+      "Flow Bytes/s",
+      "Fwd Packet Length Mean",
+      "Flow Packets/s"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS Hulk",
+    "explainer_key": "DNN_PA-IG",
+    "rra_score": 0.09011958386273329,
+    "rma_score": 0.06262647301038489,
+    "expert_features": [
+      "Destination Port",
+      "Flow Duration",
+      "Total Fwd Packets",
+      "Flow Bytes/s",
+      "Fwd Packet Length Mean",
+      "Flow Packets/s"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS Hulk",
+    "explainer_key": "DNN_PA-DeepLIFT",
+    "rra_score": 0.24988724697179507,
+    "rma_score": 0.09490155368365678,
+    "expert_features": [
+      "Destination Port",
+      "Flow Duration",
+      "Total Fwd Packets",
+      "Flow Bytes/s",
+      "Fwd Packet Length Mean",
+      "Flow Packets/s"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS Hulk",
+    "explainer_key": "RF_PA-SHAP",
+    "rra_score": 0.0925167462243312,
+    "rma_score": 0.06801899747080617,
+    "expert_features": [
+      "Destination Port",
+      "Flow Duration",
+      "Total Fwd Packets",
+      "Flow Bytes/s",
+      "Fwd Packet Length Mean",
+      "Flow Packets/s"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS Hulk",
+    "explainer_key": "RF_PA-LIME",
+    "rra_score": 0.1430504019789734,
+    "rma_score": 0.09663204560195729,
+    "expert_features": [
+      "Destination Port",
+      "Flow Duration",
+      "Total Fwd Packets",
+      "Flow Bytes/s",
+      "Fwd Packet Length Mean",
+      "Flow Packets/s"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS Slowhttptest",
+    "explainer_key": "DNN_SHAP",
+    "rra_score": 0.09200197520165894,
+    "rma_score": 0.05380982078266877,
+    "expert_features": [
+      "Flow Duration",
+      "Fwd IAT Mean",
+      "Fwd IAT Max",
+      "Total Length of Fwd Packets",
+      "Fwd Packet Length Mean",
+      "Flow Packets/s"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS Slowhttptest",
+    "explainer_key": "DNN_LIME",
+    "rra_score": 0.09867954006566068,
+    "rma_score": 0.05774842358324925,
+    "expert_features": [
+      "Flow Duration",
+      "Fwd IAT Mean",
+      "Fwd IAT Max",
+      "Total Length of Fwd Packets",
+      "Fwd Packet Length Mean",
+      "Flow Packets/s"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS Slowhttptest",
+    "explainer_key": "DNN_IG",
+    "rra_score": 0.13446403220839306,
+    "rma_score": 0.08373886293229128,
+    "expert_features": [
+      "Flow Duration",
+      "Fwd IAT Mean",
+      "Fwd IAT Max",
+      "Total Length of Fwd Packets",
+      "Fwd Packet Length Mean",
+      "Flow Packets/s"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS Slowhttptest",
+    "explainer_key": "DNN_DeepLIFT",
+    "rra_score": 0.18506445618046893,
+    "rma_score": 0.11382545257989866,
+    "expert_features": [
+      "Flow Duration",
+      "Fwd IAT Mean",
+      "Fwd IAT Max",
+      "Total Length of Fwd Packets",
+      "Fwd Packet Length Mean",
+      "Flow Packets/s"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS Slowhttptest",
+    "explainer_key": "RF_SHAP",
+    "rra_score": 0.12939177721669665,
+    "rma_score": 0.0982431158678644,
+    "expert_features": [
+      "Flow Duration",
+      "Fwd IAT Mean",
+      "Fwd IAT Max",
+      "Total Length of Fwd Packets",
+      "Fwd Packet Length Mean",
+      "Flow Packets/s"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS Slowhttptest",
+    "explainer_key": "RF_LIME",
+    "rra_score": 0.12055910655815734,
+    "rma_score": 0.07451856554174717,
+    "expert_features": [
+      "Flow Duration",
+      "Fwd IAT Mean",
+      "Fwd IAT Max",
+      "Total Length of Fwd Packets",
+      "Fwd Packet Length Mean",
+      "Flow Packets/s"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS Slowhttptest",
+    "explainer_key": "DNN_PA-SHAP",
+    "rra_score": 0.09678792385559304,
+    "rma_score": 0.05622846505769304,
+    "expert_features": [
+      "Flow Duration",
+      "Fwd IAT Mean",
+      "Fwd IAT Max",
+      "Total Length of Fwd Packets",
+      "Fwd Packet Length Mean",
+      "Flow Packets/s"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS Slowhttptest",
+    "explainer_key": "DNN_PA-LIME",
+    "rra_score": 0.46327880008393174,
+    "rma_score": 0.12361488906480897,
+    "expert_features": [
+      "Flow Duration",
+      "Fwd IAT Mean",
+      "Fwd IAT Max",
+      "Total Length of Fwd Packets",
+      "Fwd Packet Length Mean",
+      "Flow Packets/s"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS Slowhttptest",
+    "explainer_key": "DNN_PA-IG",
+    "rra_score": 0.07651458475353251,
+    "rma_score": 0.024436637558064526,
+    "expert_features": [
+      "Flow Duration",
+      "Fwd IAT Mean",
+      "Fwd IAT Max",
+      "Total Length of Fwd Packets",
+      "Fwd Packet Length Mean",
+      "Flow Packets/s"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS Slowhttptest",
+    "explainer_key": "DNN_PA-DeepLIFT",
+    "rra_score": 0.07518002874040025,
+    "rma_score": 0.03641093962176195,
+    "expert_features": [
+      "Flow Duration",
+      "Fwd IAT Mean",
+      "Fwd IAT Max",
+      "Total Length of Fwd Packets",
+      "Fwd Packet Length Mean",
+      "Flow Packets/s"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS Slowhttptest",
+    "explainer_key": "RF_PA-SHAP",
+    "rra_score": 0.10621449425436136,
+    "rma_score": 0.09660006777356811,
+    "expert_features": [
+      "Flow Duration",
+      "Fwd IAT Mean",
+      "Fwd IAT Max",
+      "Total Length of Fwd Packets",
+      "Fwd Packet Length Mean",
+      "Flow Packets/s"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS Slowhttptest",
+    "explainer_key": "RF_PA-LIME",
+    "rra_score": 0.09035031448824553,
+    "rma_score": 0.07028180303553738,
+    "expert_features": [
+      "Flow Duration",
+      "Fwd IAT Mean",
+      "Fwd IAT Max",
+      "Total Length of Fwd Packets",
+      "Fwd Packet Length Mean",
+      "Flow Packets/s"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS slowloris",
+    "explainer_key": "DNN_SHAP",
+    "rra_score": 0.12066801571174751,
+    "rma_score": 0.07921153592610784,
+    "expert_features": [
+      "Flow Duration",
+      "Fwd IAT Mean",
+      "Fwd IAT Max",
+      "Flow Packets/s",
+      "Fwd Packets/s",
+      "Total Fwd Packets"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS slowloris",
+    "explainer_key": "DNN_LIME",
+    "rra_score": 0.08375621511039612,
+    "rma_score": 0.05390349704486348,
+    "expert_features": [
+      "Flow Duration",
+      "Fwd IAT Mean",
+      "Fwd IAT Max",
+      "Flow Packets/s",
+      "Fwd Packets/s",
+      "Total Fwd Packets"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS slowloris",
+    "explainer_key": "DNN_IG",
+    "rra_score": 0.1306883632316903,
+    "rma_score": 0.07144254933701698,
+    "expert_features": [
+      "Flow Duration",
+      "Fwd IAT Mean",
+      "Fwd IAT Max",
+      "Flow Packets/s",
+      "Fwd Packets/s",
+      "Total Fwd Packets"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS slowloris",
+    "explainer_key": "DNN_DeepLIFT",
+    "rra_score": 0.10636670252516589,
+    "rma_score": 0.028039142272010945,
+    "expert_features": [
+      "Flow Duration",
+      "Fwd IAT Mean",
+      "Fwd IAT Max",
+      "Flow Packets/s",
+      "Fwd Packets/s",
+      "Total Fwd Packets"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS slowloris",
+    "explainer_key": "RF_SHAP",
+    "rra_score": 0.12904555761698616,
+    "rma_score": 0.09109637195696729,
+    "expert_features": [
+      "Flow Duration",
+      "Fwd IAT Mean",
+      "Fwd IAT Max",
+      "Flow Packets/s",
+      "Fwd Packets/s",
+      "Total Fwd Packets"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS slowloris",
+    "explainer_key": "RF_LIME",
+    "rra_score": 0.04569151247131813,
+    "rma_score": 0.014772045635020412,
+    "expert_features": [
+      "Flow Duration",
+      "Fwd IAT Mean",
+      "Fwd IAT Max",
+      "Flow Packets/s",
+      "Fwd Packets/s",
+      "Total Fwd Packets"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS slowloris",
+    "explainer_key": "DNN_PA-SHAP",
+    "rra_score": 0.07474591568229022,
+    "rma_score": 0.03475430697846729,
+    "expert_features": [
+      "Flow Duration",
+      "Fwd IAT Mean",
+      "Fwd IAT Max",
+      "Flow Packets/s",
+      "Fwd Packets/s",
+      "Total Fwd Packets"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS slowloris",
+    "explainer_key": "DNN_PA-LIME",
+    "rra_score": 0.06522003000276663,
+    "rma_score": 0.05765091467643444,
+    "expert_features": [
+      "Flow Duration",
+      "Fwd IAT Mean",
+      "Fwd IAT Max",
+      "Flow Packets/s",
+      "Fwd Packets/s",
+      "Total Fwd Packets"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS slowloris",
+    "explainer_key": "DNN_PA-IG",
+    "rra_score": 0.27413860297957326,
+    "rma_score": 0.12004781744804577,
+    "expert_features": [
+      "Flow Duration",
+      "Fwd IAT Mean",
+      "Fwd IAT Max",
+      "Flow Packets/s",
+      "Fwd Packets/s",
+      "Total Fwd Packets"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS slowloris",
+    "explainer_key": "DNN_PA-DeepLIFT",
+    "rra_score": 0.07393197131074364,
+    "rma_score": 0.04363608570258027,
+    "expert_features": [
+      "Flow Duration",
+      "Fwd IAT Mean",
+      "Fwd IAT Max",
+      "Flow Packets/s",
+      "Fwd Packets/s",
+      "Total Fwd Packets"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS slowloris",
+    "explainer_key": "RF_PA-SHAP",
+    "rra_score": 0.13939178200826255,
+    "rma_score": 0.09235036716280827,
+    "expert_features": [
+      "Flow Duration",
+      "Fwd IAT Mean",
+      "Fwd IAT Max",
+      "Flow Packets/s",
+      "Fwd Packets/s",
+      "Total Fwd Packets"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "DoS slowloris",
+    "explainer_key": "RF_PA-LIME",
+    "rra_score": 0.07161657631005738,
+    "rma_score": 0.045166833232747026,
+    "expert_features": [
+      "Flow Duration",
+      "Fwd IAT Mean",
+      "Fwd IAT Max",
+      "Flow Packets/s",
+      "Fwd Packets/s",
+      "Total Fwd Packets"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "FTP-Patator",
+    "explainer_key": "DNN_SHAP",
+    "rra_score": 0.2424516604671425,
+    "rma_score": 0.11740336323998118,
+    "expert_features": [
+      "Destination Port",
+      "Flow Duration",
+      "Fwd Packets/s",
+      "Bwd Packets/s",
+      "Total Length of Fwd Packets",
+      "Fwd IAT Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "FTP-Patator",
+    "explainer_key": "DNN_LIME",
+    "rra_score": 0.051261783308121124,
+    "rma_score": 0.0204009900041016,
+    "expert_features": [
+      "Destination Port",
+      "Flow Duration",
+      "Fwd Packets/s",
+      "Bwd Packets/s",
+      "Total Length of Fwd Packets",
+      "Fwd IAT Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "FTP-Patator",
+    "explainer_key": "DNN_IG",
+    "rra_score": 0.10314510824714905,
+    "rma_score": 0.037471135971324676,
+    "expert_features": [
+      "Destination Port",
+      "Flow Duration",
+      "Fwd Packets/s",
+      "Bwd Packets/s",
+      "Total Length of Fwd Packets",
+      "Fwd IAT Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "FTP-Patator",
+    "explainer_key": "DNN_DeepLIFT",
+    "rra_score": 0.11917806162753568,
+    "rma_score": 0.02722355124847906,
+    "expert_features": [
+      "Destination Port",
+      "Flow Duration",
+      "Fwd Packets/s",
+      "Bwd Packets/s",
+      "Total Length of Fwd Packets",
+      "Fwd IAT Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "FTP-Patator",
+    "explainer_key": "RF_SHAP",
+    "rra_score": 0.4901368077685116,
+    "rma_score": 0.23267145208509377,
+    "expert_features": [
+      "Destination Port",
+      "Flow Duration",
+      "Fwd Packets/s",
+      "Bwd Packets/s",
+      "Total Length of Fwd Packets",
+      "Fwd IAT Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "FTP-Patator",
+    "explainer_key": "RF_LIME",
+    "rra_score": 0.13184701680942282,
+    "rma_score": 0.07971213547373754,
+    "expert_features": [
+      "Destination Port",
+      "Flow Duration",
+      "Fwd Packets/s",
+      "Bwd Packets/s",
+      "Total Length of Fwd Packets",
+      "Fwd IAT Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "FTP-Patator",
+    "explainer_key": "DNN_PA-SHAP",
+    "rra_score": 0.21929419998745855,
+    "rma_score": 0.1480788685756606,
+    "expert_features": [
+      "Destination Port",
+      "Flow Duration",
+      "Fwd Packets/s",
+      "Bwd Packets/s",
+      "Total Length of Fwd Packets",
+      "Fwd IAT Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "FTP-Patator",
+    "explainer_key": "DNN_PA-LIME",
+    "rra_score": 0.31602580558106164,
+    "rma_score": 0.1473604384738649,
+    "expert_features": [
+      "Destination Port",
+      "Flow Duration",
+      "Fwd Packets/s",
+      "Bwd Packets/s",
+      "Total Length of Fwd Packets",
+      "Fwd IAT Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "FTP-Patator",
+    "explainer_key": "DNN_PA-IG",
+    "rra_score": 0.07297183846315293,
+    "rma_score": 0.020354196354910124,
+    "expert_features": [
+      "Destination Port",
+      "Flow Duration",
+      "Fwd Packets/s",
+      "Bwd Packets/s",
+      "Total Length of Fwd Packets",
+      "Fwd IAT Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "FTP-Patator",
+    "explainer_key": "DNN_PA-DeepLIFT",
+    "rra_score": 0.07855458751697415,
+    "rma_score": 0.027769790945386938,
+    "expert_features": [
+      "Destination Port",
+      "Flow Duration",
+      "Fwd Packets/s",
+      "Bwd Packets/s",
+      "Total Length of Fwd Packets",
+      "Fwd IAT Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "FTP-Patator",
+    "explainer_key": "RF_PA-SHAP",
+    "rra_score": 0.4892706885188088,
+    "rma_score": 0.2384973574546252,
+    "expert_features": [
+      "Destination Port",
+      "Flow Duration",
+      "Fwd Packets/s",
+      "Bwd Packets/s",
+      "Total Length of Fwd Packets",
+      "Fwd IAT Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "FTP-Patator",
+    "explainer_key": "RF_PA-LIME",
+    "rra_score": 0.14564099585568127,
+    "rma_score": 0.10242977339167367,
+    "expert_features": [
+      "Destination Port",
+      "Flow Duration",
+      "Fwd Packets/s",
+      "Bwd Packets/s",
+      "Total Length of Fwd Packets",
+      "Fwd IAT Mean"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "PortScan",
+    "explainer_key": "DNN_SHAP",
+    "rra_score": 0.446213887122978,
+    "rma_score": 0.2527986941708178,
+    "expert_features": [
+      "Destination Port",
+      "Flow Duration",
+      "Total Backward Packets",
+      "Init_Win_bytes_forward",
+      "Init_Win_bytes_backward",
+      "SYN Flag Count",
+      "RST Flag Count"
+    ],
+    "n_expert_features": 7,
+    "n_resolved": 7
+  },
+  {
+    "attack_type": "PortScan",
+    "explainer_key": "DNN_LIME",
+    "rra_score": 0.25987144168962345,
+    "rma_score": 0.16828392906442102,
+    "expert_features": [
+      "Destination Port",
+      "Flow Duration",
+      "Total Backward Packets",
+      "Init_Win_bytes_forward",
+      "Init_Win_bytes_backward",
+      "SYN Flag Count",
+      "RST Flag Count"
+    ],
+    "n_expert_features": 7,
+    "n_resolved": 7
+  },
+  {
+    "attack_type": "PortScan",
+    "explainer_key": "DNN_IG",
+    "rra_score": 0.29695749511230407,
+    "rma_score": 0.17936314172629797,
+    "expert_features": [
+      "Destination Port",
+      "Flow Duration",
+      "Total Backward Packets",
+      "Init_Win_bytes_forward",
+      "Init_Win_bytes_backward",
+      "SYN Flag Count",
+      "RST Flag Count"
+    ],
+    "n_expert_features": 7,
+    "n_resolved": 7
+  },
+  {
+    "attack_type": "PortScan",
+    "explainer_key": "DNN_DeepLIFT",
+    "rra_score": 0.1313964754166141,
+    "rma_score": 0.04704771247918514,
+    "expert_features": [
+      "Destination Port",
+      "Flow Duration",
+      "Total Backward Packets",
+      "Init_Win_bytes_forward",
+      "Init_Win_bytes_backward",
+      "SYN Flag Count",
+      "RST Flag Count"
+    ],
+    "n_expert_features": 7,
+    "n_resolved": 7
+  },
+  {
+    "attack_type": "PortScan",
+    "explainer_key": "RF_SHAP",
+    "rra_score": 0.10913227072385465,
+    "rma_score": 0.08832371381578369,
+    "expert_features": [
+      "Destination Port",
+      "Flow Duration",
+      "Total Backward Packets",
+      "Init_Win_bytes_forward",
+      "Init_Win_bytes_backward",
+      "SYN Flag Count",
+      "RST Flag Count"
+    ],
+    "n_expert_features": 7,
+    "n_resolved": 7
+  },
+  {
+    "attack_type": "PortScan",
+    "explainer_key": "RF_LIME",
+    "rra_score": 0.15826446280991735,
+    "rma_score": 0.09593111509262814,
+    "expert_features": [
+      "Destination Port",
+      "Flow Duration",
+      "Total Backward Packets",
+      "Init_Win_bytes_forward",
+      "Init_Win_bytes_backward",
+      "SYN Flag Count",
+      "RST Flag Count"
+    ],
+    "n_expert_features": 7,
+    "n_resolved": 7
+  },
+  {
+    "attack_type": "PortScan",
+    "explainer_key": "DNN_PA-SHAP",
+    "rra_score": 0.702295875277839,
+    "rma_score": 0.46670866934289473,
+    "expert_features": [
+      "Destination Port",
+      "Flow Duration",
+      "Total Backward Packets",
+      "Init_Win_bytes_forward",
+      "Init_Win_bytes_backward",
+      "SYN Flag Count",
+      "RST Flag Count"
+    ],
+    "n_expert_features": 7,
+    "n_resolved": 7
+  },
+  {
+    "attack_type": "PortScan",
+    "explainer_key": "DNN_PA-LIME",
+    "rra_score": 0.0466935066010114,
+    "rma_score": 0.015555429059577748,
+    "expert_features": [
+      "Destination Port",
+      "Flow Duration",
+      "Total Backward Packets",
+      "Init_Win_bytes_forward",
+      "Init_Win_bytes_backward",
+      "SYN Flag Count",
+      "RST Flag Count"
+    ],
+    "n_expert_features": 7,
+    "n_resolved": 7
+  },
+  {
+    "attack_type": "PortScan",
+    "explainer_key": "DNN_PA-IG",
+    "rra_score": 0.1066524945104913,
+    "rma_score": 0.0076856468456972605,
+    "expert_features": [
+      "Destination Port",
+      "Flow Duration",
+      "Total Backward Packets",
+      "Init_Win_bytes_forward",
+      "Init_Win_bytes_backward",
+      "SYN Flag Count",
+      "RST Flag Count"
+    ],
+    "n_expert_features": 7,
+    "n_resolved": 7
+  },
+  {
+    "attack_type": "PortScan",
+    "explainer_key": "DNN_PA-DeepLIFT",
+    "rra_score": 0.25555299668306153,
+    "rma_score": 0.16047455275072817,
+    "expert_features": [
+      "Destination Port",
+      "Flow Duration",
+      "Total Backward Packets",
+      "Init_Win_bytes_forward",
+      "Init_Win_bytes_backward",
+      "SYN Flag Count",
+      "RST Flag Count"
+    ],
+    "n_expert_features": 7,
+    "n_resolved": 7
+  },
+  {
+    "attack_type": "PortScan",
+    "explainer_key": "RF_PA-SHAP",
+    "rra_score": 0.1913482140754868,
+    "rma_score": 0.13594943975979024,
+    "expert_features": [
+      "Destination Port",
+      "Flow Duration",
+      "Total Backward Packets",
+      "Init_Win_bytes_forward",
+      "Init_Win_bytes_backward",
+      "SYN Flag Count",
+      "RST Flag Count"
+    ],
+    "n_expert_features": 7,
+    "n_resolved": 7
+  },
+  {
+    "attack_type": "PortScan",
+    "explainer_key": "RF_PA-LIME",
+    "rra_score": 0.23503099061180605,
+    "rma_score": 0.0851849224162453,
+    "expert_features": [
+      "Destination Port",
+      "Flow Duration",
+      "Total Backward Packets",
+      "Init_Win_bytes_forward",
+      "Init_Win_bytes_backward",
+      "SYN Flag Count",
+      "RST Flag Count"
+    ],
+    "n_expert_features": 7,
+    "n_resolved": 7
+  },
+  {
+    "attack_type": "SSH-Patator",
+    "explainer_key": "DNN_SHAP",
+    "rra_score": 0.37226164597112976,
+    "rma_score": 0.21457188930771712,
+    "expert_features": [
+      "Destination Port",
+      "Flow Duration",
+      "Fwd Packets/s",
+      "Total Length of Fwd Packets",
+      "Fwd IAT Mean",
+      "Init_Win_bytes_forward"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "SSH-Patator",
+    "explainer_key": "DNN_LIME",
+    "rra_score": 0.17902195966105738,
+    "rma_score": 0.10720462609652837,
+    "expert_features": [
+      "Destination Port",
+      "Flow Duration",
+      "Fwd Packets/s",
+      "Total Length of Fwd Packets",
+      "Fwd IAT Mean",
+      "Init_Win_bytes_forward"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "SSH-Patator",
+    "explainer_key": "DNN_IG",
+    "rra_score": 0.47303670748711546,
+    "rma_score": 0.17971812449709132,
+    "expert_features": [
+      "Destination Port",
+      "Flow Duration",
+      "Fwd Packets/s",
+      "Total Length of Fwd Packets",
+      "Fwd IAT Mean",
+      "Init_Win_bytes_forward"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "SSH-Patator",
+    "explainer_key": "DNN_DeepLIFT",
+    "rra_score": 0.14253007088439135,
+    "rma_score": 0.02622982484042552,
+    "expert_features": [
+      "Destination Port",
+      "Flow Duration",
+      "Fwd Packets/s",
+      "Total Length of Fwd Packets",
+      "Fwd IAT Mean",
+      "Init_Win_bytes_forward"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "SSH-Patator",
+    "explainer_key": "RF_SHAP",
+    "rra_score": 0.47312801359247525,
+    "rma_score": 0.30217486767435725,
+    "expert_features": [
+      "Destination Port",
+      "Flow Duration",
+      "Fwd Packets/s",
+      "Total Length of Fwd Packets",
+      "Fwd IAT Mean",
+      "Init_Win_bytes_forward"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "SSH-Patator",
+    "explainer_key": "RF_LIME",
+    "rra_score": 0.24891940838784687,
+    "rma_score": 0.09588506037328264,
+    "expert_features": [
+      "Destination Port",
+      "Flow Duration",
+      "Fwd Packets/s",
+      "Total Length of Fwd Packets",
+      "Fwd IAT Mean",
+      "Init_Win_bytes_forward"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "SSH-Patator",
+    "explainer_key": "DNN_PA-SHAP",
+    "rra_score": 0.3792578191347511,
+    "rma_score": 0.2761845534683974,
+    "expert_features": [
+      "Destination Port",
+      "Flow Duration",
+      "Fwd Packets/s",
+      "Total Length of Fwd Packets",
+      "Fwd IAT Mean",
+      "Init_Win_bytes_forward"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "SSH-Patator",
+    "explainer_key": "DNN_PA-LIME",
+    "rra_score": 0.5112691514803842,
+    "rma_score": 0.12222250104347901,
+    "expert_features": [
+      "Destination Port",
+      "Flow Duration",
+      "Fwd Packets/s",
+      "Total Length of Fwd Packets",
+      "Fwd IAT Mean",
+      "Init_Win_bytes_forward"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "SSH-Patator",
+    "explainer_key": "DNN_PA-IG",
+    "rra_score": 0.06839265133462982,
+    "rma_score": 0.014319531200017006,
+    "expert_features": [
+      "Destination Port",
+      "Flow Duration",
+      "Fwd Packets/s",
+      "Total Length of Fwd Packets",
+      "Fwd IAT Mean",
+      "Init_Win_bytes_forward"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "SSH-Patator",
+    "explainer_key": "DNN_PA-DeepLIFT",
+    "rra_score": 0.07350677968272831,
+    "rma_score": 0.012777144487203433,
+    "expert_features": [
+      "Destination Port",
+      "Flow Duration",
+      "Fwd Packets/s",
+      "Total Length of Fwd Packets",
+      "Fwd IAT Mean",
+      "Init_Win_bytes_forward"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "SSH-Patator",
+    "explainer_key": "RF_PA-SHAP",
+    "rra_score": 0.5026570068586874,
+    "rma_score": 0.30903692140255457,
+    "expert_features": [
+      "Destination Port",
+      "Flow Duration",
+      "Fwd Packets/s",
+      "Total Length of Fwd Packets",
+      "Fwd IAT Mean",
+      "Init_Win_bytes_forward"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  },
+  {
+    "attack_type": "SSH-Patator",
+    "explainer_key": "RF_PA-LIME",
+    "rra_score": 0.16463079526989302,
+    "rma_score": 0.10049264531682185,
+    "expert_features": [
+      "Destination Port",
+      "Flow Duration",
+      "Fwd Packets/s",
+      "Total Length of Fwd Packets",
+      "Fwd IAT Mean",
+      "Init_Win_bytes_forward"
+    ],
+    "n_expert_features": 6,
+    "n_resolved": 6
+  }
+]

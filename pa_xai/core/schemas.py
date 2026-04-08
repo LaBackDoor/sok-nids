@@ -646,7 +646,7 @@ UNSW_NB15_NATIVE = DatasetSchema(
 # ---------------------------------------------------------------------------
 
 _UNSW_CIC_FEATURES = [
-    "Dst Port", "Protocol", "Flow Duration",
+    "Protocol", "Flow Duration",
     "Total Fwd Packet", "Total Bwd packets",
     "Total Length of Fwd Packet", "Total Length of Bwd Packet",
     "Fwd Packet Length Max", "Fwd Packet Length Min", "Fwd Packet Length Mean", "Fwd Packet Length Std",
@@ -704,7 +704,7 @@ _UNSW_CIC_NON_NEGATIVE = [
 ]
 
 _UNSW_CIC_DISCRETE = [
-    "Dst Port", "Protocol",
+    "Protocol",
     "Total Fwd Packet", "Total Bwd packets",
     "Fwd PSH Flags", "Bwd PSH Flags", "Fwd URG Flags", "Bwd URG Flags",
     "FIN Flag Count", "SYN Flag Count", "RST Flag Count", "PSH Flag Count", "ACK Flag Count", "URG Flag Count",
@@ -725,7 +725,6 @@ _UNSW_CIC_HIERARCHICAL = [
 ]
 
 _UNSW_CIC_BOUNDED_RANGE = [
-    BoundedRangeConstraint("Dst Port", 0.0, 65535.0),
     BoundedRangeConstraint("FWD Init Win Bytes", 0.0, 65535.0),
     BoundedRangeConstraint("Bwd Init Win Bytes", 0.0, 65535.0),
 ]

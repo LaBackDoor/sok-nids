@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import json
 import warnings
 
@@ -326,8 +327,9 @@ class ProtocolAwareSHAP:
     def _explain_deep(self, x_row, target):
         import shap
         device = next(self.model.parameters()).device
+        model_clone = copy.deepcopy(self.model).to(device)
         bg_tensor = torch.tensor(self._background, dtype=torch.float32).to(device)
-        base_model = self.model.module if isinstance(self.model, torch.nn.DataParallel) else self.model
+        base_model = model_clone.module if isinstance(model_clone, torch.nn.DataParallel) else model_clone
         base_model.eval()
         use_gradient = _has_rnn_modules(base_model)
         # Disable cuDNN for RNN models — fused kernels don't support backward in eval mode
@@ -425,11 +427,12 @@ class ProtocolAwareSHAP:
         import shap
 
         device = next(self.model.parameters()).device
+        model_clone = copy.deepcopy(self.model).to(device)
         bg_tensor = torch.tensor(self._background, dtype=torch.float32).to(device)
         base_model = (
-            self.model.module
-            if isinstance(self.model, torch.nn.DataParallel)
-            else self.model
+            model_clone.module
+            if isinstance(model_clone, torch.nn.DataParallel)
+            else model_clone
         )
         base_model.eval()
         use_gradient = _has_rnn_modules(base_model)

@@ -247,6 +247,28 @@ def _load_unsw_nb15(config: DataConfig) -> pd.DataFrame:
 
     df_data["Label"] = df_labels["Label"]
     logger.info(f"  Shape: {df_data.shape}")
+
+    # Derive Protocol column (not present in augmented CSVs).
+    # TCP=6: any TCP flag > 0 or FWD Init Win Bytes >= 0.
+    # ICMP=1: FWD Init Win Bytes == 0 and no TCP flags set.
+    # UDP=17: everything else.
+    if "Protocol" not in df_data.columns:
+        tcp_flag_cols = [
+            "FIN Flag Count", "SYN Flag Count", "RST Flag Count",
+            "PSH Flag Count", "ACK Flag Count", "URG Flag Count",
+            "CWR Flag Count", "ECE Flag Count",
+        ]
+        present = [c for c in tcp_flag_cols if c in df_data.columns]
+        if present:
+            is_tcp = (df_data[present] > 0).any(axis=1) | (df_data["FWD Init Win Bytes"] > 0)
+            is_icmp = ~is_tcp & (df_data["FWD Init Win Bytes"] == 0)
+            protocol = pd.Series(17, index=df_data.index, dtype="int8")  # default UDP
+            protocol[is_tcp] = 6
+            protocol[is_icmp] = 1
+            # Insert at position 0 (no Dst Port in this dataset)
+            df_data.insert(0, "Protocol", protocol)
+            logger.info(f"  Derived Protocol column (TCP={is_tcp.sum()}, UDP={(~is_tcp & ~is_icmp).sum()}, ICMP={is_icmp.sum()})")
+
     return df_data
 
 

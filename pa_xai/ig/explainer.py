@@ -14,6 +14,7 @@ completeness axiom is preserved.
 
 from __future__ import annotations
 
+import copy
 from contextlib import contextmanager
 
 import numpy as np
@@ -134,10 +135,12 @@ class ProtocolAwareIG:
         return {c: sample for c, (_, sample) in best.items()}
 
     def _get_forward_model(self) -> nn.Module:
+        device = self._get_device()
+        model_clone = copy.deepcopy(self.model).to(device)
         if self.use_softmax:
-            m = _SoftmaxModel(self.model)
+            m = _SoftmaxModel(model_clone)
         else:
-            m = self.model
+            m = model_clone
         m.eval()
         return m
 

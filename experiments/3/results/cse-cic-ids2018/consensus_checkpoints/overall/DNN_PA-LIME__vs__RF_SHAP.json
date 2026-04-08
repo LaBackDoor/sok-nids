@@ -1,0 +1,15 @@
+{
+  "explainer_a": "DNN_PA-LIME",
+  "explainer_b": "RF_SHAP",
+  "spearman_mean": -0.021414031096824243,
+  "spearman_std": 0.08894089639574888,
+  "kendall_mean": -0.016437892749699277,
+  "kendall_std": 0.06323745172990278,
+  "top_k_intersection": {
+    "5": 0.0802,
+    "10": 0.13114
+  },
+  "wilcoxon_statistic": 744.0,
+  "wilcoxon_p_value": 0.0001972469765149654,
+  "wilcoxon_reject_h0": true
+}

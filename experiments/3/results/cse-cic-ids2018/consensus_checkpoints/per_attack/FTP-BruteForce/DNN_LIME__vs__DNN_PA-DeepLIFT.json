@@ -1,0 +1,15 @@
+{
+  "explainer_a": "DNN_LIME",
+  "explainer_b": "DNN_PA-DeepLIFT",
+  "spearman_mean": -0.16321305094032298,
+  "spearman_std": 0.05805239268179418,
+  "kendall_mean": -0.1368949552965535,
+  "kendall_std": 0.048003243093370146,
+  "top_k_intersection": {
+    "5": 0.0,
+    "10": 0.08392857142857142
+  },
+  "wilcoxon_statistic": 335.0,
+  "wilcoxon_p_value": 3.304667277227981e-05,
+  "wilcoxon_reject_h0": true
+}

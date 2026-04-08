@@ -1,0 +1,15 @@
+{
+  "explainer_a": "RF_LIME",
+  "explainer_b": "RF_PA-LIME",
+  "spearman_mean": 0.06803928774396438,
+  "spearman_std": 0.09526487346127276,
+  "kendall_mean": 0.05420004112754244,
+  "kendall_std": 0.07685055730918358,
+  "top_k_intersection": {
+    "5": 0.009090909090909092,
+    "10": 0.22272727272727275
+  },
+  "wilcoxon_statistic": 33.0,
+  "wilcoxon_p_value": 3.264604470585471e-12,
+  "wilcoxon_reject_h0": true
+}

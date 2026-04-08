@@ -1,10 +1,9 @@
 {
   "xai_mode": "n",
   "datasets": [
-    "cic-ids-2017"
+    "unsw-nb15"
   ],
   "phases": [
-    "train",
     "explain",
     "evaluate"
   ],
