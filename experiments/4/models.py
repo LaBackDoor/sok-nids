@@ -4,6 +4,8 @@ All neural network models support multi-GPU via DataParallel and AMP training.
 """
 
 import logging
+import os
+import sys
 import time
 from pathlib import Path
 
@@ -17,6 +19,14 @@ from sklearn.svm import SVC
 from torch.amp import GradScaler, autocast
 from torch.utils.data import DataLoader, TensorDataset
 from tqdm import tqdm
+
+# Re-export SoftmaxModel from commons so exp1's explainers.py can find it
+import importlib.util as _ilu
+_commons_models_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "commons", "models.py")
+_spec = _ilu.spec_from_file_location("commons_models", _commons_models_path)
+_commons_models = _ilu.module_from_spec(_spec)
+_spec.loader.exec_module(_commons_models)
+SoftmaxModel = _commons_models.SoftmaxModel
 
 from config import CNNConfig, DNNConfig, RFConfig, SVMConfig
 
@@ -108,12 +118,15 @@ class NNWrapper:
         self.device = device
         self.base_model = model.module if isinstance(model, nn.DataParallel) else model
 
-    def predict_proba(self, X: np.ndarray) -> np.ndarray:
+    def predict_proba(self, X: np.ndarray, batch_size: int = 4096) -> np.ndarray:
         self.model.eval()
+        parts = []
         with torch.no_grad():
-            tensor = torch.tensor(X, dtype=torch.float32).to(self.device)
-            logits = self.model(tensor)
-            return torch.softmax(logits, dim=1).cpu().numpy()
+            for i in range(0, len(X), batch_size):
+                tensor = torch.tensor(X[i:i + batch_size], dtype=torch.float32).to(self.device)
+                logits = self.model(tensor)
+                parts.append(torch.softmax(logits, dim=1).cpu().numpy())
+        return np.concatenate(parts, axis=0)
 
     def predict(self, X: np.ndarray) -> np.ndarray:
         return np.argmax(self.predict_proba(X), axis=1)

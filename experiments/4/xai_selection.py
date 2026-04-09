@@ -80,9 +80,9 @@ def _iterative_prune(
     best_indices = current_indices.copy()
     best_f1 = baseline_f1
 
-    # Reuse a single RF across pruning steps with warm_start
+    # Fresh RF at each step (warm_start incompatible with changing feature count)
     rf_reduced = RandomForestClassifier(
-        n_estimators=50, max_depth=10, n_jobs=-1, random_state=42, warm_start=True,
+        n_estimators=50, max_depth=10, n_jobs=-1, random_state=42,
     )
 
     while len(current_indices) > min_n:

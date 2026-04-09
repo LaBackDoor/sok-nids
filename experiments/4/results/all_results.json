@@ -1,0 +1,96 @@
+{
+  "unsw-nb15": {
+    "feature_selections": [
+      {
+        "method_name": "Chi-Squared",
+        "n_original": 77,
+        "n_selected": 15,
+        "selection_time_s": 0.16217255592346191
+      },
+      {
+        "method_name": "PCA",
+        "n_original": 77,
+        "n_selected": 15,
+        "selection_time_s": 8.238880395889282
+      },
+      {
+        "method_name": "Spearman",
+        "n_original": 77,
+        "n_selected": 15,
+        "selection_time_s": 10.656046628952026
+      },
+      {
+        "method_name": "InfoGain",
+        "n_original": 77,
+        "n_selected": 15,
+        "selection_time_s": 3.6184535026550293
+      },
+      {
+        "method_name": "SHAP-DNN",
+        "n_original": 77,
+        "n_selected": 15,
+        "selection_time_s": 291.36441135406494
+      },
+      {
+        "method_name": "IG-DNN",
+        "n_original": 77,
+        "n_selected": 15,
+        "selection_time_s": 19.910817861557007
+      },
+      {
+        "method_name": "DeepLIFT-DNN",
+        "n_original": 77,
+        "n_selected": 15,
+        "selection_time_s": 17.130573272705078
+      },
+      {
+        "method_name": "SHAP-RF",
+        "n_original": 77,
+        "n_selected": 21,
+        "selection_time_s": 99.79202079772949
+      },
+      {
+        "method_name": "LIME-RF",
+        "n_original": 77,
+        "n_selected": 27,
+        "selection_time_s": 350.96592712402344
+      },
+      {
+        "method_name": "PA-SHAP-DNN",
+        "n_original": 77,
+        "n_selected": 15,
+        "selection_time_s": 1283.9919991493225
+      },
+      {
+        "method_name": "PA-LIME-DNN",
+        "n_original": 77,
+        "n_selected": 25,
+        "selection_time_s": 892.629637002945
+      },
+      {
+        "method_name": "PA-SHAP-RF",
+        "n_original": 77,
+        "n_selected": 15,
+        "selection_time_s": 751.8631551265717
+      },
+      {
+        "method_name": "PA-LIME-RF",
+        "n_original": 77,
+        "n_selected": 15,
+        "selection_time_s": 1036.6517765522003
+      },
+      {
+        "method_name": "PA-IG-DNN",
+        "n_original": 77,
+        "n_selected": 15,
+        "selection_time_s": 250.90227270126343
+      },
+      {
+        "method_name": "PA-DeepLIFT-DNN",
+        "n_original": 77,
+        "n_selected": 15,
+        "selection_time_s": 76.36203813552856
+      }
+    ]
+  }
+}

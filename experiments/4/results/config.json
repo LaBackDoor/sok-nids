@@ -1,0 +1,89 @@
+{
+  "datasets": [
+    "unsw-nb15"
+  ],
+  "phases": [
+    "benchmark"
+  ],
+  "xai_modes": [
+    "normal",
+    "pa"
+  ],
+  "dnn": {
+    "hidden_layers": [
+      1024,
+      768,
+      512
+    ],
+    "dropout_rate": 0.01,
+    "learning_rate": 0.01,
+    "batch_size": 8192,
+    "epochs": 100,
+    "early_stopping_patience": 10
+  },
+  "cnn": {
+    "channels": [
+      64,
+      128,
+      64
+    ],
+    "kernel_size": 3,
+    "dropout_rate": 0.1,
+    "learning_rate": 0.001,
+    "batch_size": 8192,
+    "epochs": 100,
+    "early_stopping_patience": 10
+  },
+  "rf": {
+    "n_estimators": 100,
+    "max_depth": 10,
+    "min_samples_split": 2,
+    "criterion": "gini",
+    "n_jobs": -1
+  },
+  "svm": {
+    "kernel": "rbf",
+    "C": 1.0,
+    "gamma": "scale",
+    "max_iter": 5000,
+    "probability": true,
+    "max_train_samples": null
+  },
+  "explainer": {
+    "shap_background_samples": 100,
+    "lime_num_features": 10,
+    "lime_num_samples": 2000,
+    "ig_n_steps": 50,
+    "ig_internal_batch_size": 8192,
+    "num_explain_samples": 5000,
+    "cpu_fraction": 0.9,
+    "lime_auto_tune": false,
+    "lime_tune_candidates": [
+      200,
+      500,
+      1000,
+      2000,
+      5000
+    ],
+    "lime_tune_n_repeats": 5,
+    "lime_tune_stability_threshold": 0.85,
+    "lime_tune_probe_samples": 10
+  },
+  "statistical": {
+    "pca_variance_threshold": 0.95,
+    "spearman_threshold": 0.8,
+    "info_gain_top_k": 20
+  },
+  "xai": {
+    "f1_degradation_threshold": 0.01,
+    "min_features": 5,
+    "pruning_step_ratio": 0.1,
+    "target_features": {
+      "nsl-kdd": 19,
+      "cic-ids-2017": 15,
+      "unsw-nb15": 15,
+      "cse-cic-ids2018": 15
+    }
+  },
+  "seed": 42
+}
