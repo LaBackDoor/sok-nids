@@ -55,14 +55,8 @@ class XAISelectionConfig:
     f1_degradation_threshold: float = 0.01
     min_features: int = 5
     pruning_step_ratio: float = 0.1
-    target_features: dict = field(
-        default_factory=lambda: {
-            "nsl-kdd": 19,
-            "cic-ids-2017": 15,
-            "unsw-nb15": 15,
-            "cse-cic-ids2018": 15,
-        }
-    )
+    subsample_fraction: float = 0.2  # fraction of training data for pruning loop
+    subsample_max: int = 50000  # cap subsampled rows
 
 
 @dataclass

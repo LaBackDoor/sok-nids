@@ -13,9 +13,10 @@ import joblib
 import numpy as np
 import torch
 import torch.nn as nn
-from sklearn.ensemble import RandomForestClassifier
+from cuml.ensemble import RandomForestClassifier as CuMLRandomForestClassifier
+from sklearn.ensemble import RandomForestClassifier as SKLearnRandomForestClassifier
 from sklearn.metrics import accuracy_score, f1_score
-from sklearn.svm import SVC
+from cuml.svm import SVC
 from torch.amp import GradScaler, autocast
 from torch.utils.data import DataLoader, TensorDataset
 from tqdm import tqdm
@@ -140,7 +141,7 @@ class SKLearnWrapper:
         self.num_classes = num_classes
 
     def predict_proba(self, X: np.ndarray) -> np.ndarray:
-        proba = self.model.predict_proba(X)
+        proba = np.asarray(self.model.predict_proba(X.astype(np.float32)))
         if proba.shape[1] < self.num_classes:
             full = np.zeros((proba.shape[0], self.num_classes), dtype=proba.dtype)
             full[:, self.model.classes_] = proba
@@ -148,7 +149,7 @@ class SKLearnWrapper:
         return proba
 
     def predict(self, X: np.ndarray) -> np.ndarray:
-        return self.model.predict(X)
+        return np.asarray(self.model.predict(X.astype(np.float32)))
 
 
 # ---------------------------------------------------------------------------
@@ -187,11 +188,11 @@ def _train_nn(
     )
     train_loader = DataLoader(
         train_ds, batch_size=batch_size, shuffle=True,
-        num_workers=4, pin_memory=True, persistent_workers=True,
+        num_workers=8, pin_memory=True, persistent_workers=True,
     )
     val_loader = DataLoader(
         val_ds, batch_size=batch_size, shuffle=False,
-        num_workers=4, pin_memory=True, persistent_workers=True,
+        num_workers=8, pin_memory=True, persistent_workers=True,
     )
 
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
@@ -295,20 +296,19 @@ def train_cnn(
 def train_rf(
     X_train: np.ndarray, y_train: np.ndarray,
     num_classes: int, config: RFConfig,
-) -> tuple[RandomForestClassifier, SKLearnWrapper, float]:
-    """Train Random Forest on given features."""
-    model = RandomForestClassifier(
+) -> tuple:
+    """Train Random Forest on GPU via cuML."""
+    model = CuMLRandomForestClassifier(
         n_estimators=config.n_estimators,
         max_depth=config.max_depth,
         min_samples_split=config.min_samples_split,
-        criterion=config.criterion,
-        n_jobs=config.n_jobs,
+        split_criterion=config.criterion if config.criterion != "gini" else "gini",
         random_state=42,
     )
     t0 = time.time()
-    model.fit(X_train, y_train)
+    model.fit(X_train.astype(np.float32), y_train.astype(np.int32))
     train_time = time.time() - t0
-    logger.info(f"  RF training completed in {train_time:.1f}s")
+    logger.info(f"  RF (GPU) training completed in {train_time:.1f}s")
     wrapper = SKLearnWrapper(model, num_classes)
     return model, wrapper, train_time
 
@@ -336,9 +336,9 @@ def train_svm(
         cache_size=2000,
     )
     t0 = time.time()
-    model.fit(X_sub, y_sub)
+    model.fit(X_sub.astype(np.float32), y_sub.astype(np.int32))
     train_time = time.time() - t0
-    logger.info(f"  SVM training completed in {train_time:.1f}s")
+    logger.info(f"  SVM (GPU) training completed in {train_time:.1f}s")
     wrapper = SKLearnWrapper(model, num_classes)
     return model, wrapper, train_time
 

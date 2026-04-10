@@ -38,6 +38,7 @@ dependencies = [
     "xgboost>=3.2.0",
     "stackforge>=0.7.3",
     "cupy-cuda13x>=13.6.0 ; sys_platform == 'linux'",
+    "cuml-cu13>=26.4.0",
 ]
 
 [project.optional-dependencies]

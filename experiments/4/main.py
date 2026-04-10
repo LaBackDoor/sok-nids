@@ -188,10 +188,10 @@ def phase_select(
     output_dir = config.output_dir / dataset.dataset_name
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Determine target feature count for this dataset
+    # Determine target feature count for statistical methods (~20% of features)
     n_features = dataset.X_train.shape[1]
-    target = config.xai.target_features.get(dataset.dataset_name, max(15, n_features // 4))
-    logger.info(f"  Original features: {n_features}, target: ~{target}")
+    target = max(config.xai.min_features, int(n_features * 0.2))
+    logger.info(f"  Original features: {n_features}, statistical target: ~{target}")
 
     all_selections: list[FeatureSelectionResult] = []
 

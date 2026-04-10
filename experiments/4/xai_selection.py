@@ -14,7 +14,7 @@ import time
 import numpy as np
 import torch
 import torch.nn as nn
-from sklearn.ensemble import RandomForestClassifier
+from cuml.ensemble import RandomForestClassifier
 from sklearn.metrics import f1_score
 
 from config import ExperimentConfig, ExplainerConfig, XAISelectionConfig
@@ -43,7 +43,6 @@ def _iterative_prune(
     y_val: np.ndarray,
     feature_names: list[str],
     config: XAISelectionConfig,
-    dataset_name: str,
 ) -> tuple[np.ndarray, list[dict]]:
     """Iteratively prune features using importance scores.
 
@@ -58,17 +57,25 @@ def _iterative_prune(
 
     n_features = len(feature_importance)
     ranked_indices = np.argsort(feature_importance)[::-1]  # descending importance
+    min_n = config.min_features
+
+    # Subsample training data for faster pruning iterations
+    rng = np.random.RandomState(42)
+    n_sub = min(len(X_train), config.subsample_max,
+                int(len(X_train) * config.subsample_fraction))
+    if n_sub < len(X_train):
+        sub_idx = rng.choice(len(X_train), size=n_sub, replace=False)
+        X_sub, y_sub = X_train[sub_idx], y_train[sub_idx]
+        logger.info(f"    Subsampled {n_sub}/{len(X_train)} rows for pruning loop")
+    else:
+        X_sub, y_sub = X_train, y_train
 
     # Train baseline RF on all features for F1 reference
-    rf_baseline = RandomForestClassifier(n_estimators=50, max_depth=10, n_jobs=-1, random_state=42)
-    rf_baseline.fit(X_train, y_train)
-    y_pred_baseline = rf_baseline.predict(X_val)
+    rf_baseline = RandomForestClassifier(n_estimators=50, max_depth=10, random_state=42)
+    rf_baseline.fit(X_sub.astype(np.float32), y_sub.astype(np.int32))
+    y_pred_baseline = rf_baseline.predict(X_val.astype(np.float32))
     baseline_f1 = f1_score(y_val, y_pred_baseline, average="weighted", zero_division=0)
     logger.info(f"    Baseline F1 (all {n_features} features): {baseline_f1:.4f}")
-
-    # Target from config
-    target_n = config.target_features.get(dataset_name, config.min_features)
-    min_n = max(config.min_features, target_n)
 
     pruning_history = [{
         "n_features": n_features,
@@ -80,11 +87,6 @@ def _iterative_prune(
     best_indices = current_indices.copy()
     best_f1 = baseline_f1
 
-    # Fresh RF at each step (warm_start incompatible with changing feature count)
-    rf_reduced = RandomForestClassifier(
-        n_estimators=50, max_depth=10, n_jobs=-1, random_state=42,
-    )
-
     while len(current_indices) > min_n:
         # Remove pruning_step_ratio of remaining features
         n_remove = max(1, int(len(current_indices) * config.pruning_step_ratio))
@@ -95,9 +97,12 @@ def _iterative_prune(
         reranked = np.argsort(current_importance)[::-1]
         current_indices = current_indices[reranked[:n_keep]]
 
-        # Evaluate with reduced features (warm_start reuses prior trees)
-        rf_reduced.fit(X_train[:, current_indices], y_train)
-        y_pred = rf_reduced.predict(X_val[:, current_indices])
+        # Evaluate with reduced features
+        rf_reduced = RandomForestClassifier(
+            n_estimators=50, max_depth=10, random_state=42,
+        )
+        rf_reduced.fit(X_sub[:, current_indices].astype(np.float32), y_sub.astype(np.int32))
+        y_pred = rf_reduced.predict(X_val[:, current_indices].astype(np.float32))
         current_f1 = f1_score(y_val, y_pred, average="weighted", zero_division=0)
 
         step_info = {
@@ -180,7 +185,6 @@ def _run_single_mode(
             dataset.X_val, dataset.y_val,
             dataset.feature_names,
             config.xai,
-            dataset.dataset_name,
         )
 
         elapsed = exp_result.total_time_s + (time.time() - t0)

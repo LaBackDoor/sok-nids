@@ -1,9 +1,12 @@
 {
   "datasets": [
-    "unsw-nb15"
+    "nsl-kdd",
+    "cic-ids-2017",
+    "unsw-nb15",
+    "cse-cic-ids2018"
   ],
   "phases": [
-    "benchmark"
+    "all"
   ],
   "xai_modes": [
     "normal",
@@ -78,12 +81,8 @@
     "f1_degradation_threshold": 0.01,
     "min_features": 5,
     "pruning_step_ratio": 0.1,
-    "target_features": {
-      "nsl-kdd": 19,
-      "cic-ids-2017": 15,
-      "unsw-nb15": 15,
-      "cse-cic-ids2018": 15
-    }
+    "subsample_fraction": 0.2,
+    "subsample_max": 50000
   },
   "seed": 42
 }
